@@ -50,7 +50,7 @@ if __name__ == '__main__':
     benchmark_process_number_workers = 4
 
     training_jobs = enumerate_training_jobs(training_schemes, algorithms)
-    existing_fixed_agents = [] # [paperAgent]
+    existing_fixed_agents = [] # TODO breaks with fixed agents
 
     # Queues to communicate processes
     policy_queue = Queue()
