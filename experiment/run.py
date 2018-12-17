@@ -87,3 +87,5 @@ if __name__ == '__main__':
     cfm_process.join()
     mm_process.join()
     [p.join() for p in training_processes]
+
+    # TODO Get confusion matrices and plot their results using heatmaps. Could be useful using pandas for this instead of numpy arrays.
