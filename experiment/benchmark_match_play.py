@@ -11,7 +11,6 @@ from multiagent_loops.simultaneous_action_rl_loop import run_episode
 
 def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_job, process_pool, matrix_queue, name):
     """
-    TODO Do we need iteration as a parameter?
     :param num_episodes: Number of episodes used for stats collection
     :param createNewEnvironment OpenAI gym environment creation function
     :param benchmark_job: BenchmarkingJob containing iteration and policy vector to benchmark

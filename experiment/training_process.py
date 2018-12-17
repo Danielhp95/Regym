@@ -9,7 +9,16 @@ from multiprocessing import Process
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
+# TODO make self_play_training yield trajectories?
 def training_process(env, training_policy, self_play_scheme, checkpoint_at_iterations, policy_queue, process_name):
+    """
+    :param env: Environment where agents will be trained on
+    :param training_policy: policy representation + training algorithm which will be trained in this process
+    :param self_play_scheme: self play scheme used to meta train the param training_policy.
+    :param checkpoint_at_iterations: array containing the episodes at which the policies will be cloned for benchmarking against one another
+    :param policy_queue: queue shared among processes to submit policies that will be benchmarked
+    :param process_name: String name identifier
+    """
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
     logger.info('Started')
@@ -30,9 +39,10 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
 def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, policy_queue):
     """
     :param training_jobs: Array of TrainingJob namedtuples containing a training-scheme, algorithm and name
-    :param createNewEnvironment OpenAI gym environment creation function
+    :param createNewEnvironment: OpenAI gym environment creation function
     :param checkpoint_at_iterations: array containing the episodes at which the policies will be cloned for benchmarking against one another
-    :param queue: queue shared among processes to submit policies that will be benchmarked
+    :param policy_queue: queue shared among processes to submit policies that will be benchmarked
+    :returns: array of process handlers, needed to join processes at the end of experiment computation
     """
     logger = logging.getLogger('CreateTrainingProcesses')
     logger.setLevel(logging.DEBUG)
@@ -44,6 +54,6 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
                     args=(createNewEnvironment(), job.algorithm, job.training_scheme,
                           checkpoint_at_iterations, policy_queue, job.name))
         p.start()
-        ps.append(p) 
+        ps.append(p)
     logger.info("All training jobs submitted")
     return ps
