@@ -26,7 +26,7 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     hashing_dictionary, confusion_matrix_dict = create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices)
     while True:
         # poll for new
-        benchmark_statistics = wait_for_statistics(matrix_queue)
+        benchmark_statistics = matrix_queue.get()
 
         # TODO find a better way of doing this. May need to restructure information that is sent around
         logger.info('Received: it:{} ({},{})-({},{})'.format(benchmark_statistics.iteration,
@@ -93,15 +93,3 @@ def check_for_termination(matrix_dic):
                 if matrix[i][j] is None:
                     return False
     return True
-
-
-def wait_for_statistics(matrix_queue):
-    while True:
-        try:
-            return matrix_queue.get(timeout=1)
-        except Empty:
-            pass
-            # TODO add termination condition
-            # done = checkProcessTermination(receivedPolicies, totalPolicies)
-            # if done:
-            #     os.kill(os.getpid(), signal.SIGTERM)
