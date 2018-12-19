@@ -13,7 +13,6 @@ RecordedPolicy = namedtuple('RecordedPolicy', 'iteration training_scheme policy'
 BenchmarkingJob = namedtuple('BenchmarkingJob', 'iteration recorded_policy_vector')
 
 
-# TODO createNewEnvironment is only passed, should I have it elsewhere?
 def match_making_process(expected_number_of_policies, benchmarking_episodes, createNewEnvironment, policy_queue, matrix_queue, pool):
     """
     Process in charge of keeping a record of the trained policies
@@ -51,7 +50,6 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
                                               match, pool, matrix_queue, match_name)
                      for match_name, match in calculate_new_benchmarking_jobs(recorded_policies, recorded_benchmarking_jobs, iteration)]
 
-        # Used to kill matchmaking process. Potential TODO to become prettier
         for p in processes:
             benchmarking_child_processes.append(p)
 
@@ -69,7 +67,7 @@ def check_for_termination(received_policies, expected_number_of_policies, child_
     :param child_processes: Benchmarking jobs still running
     :param pool: ProcessPoolExecutor shared between benchmarking_jobs to carry out benchmarking matches
     """
-    if received_policies == expected_number_of_policies:
+    if received_policies >= expected_number_of_policies:
         [p.join() for p in child_processes]
         pool.shutdown()
         os.kill(os.getpid(), signal.SIGTERM)
@@ -99,8 +97,13 @@ def calculate_new_benchmarking_jobs(recorded_policies, recorded_benchmarking_job
                 yield benchmark_name, job
 
 
-# TODO Code monkey very diligent, his output not elegant (Jonathan Coulton - Code Monkey)
 def is_benchmarking_job_already_recorded(job, recorded_benchmarking_jobs):
+    """
+    Checks if BenchmarkingJob is a contained within the list of already
+    recorded BenchmarkingJobs. For this an equality onf BenchmarkingJobs is defined
+    :param job: BenchmarkingJob which is being checked to see if it has already been recorded
+    :param recorded_benchmarking_jobs: List of recoreded BenchmarkingJobs
+    """
     job_equality = lambda job1, job2: job1.iteration == job2.iteration and Counter(job1.recorded_policy_vector) == Counter(job2.recorded_policy_vector)
     return any([job_equality(job, recorded_job) for recorded_job in recorded_benchmarking_jobs])
 
