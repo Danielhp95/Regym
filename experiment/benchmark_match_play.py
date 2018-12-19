@@ -2,7 +2,7 @@ import logging
 import random
 import numpy as np
 from collections import namedtuple
-BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_policy_vector winrates standard_deviations')
+BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_policy_vector winrates')
 
 from concurrent.futures import as_completed
 
@@ -28,31 +28,23 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     from concurrent.futures import ProcessPoolExecutor
     with ProcessPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(single_match, *[createNewEnvironment(), policy_vector])
-                   for _ in range(0, num_episodes)]
+                   for _ in range(num_episodes)]
 
-        wins_vector = [0, 0]
+        wins_vector = [0 for _ in range(len(policy_vector))]
         for future in as_completed(futures):
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
         winrates = [calculate_individual_winrate(wins_vector, i)
                     for i in range(len(policy_vector))]
-        # TODO STD NOT WORKING
-        standard_deviations = [calculate_individual_standarddeviation(wins_vector, winrates[i], i)
-                               for i in range(len(policy_vector))]
 
     matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
                                          benchmark_job.recorded_policy_vector,
-                                         winrates, standard_deviations))
+                                         winrates))
     logger.info('Benchmarking finished')
 
 
 def calculate_individual_winrate(wins_vector, agent_index):
     return sum([wins_vector[agent_index] for i in range(len(wins_vector))]) / len(wins_vector)
-
-
-def calculate_individual_standarddeviation(wins_vector, mean_agent_winrate, agent_index):
-    variance = sum(map(lambda x: (x - mean_agent_winrate)**2, [wins_vector[agent_index] for i in range(len(wins_vector))])) / (len(wins_vector) - 1)
-    return np.sqrt(variance)
 
 
 def single_match(env, policy_vector):
@@ -68,6 +60,3 @@ def single_match(env, policy_vector):
 def choose_winner(cumulative_reward_vector, break_ties=random.choice):
     indexes_max_score = np.argwhere(cumulative_reward_vector == np.amax(cumulative_reward_vector))
     return break_ties(indexes_max_score.flatten().tolist())
-
-    
-
