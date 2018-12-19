@@ -7,7 +7,7 @@ import numpy as np
 
 """
 How to read confusion matrix TODO:
-    - m[i][j] states the (mean wins, standard deviations) of agent i against agent j
+    - m[i][j] states the winrate of agent i against agent j
     - this means it's NOT symmetric
 """
 
@@ -34,10 +34,11 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
                                                              benchmark_statistics.recorded_policy_vector[0].policy.name,
                                                              benchmark_statistics.recorded_policy_vector[1].training_scheme.name,
                                                              benchmark_statistics.recorded_policy_vector[1].policy.name))
-        logger.debug('Stats: winrates: {} std: {}'.format(benchmark_statistics.winrates, benchmark_statistics.standard_deviations))
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
         if check_for_termination(confusion_matrix_dict):
             save_directory = 'confusion_matrices'
+            with open(f'{save_directory}/legend.txt', 'w') as f:
+                f.write(str(hashing_dictionary))
             logger.info('All confusion matrices completed. Writing to memory')
             write_matrices(directory=save_directory, matrix_dict=confusion_matrix_dict)
             logger.info('Writing completed')
@@ -55,13 +56,13 @@ def create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indic
 def populate_new_statistics(benchmark_stat, confusion_matrix_dict, hashing_dictionary):
     iteration = benchmark_stat.iteration
     index1, index2 = find_indexes(benchmark_stat, hashing_dictionary)
-    winrates, standard_devs = benchmark_stat.winrates, benchmark_stat.standard_deviations
+    winrates = benchmark_stat.winrates
 
     if confusion_matrix_dict[iteration][index1][index2] is not None:
         raise LookupError('Tried to access already populated index: [{},{}]'.format(index1, index2))
 
-    confusion_matrix_dict[iteration][index1][index2] = (winrates[0], standard_devs[0])
-    confusion_matrix_dict[iteration][index2][index1] = (winrates[1], standard_devs[1])
+    confusion_matrix_dict[iteration][index1][index2] = winrates[0]
+    confusion_matrix_dict[iteration][index2][index1] = winrates[1]
 
 
 def find_indexes(benchmark_stat, hashing_dictionary):
@@ -73,16 +74,13 @@ def find_indexes(benchmark_stat, hashing_dictionary):
 def write_matrices(directory, matrix_dict):
     if not os.path.exists(directory):
         os.mkdir(directory)
-    # TODO save arrays as np arrays
     for iteration, matrix in matrix_dict.items():
-        matrixx = np.array(matrix)
-        np.savetxt(f'{directory}/winrates-{iteration}.txt', matrixx[:, :, 0])
-        np.savetxt(f'{directory}/std-{iteration}.txt', matrixx[:, :, 1])
+        winrate_matrix = np.array(matrix)
+        np.savetxt(f'{directory}/winrates-{iteration}.txt', winrate_matrix[:, :])
 
 
 def check_for_termination(matrix_dic):
     """
-    TODO
     Checks if all matrices have been filled.
     Signaling the end of the process
     :param matrix: Dictionary of confusion matrices
