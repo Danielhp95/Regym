@@ -53,7 +53,6 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
         p = Process(target=training_process,
                     args=(createNewEnvironment(), job.algorithm, job.training_scheme,
                           checkpoint_at_iterations, policy_queue, job.name))
-        p.start()
         ps.append(p)
     logger.info("All training jobs submitted")
     return ps

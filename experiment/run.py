@@ -2,10 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath('..'))
 
-from training_schemes import EmptySelfPlay
-from training_schemes import NaiveSelfPlay
-from training_schemes import HalfHistorySelfPlay
-from training_schemes import FullHistorySelfPlay
+from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 from rl_algorithms import TabularQLearning
 
 from training_process import create_training_processes
@@ -15,6 +12,7 @@ from confusion_matrix_populate_process import confusion_matrix_process
 
 import logging
 
+# TODO Use an extra queue to receive logging from a a queue, or even a socket: https://docs.python.org/3/howto/logging-cookbook.html#sending-and-receiving-logging-events-across-a-network
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -27,65 +25,104 @@ import gym
 import gym_rock_paper_scissors
 from gym_rock_paper_scissors.fixed_agents import rockAgent, paperAgent
 
+TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
+
 
 def enumerate_training_jobs(training_schemes, algorithms):
-    TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
     return [TrainingJob(training_scheme, algorithm.clone(training=True), '{}-{}'.format(training_scheme.name, algorithm.name)) for training_scheme in training_schemes for algorithm in algorithms]
 
 
-if __name__ == '__main__':
-    # Initialization
-    # Environment
-    createNewEnvironment = lambda: gym.make('RockPaperScissors-v0')
-    env = createNewEnvironment()
-
-    # Training jobs
-    # Throw Rock agent vs Paper agent and see if there's the right amount of wins / std deviation
-    training_schemes = [NaiveSelfPlay, FullHistorySelfPlay, HalfHistorySelfPlay]
-    algorithms = [TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)]
-    checkpoint_at_iterations = [100] # TODO breaks with more than one iteration
-    benchmarking_episodes = 100
-
-    # Performance variables
-    benchmark_process_number_workers = 4
-
-    training_jobs = enumerate_training_jobs(training_schemes, algorithms)
-    existing_fixed_agents = [] # TODO breaks with fixed agents
-
-    # Queues to communicate processes
-    policy_queue = Queue()
-    matrix_queue = Queue()
-
-    # Pre processing: Adding fixed agents
+# TODO find better name
+def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     initial_fixed_policies_to_benchmark = [[iteration, EmptySelfPlay, agent]
-                                           for agent in existing_fixed_agents
+                                           for agent in fixed_agents
                                            for iteration in checkpoint_at_iterations]
-    fixed_policies_for_confusion = enumerate_training_jobs([EmptySelfPlay], existing_fixed_agents) # TODO GET RID OF THIS, it hurts Rewrite bug may come from here
-    list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Wow, turns out that Python3 requires a conversion to list to force map execution
+    fixed_policies_for_confusion = enumerate_training_jobs([EmptySelfPlay], fixed_agents) # TODO GET RID OF THIS, it hurts Rewrite bug may come from here
+    return initial_fixed_policies_to_benchmark, fixed_policies_for_confusion
 
-    expected_number_of_policies = len(training_jobs)*len(checkpoint_at_iterations) + len(initial_fixed_policies_to_benchmark) # TODO make this nicer to calculate
 
-    # Benchmarking
+def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
+                                 policy_queue, matrix_queue, benchmarking_episodes,
+                                 fixed_policies_for_confusion):
+
     # Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
+    benchmark_process_number_workers = 4
     benchmark_process_pool = ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
-    # Create Processes
     training_processes = create_training_processes(training_jobs, createNewEnvironment,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
                                                    policy_queue=policy_queue)
+
+    expected_number_of_policies = (len(training_jobs) + len(fixed_policies_for_confusion)) * len(checkpoint_at_iterations)
     mm_process = Process(target=match_making_process,
                          args=(expected_number_of_policies, benchmarking_episodes, createNewEnvironment,
                                policy_queue, matrix_queue, benchmark_process_pool))
-    mm_process.start()
 
     cfm_process = Process(target=confusion_matrix_process,
                           args=(training_jobs + fixed_policies_for_confusion, checkpoint_at_iterations,
                                 matrix_queue))
+    return (training_processes, mm_process, cfm_process)
+
+
+def define_environment_creation_funcion():
+    return lambda: gym.make('RockPaperScissors-v0')
+
+
+def create_interprocess_queues():
+    return (Queue(), Queue())
+
+
+def run_processes(training_process, mm_process, cfm_process):
+    [p.start() for p in training_processes]
+    mm_process.start()
     cfm_process.start()
 
-    # I still need to join on
     cfm_process.join()
     mm_process.join()
     [p.join() for p in training_processes]
 
-    # TODO Get confusion matrices and plot their results using heatmaps. Could be useful using pandas for this instead of numpy arrays.
+
+# TODO Get confusion matrices and plot their results using heatmaps. Could be useful using pandas for this instead of numpy arrays.
+def create_plots():
+    pass
+
+
+def initialize_algorithms(environment):
+    algorithms = [TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)]
+    return algorithms
+
+
+def initialize_fixed_agents():
+    # return [rockAgent, paperAgent]
+    return [rockAgent, paperAgent]
+
+
+if __name__ == '__main__':
+    createNewEnvironment  = define_environment_creation_funcion()
+    env = createNewEnvironment()
+
+    checkpoint_at_iterations = [100]
+    benchmarking_episodes    = 100
+
+    training_schemes = [NaiveSelfPlay] # , FullHistorySelfPlay] # , FullHistorySelfPlay, HalfHistorySelfPlay]
+    algorithms       = initialize_algorithms(env)
+    fixed_agents     = initialize_fixed_agents()
+
+    training_jobs = enumerate_training_jobs(training_schemes, algorithms)
+
+    policy_queue, matrix_queue = create_interprocess_queues()
+
+    (initial_fixed_policies_to_benchmark,
+     fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
+
+    list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
+
+    (training_processes,
+     mm_process,
+     cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
+                                                 policy_queue, matrix_queue, benchmarking_episodes,
+                                                 fixed_policies_for_confusion)
+
+    run_processes(training_processes, mm_process, cfm_process)
+
+    create_plots()
