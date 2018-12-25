@@ -13,7 +13,7 @@ How to read confusion matrix TODO:
 
 
 # TODO come up with better name
-def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix_queue):
+def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix_queue, results_path):
     """
     :param training_jobs: Array of TrainingJob namedtuple used to calculate size of confusion matrices
     :param checkpoint_iteration_indices: Array of indices used for choosing which matrix to add stats to
@@ -36,11 +36,11 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
                                                              benchmark_statistics.recorded_policy_vector[1].policy.name))
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
         if check_for_termination(confusion_matrix_dict):
-            save_directory = 'confusion_matrices'
-            with open(f'{save_directory}/legend.txt', 'w') as f:
-                f.write(str(hashing_dictionary))
             logger.info('All confusion matrices completed. Writing to memory')
-            write_matrices(directory=save_directory, matrix_dict=confusion_matrix_dict)
+            with open(f'{results_path}/legend.txt', 'w') as f:
+                f.write(str(hashing_dictionary))
+            write_matrices(directory=f'{results_path}/confusion_matrices', matrix_dict=confusion_matrix_dict)
+            write_average_winrates(directory=f'{results_path}/winrates', matrix_dict=confusion_matrix_dict, hashing_dictionary=hashing_dictionary)
             logger.info('Writing completed')
             break
 
@@ -76,7 +76,17 @@ def write_matrices(directory, matrix_dict):
         os.mkdir(directory)
     for iteration, matrix in matrix_dict.items():
         winrate_matrix = np.array(matrix)
-        np.savetxt(f'{directory}/winrates-{iteration}.txt', winrate_matrix[:, :])
+        np.savetxt(f'{directory}/confusion-matrix-{iteration}.txt', winrate_matrix[:, :])
+
+
+def write_average_winrates(directory, matrix_dict, hashing_dictionary):
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+    for name, index in hashing_dictionary.items():
+        with open(f'{directory}/{name}.txt', 'a') as f:
+            for iteration, matrix in matrix_dict.items():
+                avg_winrate = sum(matrix[index]) / len(matrix)
+                f.write(f'{iteration}, {avg_winrate}\n') # TODO get rid of new line at the end, but keep functionality
 
 
 def check_for_termination(matrix_dic):

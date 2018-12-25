@@ -2,8 +2,12 @@ import os
 import sys
 sys.path.append(os.path.abspath('..'))
 
+import shutil
+
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 from rl_algorithms import TabularQLearning
+
+from plot_util import create_plots
 
 from training_process import create_training_processes
 from match_making import match_making_process
@@ -12,7 +16,8 @@ from confusion_matrix_populate_process import confusion_matrix_process
 
 import logging
 
-# TODO Use an extra queue to receive logging from a a queue, or even a socket: https://docs.python.org/3/howto/logging-cookbook.html#sending-and-receiving-logging-events-across-a-network
+# TODO Use an extra queue to receive logging from a a queue,
+# or even a socket: https://docs.python.org/3/howto/logging-cookbook.html#sending-and-receiving-logging-events-across-a-network
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -43,7 +48,7 @@ def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
 
 def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
                                  policy_queue, matrix_queue, benchmarking_episodes,
-                                 fixed_policies_for_confusion):
+                                 fixed_policies_for_confusion, results_path):
 
     # Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
     benchmark_process_number_workers = 4
@@ -60,7 +65,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
     cfm_process = Process(target=confusion_matrix_process,
                           args=(training_jobs + fixed_policies_for_confusion, checkpoint_at_iterations,
-                                matrix_queue))
+                                matrix_queue, results_path))
     return (training_processes, mm_process, cfm_process)
 
 
@@ -82,11 +87,6 @@ def run_processes(training_process, mm_process, cfm_process):
     [p.join() for p in training_processes]
 
 
-# TODO Get confusion matrices and plot their results using heatmaps. Could be useful using pandas for this instead of numpy arrays.
-def create_plots():
-    pass
-
-
 def initialize_algorithms(environment):
     algorithms = [TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)]
     return algorithms
@@ -94,14 +94,17 @@ def initialize_algorithms(environment):
 
 def initialize_fixed_agents():
     # return [rockAgent, paperAgent]
-    return [rockAgent, paperAgent]
+    return [rockAgent]
 
 
 if __name__ == '__main__':
     createNewEnvironment  = define_environment_creation_funcion()
     env = createNewEnvironment()
 
-    checkpoint_at_iterations = [100]
+    experiment_id = 0 # TODO make this into script param
+    number_of_runs = 1 # TODO make this into script param
+
+    checkpoint_at_iterations = [100, 1000]
     benchmarking_episodes    = 100
 
     training_schemes = [NaiveSelfPlay] # , FullHistorySelfPlay] # , FullHistorySelfPlay, HalfHistorySelfPlay]
@@ -115,14 +118,25 @@ if __name__ == '__main__':
     (initial_fixed_policies_to_benchmark,
      fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
 
-    list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
+    # Remove existing experiment
+    if os.path.exists(str(experiment_id)): shutil.rmtree(str(experiment_id))
+    os.mkdir(str(experiment_id))
 
-    (training_processes,
-     mm_process,
-     cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
-                                                 policy_queue, matrix_queue, benchmarking_episodes,
-                                                 fixed_policies_for_confusion)
+    for run_id in range(number_of_runs):
+        logger.info(f'Starting run: {run_id}')
+        results_path = f'{experiment_id}/run-{run_id}'
+        if not os.path.exists(results_path):
+            os.mkdir(results_path)
 
-    run_processes(training_processes, mm_process, cfm_process)
+        list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
 
-    create_plots()
+        (training_processes,
+         mm_process,
+         cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
+                                                     policy_queue, matrix_queue, benchmarking_episodes,
+                                                     fixed_policies_for_confusion, results_path)
+
+        run_processes(training_processes, mm_process, cfm_process)
+        logger.info(f'Finished run: {run_id}\n')
+
+    create_plots(experiment_directory=str(experiment_id), number_of_runs=number_of_runs)
