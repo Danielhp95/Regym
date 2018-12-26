@@ -10,7 +10,7 @@ from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
 # TODO make self_play_training yield trajectories?
-def training_process(env, training_policy, self_play_scheme, checkpoint_at_iterations, policy_queue, process_name):
+def training_process(env, training_policy, self_play_scheme, checkpoint_at_iterations, policy_queue, process_name, results_path):
     """
     :param env: Environment where agents will be trained on
     :param training_policy: policy representation + training algorithm which will be trained in this process
@@ -18,6 +18,7 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
     :param checkpoint_at_iterations: array containing the episodes at which the policies will be cloned for benchmarking against one another
     :param policy_queue: queue shared among processes to submit policies that will be benchmarked
     :param process_name: String name identifier
+    :param results_path: Directory where results will be saved
     """
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
@@ -27,16 +28,28 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
     menagerie = []
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
-        menagerie, trained_policy = self_play_training(env=env, training_policy=training_policy,
-                                                       self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
-                                                       menagerie=menagerie)
+        (menagerie, trained_policy,
+         trajectories) = self_play_training(env=env, training_policy=training_policy,
+                                            self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
+                                            menagerie=menagerie)
         completed_iterations += target_iteration
         if target_iteration in checkpoint_at_iterations:
             logger.info('Submitted policy at iteration {}'.format(target_iteration))
             policy_queue.put([target_iteration, self_play_scheme, trained_policy])
 
+        file_name = f'{self_play_scheme.name}-{training_policy.name}.txt'
+        enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
+        write_episodic_reward(enumerated_trajectories, target_file_path=f'{results_path}/{file_name}')
 
-def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, policy_queue):
+
+def write_episodic_reward(enumerated_trajectories, target_file_path):
+    with open(target_file_path, 'a') as f:
+        for iteration, trajectory in enumerated_trajectories:
+            player_1_average_reward = sum(map(lambda t: t[2][0], trajectory)) / len(trajectory) # TODO find a way of not hardcoding indexes
+            f.write(f'{iteration}, {player_1_average_reward}\n')
+
+
+def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, policy_queue, results_path):
     """
     :param training_jobs: Array of TrainingJob namedtuples containing a training-scheme, algorithm and name
     :param createNewEnvironment: OpenAI gym environment creation function
@@ -44,6 +57,11 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     :param policy_queue: queue shared among processes to submit policies that will be benchmarked
     :returns: array of process handlers, needed to join processes at the end of experiment computation
     """
+    # TODO Create experiment directory tree structure much earlier, and all together
+    episodic_reward_directory = f'{results_path}/episodic_rewards'
+    if not os.path.exists(episodic_reward_directory):
+        os.mkdir(episodic_reward_directory)
+
     logger = logging.getLogger('CreateTrainingProcesses')
     logger.setLevel(logging.DEBUG)
 
@@ -52,7 +70,7 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     for job in training_jobs:
         p = Process(target=training_process,
                     args=(createNewEnvironment(), job.algorithm, job.training_scheme,
-                          checkpoint_at_iterations, policy_queue, job.name))
+                          checkpoint_at_iterations, policy_queue, job.name, episodic_reward_directory))
         ps.append(p)
     logger.info("All training jobs submitted")
     return ps

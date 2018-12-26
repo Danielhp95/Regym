@@ -56,7 +56,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
     training_processes = create_training_processes(training_jobs, createNewEnvironment,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
-                                                   policy_queue=policy_queue)
+                                                   policy_queue=policy_queue, results_path=results_path)
 
     expected_number_of_policies = (len(training_jobs) + len(fixed_policies_for_confusion)) * len(checkpoint_at_iterations)
     mm_process = Process(target=match_making_process,
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     checkpoint_at_iterations = [100, 1000]
     benchmarking_episodes    = 100
 
-    training_schemes = [NaiveSelfPlay] # , FullHistorySelfPlay] # , FullHistorySelfPlay, HalfHistorySelfPlay]
+    training_schemes = [NaiveSelfPlay, FullHistorySelfPlay] # , FullHistorySelfPlay] # , FullHistorySelfPlay, HalfHistorySelfPlay]
     algorithms       = initialize_algorithms(env)
     fixed_agents     = initialize_fixed_agents()
 
