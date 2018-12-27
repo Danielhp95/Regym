@@ -32,10 +32,10 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
          trajectories) = self_play_training(env=env, training_policy=training_policy,
                                             self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
                                             menagerie=menagerie)
-        completed_iterations += target_iteration
-        if target_iteration in checkpoint_at_iterations:
-            logger.info('Submitted policy at iteration {}'.format(target_iteration))
-            policy_queue.put([target_iteration, self_play_scheme, trained_policy])
+        completed_iterations += next_training_iterations
+
+        logger.info('Submitted policy at iteration {}'.format(target_iteration))
+        policy_queue.put([target_iteration, self_play_scheme, trained_policy])
 
         file_name = f'{self_play_scheme.name}-{training_policy.name}.txt'
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
