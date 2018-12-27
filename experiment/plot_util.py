@@ -19,10 +19,13 @@ def create_plots(experiment_directory, number_of_runs):
 def plot_single_run(run_id, source_dir):
     create_confusion_matrix_heatmap(source_dir=f'{source_dir}/confusion_matrices',
                                     target_dir=f'{source_dir}/plots')
+    plt.close()
     create_average_winrate_graph(source_dir=f'{source_dir}/winrates',
                                  target_dir=f'{source_dir}/plots')
+    plt.close()
     create_individual_episodic_reward_graph(source_dir=f'{source_dir}/episodic_rewards',
                                             target_dir=f'{source_dir}/plots')
+    plt.close()
 
 
 def create_confusion_matrix_heatmap(source_dir, target_dir):
@@ -54,7 +57,7 @@ def create_average_winrate_graph(source_dir, target_dir):
         plt.plot(iterations, winrates, marker='o', label=file_name) # TODO Use markers
 
     plt.ylim(0, 100) # TODO fix winrate and use 0, 1
-    plt.legend(loc='upper right')
+    plt.legend(loc='best')
     plt.savefig(f'{target_dir}/benchmark_winrates.png')
 
 
