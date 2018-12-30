@@ -11,6 +11,7 @@ pytest = "*"
 ipython = "*"
 gym = "*"
 gym-rock-paper-scissors = "==0.0.128"
+matplotlib = "*"
 
 [requires]
 python_version = "3.6"

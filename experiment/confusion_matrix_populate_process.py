@@ -42,9 +42,7 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             write_matrices(directory=f'{results_path}/confusion_matrices', matrix_dict=filled_matrices)
             write_average_winrates(directory=f'{results_path}/winrates', matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
 
-            # Write legend
-            with open(f'{results_path}/legend.txt', 'w') as f:
-                f.write(str(hashing_dictionary))
+            write_legend_file(hashing_dictionary, path=f'{results_path}/confusion_matrices/legend.txt')
             logger.info('Writing completed')
             break
 
@@ -100,7 +98,7 @@ def write_average_winrates(directory, matrix_dict, hashing_dictionary):
         with open(f'{directory}/{name}.txt', 'a') as f:
             for iteration, matrix in matrix_dict.items():
                 avg_winrate = sum(matrix[index]) / len(matrix)
-                f.write(f'{iteration}, {avg_winrate}\n') # TODO get rid of new line at the end, but keep functionality
+                f.write(f'{iteration}, {avg_winrate}\n')
 
 
 def check_for_termination(matrix_dic):
@@ -115,3 +113,9 @@ def check_for_termination(matrix_dic):
                 if matrix[i][j] == -1:
                     return False
     return True
+
+
+def write_legend_file(hashing_dictionary, path):
+    with open(path, 'w') as f:
+        for name, index in hashing_dictionary.items():
+            f.write(f'{name}, {index}\n')
