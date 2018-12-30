@@ -119,12 +119,13 @@ if __name__ == '__main__':
      fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
 
     # Remove existing experiment
-    if os.path.exists(str(experiment_id)): shutil.rmtree(str(experiment_id))
-    os.mkdir(str(experiment_id))
+    experiment_directory = f'experiment-{experiment_id}'
+    if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
+    os.mkdir(experiment_directory)
 
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
-        results_path = f'{experiment_id}/run-{run_id}'
+        results_path = f'{experiment_directory}/run-{run_id}'
         if not os.path.exists(results_path):
             os.mkdir(results_path)
 
@@ -139,4 +140,4 @@ if __name__ == '__main__':
         run_processes(training_processes, mm_process, cfm_process)
         logger.info(f'Finished run: {run_id}\n')
 
-    create_plots(experiment_directory=str(experiment_id), number_of_runs=number_of_runs)
+    create_plots(experiment_directory=experiment_directory, number_of_runs=number_of_runs)
