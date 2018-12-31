@@ -63,7 +63,7 @@ def create_aggregated_individual_episodic_reward_plots(episodic_reward_dict, tar
         plt.ylabel('Average episodic reward')
         plt.title(f'Average episodic reward \nfor policy: {name}')
 
-        plt.savefig(f'{target_dir}/episodic_reward-{name}')
+        plt.savefig(f'{target_dir}/episodic_reward-{name}.svg', format='svg')
         plt.tight_layout()
         plt.close()
 
@@ -91,7 +91,7 @@ def create_aggregated_benchmark_winrate_plot(winrate_dict, target_dir):
     plt.xlabel('Training iteration')
     plt.title('Average winrate against all opponents')
     plt.tight_layout()
-    plt.savefig(f'{target_dir}/benchmark_winrates')
+    plt.savefig(f'{target_dir}/benchmark_winrates.svg', format='svg')
     plt.close()
 
 
@@ -141,7 +141,7 @@ def create_single_heatmap(source, target_dir, axis_labels):
     plt.title(f'Head to head winrates after training iteration {iteration}')
     plt.tight_layout()
 
-    fig.savefig(f'{target_dir}/heatmap-{file_name}.png')
+    fig.savefig(f'{target_dir}/heatmap-{file_name}.svg', format='svg')
 
 
 def create_average_winrate_graph(source_dir, target_dir):
@@ -165,7 +165,7 @@ def create_average_winrate_graph(source_dir, target_dir):
     plt.ylabel('Average Winrate')
     plt.xlabel('Training iteration')
     plt.title('Average winrate against all opponents')
-    plt.savefig(f'{target_dir}/benchmark_winrates.png')
+    plt.savefig(f'{target_dir}/benchmark_winrates.svg', format='svg')
 
     return benchmark_winrate_dict
 
@@ -187,7 +187,7 @@ def create_individual_episodic_reward_graph(source_dir, target_dir):
         plt.plot(iterations, avg_reward)
 
         plt.title(f'Average episodic reward during training\nfor policy: {file_name}')
-        plt.savefig(f'{target_dir}/episodic_reward-{file_name}.png')
+        plt.savefig(f'{target_dir}/episodic_reward-{file_name}.svg', format='svg')
         plt.close()
     return episodic_reward_dict
 
