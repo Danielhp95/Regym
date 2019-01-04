@@ -2,83 +2,21 @@ import numpy as np
 import random
 import copy
 
-
-class DeepQNetwork():
-
-    def __init__(self, state_space_size, action_space_size, hashing_function, learning_rate=0.5, training=True):
-        """
-        TODO: Document
-        """
-        self.Q_table = np.zeros((state_space_size, action_space_size), dtype=np.float64)
-        self.learning_rate = learning_rate
-        self.hashing_function = hashing_function
-        self.training = training
-        self.name = 'TabularQLearning'
-        pass
-
-    def handle_experience(self, s, a, r, succ_s):
-        if self.training:
-            self.update_q_table(self.hashing_function(s), a, r, self.hashing_function(succ_s))
-            self.anneal_learning_rate()
-
-    def update_q_table(self, s, a, r, succ_s):
-        self.Q_table[s, a] += self.learning_rate * (r + max(self.Q_table[succ_s, :]) - self.Q_table[s, a])
-
-    def anneal_learning_rate(self):
-        pass
-
-    def take_action(self, state):
-        optimal_moves = self.find_optimal_moves(self.Q_table, self.hashing_function(state))
-        return random.choice(optimal_moves)
-
-    def find_optimal_moves(self, Q_table, state):
-        optimal_moves = np.argwhere(Q_table[state, :] == np.amax(Q_table[state, :]))
-        return optimal_moves.flatten().tolist()
-
-    def clone(self, training=False):
-        cloned = TabularQLearning(self.Q_table.shape[0], self.Q_table.shape[1], self.hashing_function,
-                                  learning_rate=self.learning_rate, training=training)
-        cloned.Q_table = copy.deepcopy(self.Q_table)
-        return cloned
-
-
-
-
 import math
-import random
 import os
-
-import numpy as np
 from collections import namedtuple
 from itertools import count
-from copy import deepcopy
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
+import torchvision.transforms as T
 
 import threading
 from threading import Lock
-import copy
 
-import torchvision.transforms as T
-import logging
-
-import gym
-
-
-use_cuda = True#torch.cuda.is_available()
-rendering = False
-MAX_STEPS = 1000
-REWARD_SCALER = 1.0
-
-FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
-LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
-ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
-Tensor = FloatTensor
-dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 
 Transition = namedtuple('Transition', ('state','action','next_state', 'reward','done') )
 TransitionPR = namedtuple('TransitionPR', ('idx','priority','state','action','next_state', 'reward','done') )
@@ -283,15 +221,15 @@ class DuelingDQN(nn.Module) :
         self.mutex = Lock()
 
     def clone(self):
-        clone = DuelingDQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN)
+        cloned = DuelingDQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN)
 
-        clone.f1 = copy.deepcopy(self.f1)
-        clone.f2 = copy.deepcopy(self.f2)
-        clone.f = copy.deepcopy(self.f)
-        clone.value = copy.deepcopy(self.value)
-        clone.advantage = copy.deepcopy(self.advantage)
+        cloned.f1 = copy.deepcopy(self.f1)
+        cloned.f2 = copy.deepcopy(self.f2)
+        cloned.f = copy.deepcopy(self.f)
+        cloned.value = copy.deepcopy(self.value)
+        cloned.advantage = copy.deepcopy(self.advantage)
 
-        return clone 
+        return cloned 
 
     def forward(self, x) :
         if self.useCNN['use'] :
@@ -328,80 +266,7 @@ class DuelingDQN(nn.Module) :
 
 
 
-
-
-
-
-
-
-
-
-
-def get_screen(task,action,preprocess) :
-    global REWARD_SCALER
-    screen, reward, done, info = task.step(action)
-    reward = reward/REWARD_SCALER
-    #screen = screen.transpose( (2,0,1) )
-    #screen = np.ascontiguousarray( screen, dtype=np.float32) / 255.0
-    screen = np.ascontiguousarray( screen, dtype=np.float32)
-    screen = torch.from_numpy(screen)
-    #screen = preprocess(screen)
-    screen = screen.unsqueeze(0)
-    #screen = screen.type(Tensor)
-    return screen, reward, done, info
-
-def get_screen_reset(task,preprocess) :
-    screen = task.reset()
-    #screen = screen.transpose( (2,0,1) )
-    #screen = np.ascontiguousarray( screen, dtype=np.float32) / 255.0
-    screen = np.ascontiguousarray( screen, dtype=np.float32)
-    screen = torch.from_numpy(screen)
-    #screen = preprocess(screen)
-    screen = screen.unsqueeze(0)
-    return screen
-
-
-def select_action(model,state,steps_done=[],epsend=0.05,epsstart=0.9,epsdecay=200) :
-    global nbr_actions
-    sample = random.random()
-    if steps_done is [] :
-        steps_done.append(0)
-
-    eps_threshold = epsend + (epsstart-epsend) * math.exp(-1.0 * steps_done[0] / epsdecay )
-    steps_done[0] +=1
-
-    #print('SAMPLE : {} // EPS THRESH : {}'.format(sample, eps_threshold) )
-    if sample > eps_threshold :
-        output = model( Variable(state, volatile=True).type(FloatTensor) ).data
-        action = output.max(1)[1].view(1,1)
-        qsa = output.max(1)[0].view(1,1)[0,0]
-        return action, qsa
-    else :
-        return LongTensor( [[random.randrange(nbr_actions) ] ] ), 0.0
-
-def exploitation(model,state) :
-    global nbr_actions
-    output = model( Variable(state, volatile=True).type(FloatTensor) ).data.max(1)
-    action = output[1].view(1,1)
-    qsa = output[0].view(1,1)[0,0]
-    return action,qsa
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class DQN :
+class DeepQNetworkAlgorithm :
     def __init__(self,kwargs) :
         """
         :param kwargs:
@@ -712,7 +577,53 @@ class DQN :
 
 
 
-def main():
+
+class DeepQNetwork():
+    def __init__(self, state_space_size, action_space_size, hashing_function, learning_rate=0.5, training=True):
+        """
+        TODO: Document
+        """
+        self.DQN = np.zeros((state_space_size, action_space_size), dtype=np.float64)
+        self.learning_rate = learning_rate
+        self.hashing_function = hashing_function
+        self.training = training
+        self.name = 'TabularQLearning'
+        pass
+
+    def handle_experience(self, s, a, r, succ_s):
+        if self.training:
+            self.update_q_table(self.hashing_function(s), a, r, self.hashing_function(succ_s))
+            self.anneal_learning_rate()
+
+    def update_q_table(self, s, a, r, succ_s):
+        self.Q_table[s, a] += self.learning_rate * (r + max(self.Q_table[succ_s, :]) - self.Q_table[s, a])
+
+    def anneal_learning_rate(self):
+        pass
+
+    def take_action(self, state):
+        optimal_moves = self.find_optimal_moves(self.Q_table, self.hashing_function(state))
+        return random.choice(optimal_moves)
+
+    def find_optimal_moves(self, Q_table, state):
+        optimal_moves = np.argwhere(Q_table[state, :] == np.amax(Q_table[state, :]))
+        return optimal_moves.flatten().tolist()
+
+    def clone(self, training=False):
+        cloned = TabularQLearning(self.Q_table.shape[0], self.Q_table.shape[1], self.hashing_function,
+                                  learning_rate=self.learning_rate, training=training)
+        cloned.Q_table = copy.deepcopy(self.Q_table)
+        return cloned
+
+
+
+
+
+
+def init():
+    global use_cuda 
+    use_cuda = True 
+
     global nbr_actions
     env = 'CartPole-v1'
     #env = 'MountainCar-v0'
@@ -807,9 +718,69 @@ def main():
     kwargs["nbr_worker"] = 1
     
 
-    DeepQNetwork_algo = DQN(kwargs=kwargs)
-    print("DQN initialized: OK")
+    DeepQNetwork_algo = DeepQNetworkAlgorithm(kwargs=kwargs)
+    print("DeepQNetworkAlgorithm initialized: OK")
+
+
+def run():
+    use_cuda = True
+    rendering = False
+    MAX_STEPS = 1000
+    REWARD_SCALER = 1.0
+
+    FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
+    LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
+
+    def get_screen(task,action,preprocess) :
+        global REWARD_SCALER
+        screen, reward, done, info = task.step(action)
+        reward = reward/REWARD_SCALER
+        #screen = screen.transpose( (2,0,1) )
+        #screen = np.ascontiguousarray( screen, dtype=np.float32) / 255.0
+        screen = np.ascontiguousarray( screen, dtype=np.float32)
+        screen = torch.from_numpy(screen)
+        #screen = preprocess(screen)
+        screen = screen.unsqueeze(0)
+        #screen = screen.type(Tensor)
+        return screen, reward, done, info
+
+    def get_screen_reset(task,preprocess) :
+        screen = task.reset()
+        #screen = screen.transpose( (2,0,1) )
+        #screen = np.ascontiguousarray( screen, dtype=np.float32) / 255.0
+        screen = np.ascontiguousarray( screen, dtype=np.float32)
+        screen = torch.from_numpy(screen)
+        #screen = preprocess(screen)
+        screen = screen.unsqueeze(0)
+        return screen
+
+
+    def select_action(model,state,steps_done=[],epsend=0.05,epsstart=0.9,epsdecay=200) :
+        global nbr_actions
+        sample = random.random()
+        if steps_done is [] :
+            steps_done.append(0)
+
+        eps_threshold = epsend + (epsstart-epsend) * math.exp(-1.0 * steps_done[0] / epsdecay )
+        steps_done[0] +=1
+
+        #print('SAMPLE : {} // EPS THRESH : {}'.format(sample, eps_threshold) )
+        if sample > eps_threshold :
+            output = model( Variable(state, volatile=True).type(FloatTensor) ).data
+            action = output.max(1)[1].view(1,1)
+            qsa = output.max(1)[0].view(1,1)[0,0]
+            return action, qsa
+        else :
+            return LongTensor( [[random.randrange(nbr_actions) ] ] ), 0.0
+
+    def exploitation(model,state) :
+        global nbr_actions
+        output = model( Variable(state, volatile=True).type(FloatTensor) ).data.max(1)
+        action = output[1].view(1,1)
+        qsa = output[0].view(1,1)[0,0]
+        return action,qsa
 
 
 if __name__ == "__main__":
-    main()
+    import gym
+    init()
