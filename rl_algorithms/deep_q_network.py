@@ -413,13 +413,14 @@ class DQN :
 
             "replay_capacity": int, capacity of the replay buffer to use.
             "min_capacity": int, minimal capacity before starting to learn.
-            "batch_size": int, batch size to use.
+            "batch_size": int, batch size to use [default: batch_size=256].
 
             "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
             "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
 
             "lr": float, learning rate [default: lr=1e-3].
             "tau": float, soft-update rate [default: tau=1e-3].
+            "gamma": float, Q-learning gamma rate [default: gamma=0.999].
 
             "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
             
@@ -454,6 +455,7 @@ class DQN :
 
         self.lr = kwargs["lr"]
         self.TAU = kwargs["tau"]
+        self.GAMMA = kwargs["gamma"]
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr )
         
         self.preprocess = kwargs["preprocess"]
@@ -513,117 +515,117 @@ class DQN :
 
 
     def optimize_model(self,model,model_,replayBuffer) :
-        try :
-            if len(replayBuffer) < self.min_capacity :
-                return
-            
-            #Create batch of experience:
-            prioritysum = replayBuffer.total()
-            
-            # Random Experience Sampling with priority
-            #randexp = np.random.random(size=self.batch_size)*prioritysum
-            
-            # Sampling within each sub-interval :
-            #step = prioritysum / self.batch_size
-            #randexp = np.arange(0.0,prioritysum,step)
-            fraction = 0.0#0.8
-            low = 0.0#fraction*prioritysum 
-            step = (prioritysum-low) / self.batch_size
-            try:
-                randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
-            except Exception as e :
-                print( prioritysum, step)
-                raise e 
-            # Sampling within each sub-interval with (un)trunc normal priority over the top :
-            #randexp = np.random.normal(loc=0.75,scale=1.0,size=self.batch_size) * prioritysum
+        """
+        1) Estimate the gradients of the loss with respect to the
+        current learner model on a batch of experiences sampled 
+        from the Prioritized Experience Replay buffer.
+        2) Accumulate the gradients in the learner model's grad container.
+        3) Update the Prioritized Experience Replay buffer with new priorities.
 
-            
-            batch = list()
-            priorities = np.zeros(self.batch_size)
-            for i in range(self.batch_size):
-                try :
-                    el = replayBuffer.get(randexp[i])
-                    priorities[i] = el[1]
-                    batch.append(el)
-                except TypeError as e :
-                    continue
-                    #print('REPLAY BUFFER EXCEPTION...')
-            
-            batch = TransitionPR( *zip(*batch) )
-            
-            # Create Batch with replayMemory :
-            #transitions = replayBuffer.sample(self.batch_size)
-            #batch = Transition(*zip(*transitions) )
-
-            beta = 1.0
-            priorities = Variable( torch.from_numpy(priorities ), requires_grad=False).float()
-            importanceSamplingWeights = torch.pow( len(replayBuffer) * priorities , -beta)
-            
-            next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
-            state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
-            action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
-            reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
-            done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
-            done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
-            
-            if self.use_cuda :
-                importanceSamplingWeights = importanceSamplingWeights.cuda()
-                next_state_batch = next_state_batch.cuda()
-                state_batch = state_batch.cuda()
-                action_batch = action_batch.cuda()
-                reward_batch = reward_batch.cuda()
-                done_batch = done_batch.cuda()
-
-            state_action_values = model(state_batch)
-            state_action_values_g = state_action_values.gather(1,action_batch)
-
-            ############################
-            next_state_values = model_(next_state_batch)
-            next_state_values = Variable(next_state_values.cpu().data.max(1)[0]).view((-1,1))
-            ############################
-            # Compute the expected Q values
-            gamma_next = (next_state_values * GAMMA).type(FloatTensor)
-            expected_state_action_values = done_batch*gamma_next + reward_batch
-
-            # Compute Huber loss
-            #loss = F.smooth_l1_loss(state_action_values_g, expected_state_action_values)
-            diff = state_action_values_g - expected_state_action_values
-            diff_squared = diff*diff
-            is_diff_squared = importanceSamplingWeights * diff_squared
-            loss = torch.mean( is_diff_squared)
-            #loss = nn.MSELoss(state_action_values_g, expected_state_action_values)
-            
-            # Optimize the model
-            # we do not zero the worker's model's gradient since it is used as an accumulator for gradient.
-            # The worker's model's gradient accumulator is being zero-ed after being applied to the model,
-            # when the function from_worker2model is called.
-            loss.backward()
-            
-            
+        :param model: model with respect to which the loss is being optimized.
+        :param model_: target model used to evaluate the action-value in a Double DQN scheme.
+        :param replayBuffer: Prioritized Experience Replay buffer from which the batch is sampled.
+        :returns loss_np: numpy scalar of the estimated loss function. 
+        """
+        
+        if len(replayBuffer) < self.min_capacity :
+            return
+        
+        #Create batch of experience:
+        prioritysum = replayBuffer.total()
+        
+        # Random Experience Sampling with priority
+        #randexp = np.random.random(size=self.batch_size)*prioritysum
+        
+        # Sampling within each sub-interval :
+        #step = prioritysum / self.batch_size
+        #randexp = np.arange(0.0,prioritysum,step)
+        fraction = 0.0#0.8
+        low = 0.0#fraction*prioritysum 
+        step = (prioritysum-low) / self.batch_size
+        try:
+            randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
         except Exception as e :
-            #TODO : find what is the reason of this error in backward...
-            #"leaf variable was used in an inplace operation."
-            bashlogger.exception('Error in optimizer_model : {}'.format(e) )
-            
+            print( prioritysum, step)
+            raise e 
+        # Sampling within each sub-interval with (un)trunc normal priority over the top :
+        #randexp = np.random.normal(loc=0.75,scale=1.0,size=self.batch_size) * prioritysum
+
+        
+        batch = list()
+        priorities = np.zeros(self.batch_size)
+        for i in range(self.batch_size):
+            try :
+                el = replayBuffer.get(randexp[i])
+                priorities[i] = el[1]
+                batch.append(el)
+            except TypeError as e :
+                continue
+                #print('REPLAY BUFFER EXCEPTION...')
+        
+        batch = TransitionPR( *zip(*batch) )
+        
+        # Create Batch with replayMemory :
+        #transitions = replayBuffer.sample(self.batch_size)
+        #batch = Transition(*zip(*transitions) )
+
+        # Importance Sampling Weighting:
+        beta = 1.0
+        priorities = Variable( torch.from_numpy(priorities ), requires_grad=False).float()
+        importanceSamplingWeights = torch.pow( len(replayBuffer) * priorities , -beta)
+        
+        next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
+        state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
+        action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
+        reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
+        done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
+        done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
+        
+        if self.use_cuda :
+            importanceSamplingWeights = importanceSamplingWeights.cuda()
+            next_state_batch = next_state_batch.cuda()
+            state_batch = state_batch.cuda()
+            action_batch = action_batch.cuda()
+            reward_batch = reward_batch.cuda()
+            done_batch = done_batch.cuda()
+
+        state_action_values = model(state_batch)
+        state_action_values_g = state_action_values.gather(dim=1, index=action_batch)
+
+        ############################
+        targetQ_nextS_A_values = model_(next_state_batch)
+        Q_nextS_A_values = model(next_state_batch)
+        index_argmaxA_Q_nextS_A_values = Q_nextS_A_values.max(1)[1].view(-1,1)
+        targetQ_nextS_argmaxA_Q_nextS_A_values = targetQ_nextS_A_values.gather( dim=1, index=index_argmaxA_Q_nextS_A_values).detach().view((-1,1))
+        ############################
+
+        # Compute the expected Q values
+        gamma_next = (self.GAMMA * targetQ_nextS_argmaxA_Q_nextS_A_values).type(FloatTensor)
+        expected_state_action_values = reward_batch + done_batch*gamma_next 
+
+        # Compute loss:
+        diff = expected_state_action_values - state_action_values_g
+        is_diff_squared = importanceSamplingWeights * diff.pow(2.0)
+        loss = torch.mean( is_diff_squared)
+        
+        
+        # TODO: 
+        #
+        # investigate clamping on the learner/worker's model gradients 
+        # knowing that they are used as gradient accumulators...
+        #
+        """
         for param in model.parameters():
             if param.grad is not None :
                 if param.grad.data is not None :
                     param.grad.data.clamp_(-1, 1)
-
+        """
         
         #UPDATE THE PR :
         loss_np = loss.cpu().data.numpy()
         for (idx, new_error) in zip(batch.idx,loss_np) :
             new_priority = replayBuffer.priority(new_error)
-            #print( 'prior = {} / {}'.format(new_priority,self.rBuffer.total()) )
             replayBuffer.update(idx,new_priority)
-
-        del batch 
-        del next_state_batch
-        del state_batch
-        del action_batch
-        del reward_batch
-        
 
         return loss_np
 
