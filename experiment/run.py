@@ -14,6 +14,8 @@ from match_making import match_making_process
 from confusion_matrix_populate_process import confusion_matrix_process
 
 
+import yaml
+from docopt import docopt
 import logging
 
 # TODO Use an extra queue to receive logging from a a queue,
@@ -28,7 +30,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import gym
 import gym_rock_paper_scissors
-from gym_rock_paper_scissors.fixed_agents import rockAgent, paperAgent
+from gym_rock_paper_scissors.fixed_agents import rockAgent, paperAgent, scissorsAgent
 
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
 
@@ -42,7 +44,7 @@ def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     initial_fixed_policies_to_benchmark = [[iteration, EmptySelfPlay, agent]
                                            for agent in fixed_agents
                                            for iteration in checkpoint_at_iterations]
-    fixed_policies_for_confusion = enumerate_training_jobs([EmptySelfPlay], fixed_agents) # TODO GET RID OF THIS, it hurts Rewrite bug may come from here
+    fixed_policies_for_confusion = enumerate_training_jobs([EmptySelfPlay], fixed_agents) # TODO GET RID OF THIS
     return initial_fixed_policies_to_benchmark, fixed_policies_for_confusion
 
 
@@ -50,7 +52,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
                                  policy_queue, matrix_queue, benchmarking_episodes,
                                  fixed_policies_for_confusion, results_path):
 
-    # Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
+    # TODO Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
     benchmark_process_number_workers = 4
     benchmark_process_pool = ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
@@ -69,12 +71,11 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
     return (training_processes, mm_process, cfm_process)
 
 
-def define_environment_creation_funcion():
-    return lambda: gym.make('RockPaperScissors-v0')
-
-
-def create_interprocess_queues():
-    return (Queue(), Queue())
+def define_environment_creation_funcion(environment_name_cli):
+    valid_environments = ['RockPaperScissors-v0']
+    if environment_name_cli not in valid_environments:
+        raise ValueError(f'Unknown environment {environment_name_cli}\t valid environments: {valid_environments}')
+    return lambda: gym.make(environment_name_cli)
 
 
 def run_processes(training_process, mm_process, cfm_process):
@@ -87,41 +88,100 @@ def run_processes(training_process, mm_process, cfm_process):
     [p.join() for p in training_processes]
 
 
-def initialize_algorithms(environment):
-    algorithms = [TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)]
-    return algorithms
+def initialize_training_schemes(training_schemes_cli):
+    def parse_training_scheme(training_scheme):
+        if training_scheme.lower() == 'fullhistoryselfplay': return FullHistorySelfPlay
+        elif training_scheme.lower() == 'halfhistoryselfplay': return HalfHistorySelfPlay
+        elif training_scheme.lower() == 'naiveSelfplay': return NaiveSelfPlay
+        else: raise ValueError(f'Unknown training scheme {training_scheme}. Try defining it inside this script.')
+    return [parse_training_scheme(t_s) for t_s in training_schemes_cli]
 
 
-def initialize_fixed_agents():
-    # return [rockAgent, paperAgent]
-    return [rockAgent]
+def initialize_algorithms(environment, algorithms_cli):
+    def parse_algorithm(algorithm, env):
+        if algorithm.lower() == 'tabularqlearning':
+            return TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)
+        else: raise ValueError(f'Unknown algorithm {algorithm}. Try defining it inside this script.')
+    return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli]
+
+
+def initialize_fixed_agents(fixed_agents_cli):
+    def parse_fixed_agent(agent):
+        if agent.lower() == 'rockagent': return rockAgent
+        elif agent.lower() == 'paperagent': return paperAgent
+        elif agent.lower() == 'scissorsagent': return scissorsAgent
+        else: raise ValueError(f'Unknown fixed agent {agent}. Try defining it inside this script.')
+    return [parse_fixed_agent(agent) for agent in fixed_agents_cli]
 
 
 if __name__ == '__main__':
-    createNewEnvironment  = define_environment_creation_funcion()
+    print('''
+88888888888888888888888888888888888888888888888888888888O88888888888888888888888
+88888888888888888888888888888888888888888888888888888888888O88888888888888888888
+8888888888888888888888888888888888888888888888888888888888888O888888888888888888
+888888888888888888888888888888888888888888888888888888888888888O8888888888888888
+888OZOO88OND88888888888888888888888888888888888888888888888888888O88D88D88888888
+888888888D..D8OZO8888888 ....... D88888888888888.........:8888888888...O88888888
+8888888888DD888888888D..$OOO8888~ .D888888888D...DD88888D,..88888888O8O888888888
+88888888888888888888Z..O888888888ZZ8OOO888888 .D8888888888D8888888888888OO888888
+8888888888..88888888..8888888888888888888888:.OOO88888888888888888888.88888O8888
+8888888888..8888888$.88888888888888888888888 .88888888888OZO888888888.8888888O88
+8888888888..8888888=.888888888,,,,,,,D888888. 88888888,,,,,,,88888OZO.8888888888
+8888888888..8888888D.?8888888D88888.+8888888..88888888O8888:.O8888888.888888OOOO
+8888888888..88888888..D88888888888. 88888888O.:88888888888D..88888888.8888888888
+8888888888..888888888,..D8888888O .8888888888O..N8888888OD..888888888.8888OO8888
+8888888888..88888888888..,.?8O... 888888888888OO...,OO=...O8888888888.8888888888
+8888888888O8888888888888D88I:=O888888888888888888D88~~O888888888O88888O888888888
+88888888888888888888888888888888888888888888888888888888888OO8888888888888888888
+888888888888888888888888888888888888888888888888888888O8888888888888888888888888
+888888888888888888888888888888888888888888888888OO888888888888888888888888888888
+8888888888888888888888888888888888888888888OO88888888888888888888888888888888888
+''')
+
+    _USAGE = '''
+    Usage:
+      run [options]
+
+    Options:
+      --environment STRING                    OpenAI environment used to train agents on
+      --experiment_id STRING                  Experimment id used to identify between different experiments
+      --number_of_runs INTEGER                Number of runs used to calculate standard deviations for various metrics
+      --checkpoint_at_iterations INTEGER...   Iteration numbers at which policies will be benchmarked against one another
+      --benchmarking_episodes INTEGER         Number of head to head matches used to infer winrates between policies
+      --self_play_training_schemes STRING...  Self play training schemes used to choose opponent agent policies during training
+      --algorithms STRING...                  Algorithms used to learn a policy
+      --fixed_agents STRING...                Fixed agents used to benchmark training policies against
+    '''
+
+    options = docopt(_USAGE)
+    print(options)
+
+    createNewEnvironment  = define_environment_creation_funcion(options['--environment'])
     env = createNewEnvironment()
 
-    experiment_id = 0 # TODO make this into script param
-    number_of_runs = 1 # TODO make this into script param
+    experiment_id = int(options['--experiment_id'])
+    number_of_runs = int(options['--number_of_runs'])
 
-    checkpoint_at_iterations = [100, 1000]
-    benchmarking_episodes    = 100
+    checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]
+    benchmarking_episodes    = int(options['--benchmarking_episodes'])
 
-    training_schemes = [NaiveSelfPlay, FullHistorySelfPlay] # , FullHistorySelfPlay] # , FullHistorySelfPlay, HalfHistorySelfPlay]
-    algorithms       = initialize_algorithms(env)
-    fixed_agents     = initialize_fixed_agents()
+    training_schemes = initialize_training_schemes(options['--self_play_training_schemes'].split(','))
+    algorithms       = initialize_algorithms(env, options['--algorithms'].split(','))
+    fixed_agents     = initialize_fixed_agents(options['--fixed_agents'].split(','))
 
     training_jobs = enumerate_training_jobs(training_schemes, algorithms)
 
-    policy_queue, matrix_queue = create_interprocess_queues()
+    policy_queue, matrix_queue = Queue(), Queue()
 
     (initial_fixed_policies_to_benchmark,
      fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
 
-    # Remove existing experiment
     experiment_directory = f'experiment-{experiment_id}'
     if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
     os.mkdir(experiment_directory)
+
+    with open(f'{experiment_directory}/experiment_parameters.yml', 'w') as outfile:
+        yaml.dump(options, outfile, default_flow_style=False)
 
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
