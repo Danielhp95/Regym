@@ -631,7 +631,7 @@ class DeepQNetworkAlgorithm :
         :param experience: EXP object containing the current, relevant experience.
         :returns:
         '''
-        if self.kwargs["PER"] :
+        if self.kwargs["use_PER"] :
             init_sampling_priority =  self.replayBuffer.priority( torch.abs(experience.reward).cpu().numpy() )
             self.replayBuffer.add(experience,init_sampling_priority)
         else :
@@ -814,29 +814,40 @@ class DeepQNetworkAgent():
         self.training = False
 
     def handle_experience(self, s, a, r, succ_s,done=False):
-        experience = EXP(self.hashing_function(s),a, self.hashing_function(succ_s),r,done)
+        experience = EXP(self.hashing_function(s),self.hashing_function(a), self.hashing_function(succ_s),self.hashing_function(r),done)
         self.algorithm.handle_experience(experience=experience)
     
     def take_action(self, state, eps=0.0):
-        action,qsa = self.select_action(model,state,eps=eps)            
-        return random.choice(optimal_moves)
+        action,qsa = self.select_action(model=self.network,state=self.hashing_function(state),eps=eps)            
+        return action
 
-    def select_action(model,state,eps) :
+    def select_action(self,model,state,eps) :
         sample = random.random()
         if sample > eps :
-            output = model( state ).data
-            qsa, action = output.max(1)
-            action = action.view(1,1)
-            qsa = output.max(1)[0].view(1,1)[0,0]
+            print(state)
+            try:
+                output = model( state ).data
+                qsa, action = output.max(1)
+                action = action.view(1,1)
+                qsa = output.max(1)[0].view(1,1)[0,0]
+            except Exception as e :
+                print(e)
+                action = 0
+                qsa = 0.0
+
             return action, qsa
         else :
             random_action = LongTensor( [[random.randrange(self.network.nbr_actions) ] ] )
             return random_action, 0.0
 
-    def clone(self):
+    def clone(self, training=False):
         cloned_network = self.network.clone()
-        cloned_algorithm = self.algorithm.clone( kwargs=self.algorithm.kwargs)
+        cloned_algorithm = self.algorithm.clone()
         cloned = DeepQNetworkAgent(network=cloned_network, algorithm=cloned_algorithm)
+        
+        if training :
+            cloned.launch_training()
+
         return cloned
 
 
@@ -949,7 +960,7 @@ def test_algo_init():
 
 
 
-def build_DQN_Agent(state_space_size=32, action_space_size=3, double=False,dueling=False):
+def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None,double=False,dueling=False):
     use_cuda = True 
 
     """
@@ -957,12 +968,25 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, double=False,dueli
     """
     useCNN = {'use':False,'dim':state_space_size}
     if useCNN['use']:
-        preprocess = T.Compose([T.ToPILImage(),
+        preprocess_model = T.Compose([T.ToPILImage(),
                     T.Scale(64, interpolation=Image.CUBIC),
                     T.ToTensor() ] )
     else :
-        preprocess = T.Compose([
+        preprocess_model = T.Compose([
                     T.ToTensor() ] )
+
+    if hash_function is not None :
+        if use_cuda :
+            preprocess = (lambda x: torch.from_numpy(np.array( hash_function(x) )).unsqueeze(0).type(torch.cuda.FloatTensor))
+        else :
+            preprocess = (lambda x: torch.from_numpy(np.array( hash_function(x) )).unsqueeze(0).type(torch.FloatTensor))
+        #preprocess = (lambda x: torch.from_numpy( np.ones((1,1))*hash_function(x)).type(torch.cuda.FloatTensor) )
+        #preprocess = (lambda x: preprocess_model(hash_function(x)))
+    else :
+        """
+        TODO :
+        """
+        preprocess = (lambda x: preprocess_model(x))
 
     kwargs = dict()
     """

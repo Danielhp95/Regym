@@ -11,10 +11,10 @@ def run_episode(env, policy_vector, training):
     while not done:
         action_vector = [agent.take_action(state) for agent in policy_vector]
         succ_state, reward_vector, done, info = env.step(action_vector)
-        trajectory.append((state, action_vector, reward_vector, succ_state))
+        trajectory.append((state, action_vector, reward_vector, succ_state, done))
         if training:
             for i, agent in enumerate(policy_vector):
-                agent.handle_experience(state, action_vector[i], reward_vector[i], succ_state)
+                agent.handle_experience(state, action_vector[i], reward_vector[i], succ_state, done)
         state = succ_state
     return trajectory
 
