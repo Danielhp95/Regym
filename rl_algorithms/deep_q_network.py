@@ -186,11 +186,85 @@ def soft_update(fromm, to, tau) :
 
 
 
+class DQN(nn.Module) :
+    def __init__(self,nbr_actions=2,actfn= lambda x : F.leaky_relu(x,0.1), useCNN={'use':True,'dim':3}, use_cuda=True ) :
+        super(DQN,self).__init__()
+        
+        self.nbr_actions = nbr_actions
+        self.use_cuda = use_cuda
+
+        self.actfn = actfn
+        self.useCNN = useCNN
+
+        """
+        TODO :
+        implement the cloning scheme for this:
+
+        if self.useCNN['use'] :
+            self.conv1 = nn.Conv2d(3,16, kernel_size=5, stride=2)
+            self.bn1 = nn.BatchNorm2d(16)
+            self.conv2 = nn.Conv2d(16,32, kernel_size=5, stride=2)
+            self.bn2 = nn.BatchNorm2d(32)
+            self.conv3 = nn.Conv2d(32,32, kernel_size=5, stride=2)
+            self.bn3 = nn.BatchNorm2d(32)
+            #self.f = nn.Linear(192,128)
+            self.f = nn.Linear(1120,32)
+        
+        else :
+        """
+        self.f1 = nn.Linear(self.useCNN['dim'], 1024)   
+        self.f2 = nn.Linear(1024, 256)
+        self.f = nn.Linear(256,64)  
+        
+        self.qsa = nn.Linear(64,self.nbr_actions)
+        
+        if self.use_cuda:
+            self = self.cuda()
+        
+        self.mutex = Lock()
+
+    def clone(self):
+        cloned = DQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN, use_cuda=self.use_cuda)
+
+        cloned.f1 = copy.deepcopy(self.f1)
+        cloned.f2 = copy.deepcopy(self.f2)
+        cloned.f = copy.deepcopy(self.f)
+        cloned.qsa = copy.deepcopy(self.qsa)
+        
+        return cloned 
+
+    def forward(self, x) :
+        if self.useCNN['use'] :
+            x = self.actfn( self.bn1(self.conv1(x) ) )
+            x = self.actfn( self.bn2(self.conv2(x) ) )
+            x = self.actfn( self.bn3(self.conv3(x) ) )
+            x = x.view( x.size(0), -1)
+        
+            #print(x.size())
+        else :
+            x = self.actfn( self.f1(x) )
+            x = self.actfn( self.f2(x) )
+
+        fx = self.actfn( self.f(x) )
+
+        qsa = self.qsa(fx)
+        
+        return qsa
+
+    
+    def lock(self) :
+        self.mutex.acquire()
+
+    def unlock(self) :
+        self.mutex.release()
+
+
 class DuelingDQN(nn.Module) :
-    def __init__(self,nbr_actions=2,actfn= lambda x : F.leaky_relu(x,0.1), useCNN={'use':True,'dim':3} ) :
+    def __init__(self,nbr_actions=2,actfn= lambda x : F.leaky_relu(x,0.1), useCNN={'use':True,'dim':3}, use_cuda=True ) :
         super(DuelingDQN,self).__init__()
         
         self.nbr_actions = nbr_actions
+        self.use_cuda = use_cuda
 
         self.actfn = actfn
         self.useCNN = useCNN
@@ -217,11 +291,14 @@ class DuelingDQN(nn.Module) :
         
         self.value = nn.Linear(64,1)
         self.advantage = nn.Linear(64,self.nbr_actions)
+
+        if self.use_cuda:
+            self = self.cuda()
         
         self.mutex = Lock()
 
     def clone(self):
-        cloned = DuelingDQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN)
+        cloned = DuelingDQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN, use_cuda=self.use_cuda)
 
         cloned.f1 = copy.deepcopy(self.f1)
         cloned.f2 = copy.deepcopy(self.f2)
@@ -371,6 +448,16 @@ class DeepQNetworkAlgorithm :
             self.threads.append( threading.Thread(target=self.workerfns[i]) )
 
 
+    def clone(self) :
+        """
+        Clone this Algorithm instance. 
+        Whatever the state of this instance, the cloned instance 
+        is in a state ready to be launched on a training task
+        using the start_all method.
+        """
+        cloned = DeepQNetworkAlgorithm(kwargs=self.kwargs)
+        return cloned
+
     def start_all(self) :
         for i in range(self.nbr_worker):
             self.start(index=i)
@@ -502,13 +589,12 @@ class DeepQNetworkAlgorithm :
 
         ############################
         targetQ_nextS_A_values = target_model(next_state_batch)
-        Q_nextS_A_values = model(next_state_batch)
-        index_argmaxA_Q_nextS_A_values = Q_nextS_A_values.max(1)[1].view(-1,1)
-        targetQ_nextS_argmaxA_Q_nextS_A_values = targetQ_nextS_A_values.gather( dim=1, index=index_argmaxA_Q_nextS_A_values).detach().view((-1,1))
+        argmaxA_targetQ_nextS_A_values, index_argmaxA_targetQ_nextS_A_values = targetQ_nextS_A_values.max(1)
+        argmaxA_targetQ_nextS_A_values = argmaxA_targetQ_nextS_A_values.view(-1,1)
         ############################
 
         # Compute the expected Q values
-        gamma_next = (self.GAMMA * targetQ_nextS_argmaxA_Q_nextS_A_values).type(FloatTensor)
+        gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values).type(FloatTensor)
         expected_state_action_values = reward_batch + done_batch*gamma_next 
 
         # Compute loss:
@@ -572,47 +658,185 @@ class DeepQNetworkAlgorithm :
                     break
 
         except Exception as e :
-            bashlogger.exception(e)
+            #bashlogger.exception(e)
             raise e 
 
 
+class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
 
-
-class DeepQNetwork():
-    def __init__(self, state_space_size, action_space_size, hashing_function, learning_rate=0.5, training=True):
+    def clone(self) :
         """
-        TODO: Document
+        Clone this Algorithm instance. 
+        Whatever the state of this instance, the cloned instance 
+        is in a state ready to be launched on a training task
+        using the start_all method.
         """
-        self.DQN = np.zeros((state_space_size, action_space_size), dtype=np.float64)
-        self.learning_rate = learning_rate
-        self.hashing_function = hashing_function
-        self.training = training
-        self.name = 'TabularQLearning'
-        pass
+        cloned = DoubleDeepQNetworkAlgorithm(kwargs=self.kwargs)
+        return cloned
+        
 
-    def handle_experience(self, s, a, r, succ_s):
-        if self.training:
-            self.update_q_table(self.hashing_function(s), a, r, self.hashing_function(succ_s))
-            self.anneal_learning_rate()
+    def optimize_model(self,model,target_model,replayBuffer) :
+        """
+        1) Estimate the gradients of the loss with respect to the
+        current learner model on a batch of experiences sampled 
+        from the Prioritized Experience Replay buffer.
+        2) Accumulate the gradients in the learner model's grad container.
+        3) Update the Prioritized Experience Replay buffer with new priorities.
 
-    def update_q_table(self, s, a, r, succ_s):
-        self.Q_table[s, a] += self.learning_rate * (r + max(self.Q_table[succ_s, :]) - self.Q_table[s, a])
+        The main model's weights are updated later by the a call to the from_worker2model function
+        and each worker/learner model's grad containers are used to update the main model's weighgts. 
 
-    def anneal_learning_rate(self):
-        pass
+        :param model: model with respect to which the loss is being optimized.
+        :param target_model: target model used to evaluate the action-value in a Double DQN scheme.
+        :param replayBuffer: Prioritized Experience Replay buffer from which the batch is sampled.
+        :returns loss_np: numpy scalar of the estimated loss function. 
+        """
+        
+        if len(replayBuffer) < self.min_capacity :
+            return
+        
+        #Create batch with PrioritizedReplayBuffer/PER:
+        prioritysum = replayBuffer.total()
+        
+        # Random Experience Sampling with priority
+        #randexp = np.random.random(size=self.batch_size)*prioritysum
+        
+        # Sampling within each sub-interval :
+        #step = prioritysum / self.batch_size
+        #randexp = np.arange(0.0,prioritysum,step)
+        fraction = 0.0#0.8
+        low = 0.0#fraction*prioritysum 
+        step = (prioritysum-low) / self.batch_size
+        try:
+            randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
+        except Exception as e :
+            print( prioritysum, step)
+            raise e 
+        # Sampling within each sub-interval with (un)trunc normal priority over the top :
+        #randexp = np.random.normal(loc=0.75,scale=1.0,size=self.batch_size) * prioritysum
 
-    def take_action(self, state):
-        optimal_moves = self.find_optimal_moves(self.Q_table, self.hashing_function(state))
+        
+        batch = list()
+        priorities = np.zeros(self.batch_size)
+        for i in range(self.batch_size):
+            try :
+                el = replayBuffer.get(randexp[i])
+                priorities[i] = el[1]
+                batch.append(el)
+            except TypeError as e :
+                continue
+                #print('REPLAY BUFFER EXCEPTION...')
+        
+        batch = TransitionPR( *zip(*batch) )
+        
+        # Create Batch with replayMemory :
+        #transitions = replayBuffer.sample(self.batch_size)
+        #batch = Transition(*zip(*transitions) )
+
+        # Importance Sampling Weighting:
+        beta = 1.0
+        priorities = Variable( torch.from_numpy(priorities ), requires_grad=False).float()
+        importanceSamplingWeights = torch.pow( len(replayBuffer) * priorities , -beta)
+        
+        next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
+        state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
+        action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
+        reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
+        done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
+        done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
+        
+        if self.use_cuda :
+            importanceSamplingWeights = importanceSamplingWeights.cuda()
+            next_state_batch = next_state_batch.cuda()
+            state_batch = state_batch.cuda()
+            action_batch = action_batch.cuda()
+            reward_batch = reward_batch.cuda()
+            done_batch = done_batch.cuda()
+
+        state_action_values = model(state_batch)
+        state_action_values_g = state_action_values.gather(dim=1, index=action_batch)
+
+        ############################
+        targetQ_nextS_A_values = target_model(next_state_batch)
+        Q_nextS_A_values = model(next_state_batch)
+        index_argmaxA_Q_nextS_A_values = Q_nextS_A_values.max(1)[1].view(-1,1)
+        targetQ_nextS_argmaxA_Q_nextS_A_values = targetQ_nextS_A_values.gather( dim=1, index=index_argmaxA_Q_nextS_A_values).detach().view((-1,1))
+        ############################
+
+        # Compute the expected Q values
+        gamma_next = (self.GAMMA * targetQ_nextS_argmaxA_Q_nextS_A_values).type(FloatTensor)
+        expected_state_action_values = reward_batch + done_batch*gamma_next 
+
+        # Compute loss:
+        diff = expected_state_action_values - state_action_values_g
+        is_diff_squared = importanceSamplingWeights * diff.pow(2.0)
+        loss = torch.mean( is_diff_squared)
+        
+        
+        # TODO: 
+        #
+        # investigate clamping on the learner/worker's model gradients 
+        # knowing that they are used as gradient accumulators...
+        #
+        """
+        for param in model.parameters():
+            if param.grad is not None :
+                if param.grad.data is not None :
+                    param.grad.data.clamp_(-1, 1)
+        """
+        
+        #UPDATE THE PR :
+        loss_np = loss.cpu().data.numpy()
+        for (idx, new_error) in zip(batch.idx,loss_np) :
+            new_priority = replayBuffer.priority(new_error)
+            replayBuffer.update(idx,new_priority)
+
+        return loss_np
+
+class DeepQNetworkAgent():
+    def __init__(self, network, algorithm):
+        """
+        :param network: model network to be optimized by the algorithm.
+        :param algorithm: algorithm class to use to optimize the network.
+        """
+
+        self.network = network
+        self.algorithm = algorithm
+        self.training = False
+        self.hashing_function = self.algorithm.kwargs["preprocess"]
+
+    def launch_training(self):
+        self.algorithm.start_all()
+        self.training = True 
+
+    def stop_training(self):
+        self.algorithm.stop_all()
+        self.training = False
+
+    def handle_experience(self, s, a, r, succ_s,done=False):
+        experience = EXP(self.hashing_function(s),a, self.hashing_function(succ_s),r,done)
+        self.algorithm.handle_experience(experience=experience)
+    
+    def take_action(self, state, eps=0.0):
+        action,qsa = self.select_action(model,state,eps=eps)            
         return random.choice(optimal_moves)
 
-    def find_optimal_moves(self, Q_table, state):
-        optimal_moves = np.argwhere(Q_table[state, :] == np.amax(Q_table[state, :]))
-        return optimal_moves.flatten().tolist()
+    def select_action(model,state,eps) :
+        sample = random.random()
+        if sample > eps :
+            output = model( state ).data
+            qsa, action = output.max(1)
+            action = action.view(1,1)
+            qsa = output.max(1)[0].view(1,1)[0,0]
+            return action, qsa
+        else :
+            random_action = LongTensor( [[random.randrange(self.network.nbr_actions) ] ] )
+            return random_action, 0.0
 
-    def clone(self, training=False):
-        cloned = TabularQLearning(self.Q_table.shape[0], self.Q_table.shape[1], self.hashing_function,
-                                  learning_rate=self.learning_rate, training=training)
-        cloned.Q_table = copy.deepcopy(self.Q_table)
+    def clone(self):
+        cloned_network = self.network.clone()
+        cloned_algorithm = self.algorithm.clone( kwargs=self.algorithm.kwargs)
+        cloned = DeepQNetworkAgent(network=cloned_network, algorithm=cloned_algorithm)
         return cloned
 
 
@@ -620,7 +844,9 @@ class DeepQNetwork():
 
 
 
-def init():
+def test_algo_init():
+    import gym
+    
     global use_cuda 
     use_cuda = True 
 
@@ -722,6 +948,103 @@ def init():
     print("DeepQNetworkAlgorithm initialized: OK")
 
 
+
+def build_DQN_Agent(state_space_size=32, action_space_size=3, double=False,dueling=False):
+    use_cuda = True 
+
+    """
+    TODO : implement CNN usage for DQN...
+    """
+    useCNN = {'use':False,'dim':state_space_size}
+    if useCNN['use']:
+        preprocess = T.Compose([T.ToPILImage(),
+                    T.Scale(64, interpolation=Image.CUBIC),
+                    T.ToTensor() ] )
+    else :
+        preprocess = T.Compose([
+                    T.ToTensor() ] )
+
+    kwargs = dict()
+    """
+    :param kwargs:
+        "model": model of the agent to use/optimize in this algorithm.
+
+        "path": str specifying where to save the model(s).
+        "use_cuda": boolean to specify whether to use CUDA.
+
+        "replay_capacity": int, capacity of the replay buffer to use.
+        "min_capacity": int, minimal capacity before starting to learn.
+        "batch_size": int, batch size to use [default: batch_size=256].
+
+        "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
+        "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
+
+        "lr": float, learning rate [default: lr=1e-3].
+        "tau": float, soft-update rate [default: tau=1e-3].
+        "gamma": float, Q-learning gamma rate [default: gamma=0.999].
+
+        "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
+        
+        "w2m_update_interval": int, worker2model update interval used for each worker/learner [default: w2m_update_interval=10].
+
+        "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
+    """
+
+    # Create model architecture:
+    if dueling :
+        model = DuelingDQN(action_space_size,useCNN=useCNN, use_cuda=use_cuda)
+        print("Dueling DQN model initialized: OK")
+    else :
+        model = DQN(action_space_size,useCNN=useCNN, use_cuda=use_cuda)
+        print("DQN model initialized: OK")
+    model.share_memory()
+    
+    kwargs["model"] = model
+
+    numep = 1000
+    BATCH_SIZE = 256
+    GAMMA = 0.999
+    TAU = 1e-2
+    MIN_MEMORY = 1e3
+    alphaPER = 0.8
+    lr = 1e-3
+    memoryCapacity = 25e3
+    num_worker = 1
+
+    model_path = './CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
+    +'+IS+PER-alpha'+str(alphaPER) \
+    +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)+'/'
+
+    
+    path=model_path
+    kwargs["path"] = path 
+    kwargs["use_cuda"] = True 
+
+    # Initialize replay buffer:
+    #memory = PrioritizedReplayBuffer(capacity=replay_capacity,alpha=PER_alpha)
+    kwargs["replay_capacity"] = memoryCapacity
+    kwargs["min_capacity"] = MIN_MEMORY
+    kwargs["batch_size"] = BATCH_SIZE
+    kwargs["use_PER"] = True
+    kwargs["PER_alpha"] = alphaPER
+
+    kwargs["lr"] = lr 
+    kwargs["tau"] = TAU 
+    kwargs["gamma"] = GAMMA
+
+    kwargs["preprocess"] = preprocess
+    kwargs["w2m_update_interval"] = 10
+    kwargs["nbr_worker"] = 1
+    
+
+    DeepQNetwork_algo = DeepQNetworkAlgorithm(kwargs=kwargs)
+    print("DeepQNetworkAlgorithm initialized: OK")
+
+    agent = DeepQNetworkAgent(network=model,algorithm=DeepQNetwork_algo)
+    print("DQN agent initialized: OK")
+
+    return agent
+
 def run():
     use_cuda = True
     rendering = False
@@ -782,5 +1105,6 @@ def run():
 
 
 if __name__ == "__main__":
-    import gym
-    init()
+    #test_algo_init()
+    build_DQN_Agent()
+    build_DQN_Agent(double=True,dueling=True)
