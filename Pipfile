@@ -12,6 +12,9 @@ ipython = "*"
 gym = "*"
 gym-rock-paper-scissors = "==0.0.128"
 matplotlib = "*"
+docopt = "*"
+pyyaml = "*"
+pip = "*"
 
 [requires]
 python_version = "3.6"
