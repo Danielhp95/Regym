@@ -13,7 +13,7 @@ How to read confusion matrix TODO:
 
 
 # TODO come up with better name
-def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix_queue):
+def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix_queue, results_path):
     """
     :param training_jobs: Array of TrainingJob namedtuple used to calculate size of confusion matrices
     :param checkpoint_iteration_indices: Array of indices used for choosing which matrix to add stats to
@@ -36,20 +36,32 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
                                                              benchmark_statistics.recorded_policy_vector[1].policy.name))
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
         if check_for_termination(confusion_matrix_dict):
-            save_directory = 'confusion_matrices'
-            with open(f'{save_directory}/legend.txt', 'w') as f:
-                f.write(str(hashing_dictionary))
             logger.info('All confusion matrices completed. Writing to memory')
-            write_matrices(directory=save_directory, matrix_dict=confusion_matrix_dict)
+
+            filled_matrices = {key: fill_winrate_diagonal(confusion_matrix, value='50') for key, confusion_matrix in confusion_matrix_dict.items()}
+            write_matrices(directory=f'{results_path}/confusion_matrices', matrix_dict=filled_matrices)
+            write_average_winrates(directory=f'{results_path}/winrates', matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
+
+            write_legend_file(hashing_dictionary, path=f'{results_path}/confusion_matrices/legend.txt')
             logger.info('Writing completed')
             break
+
+
+def fill_winrate_diagonal(matrix, value):
+    np.fill_diagonal(matrix, value)
+    return matrix
 
 
 def create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices):
     hashing_dictionary = {training_job.name: i for i, training_job in enumerate(training_jobs)}
     num_indexes = len(hashing_dictionary)
-    empty_confusion_matrix = lambda length: [[None for _ in range(length)] for _ in range(length)]
-    return hashing_dictionary, {iteration: empty_confusion_matrix(num_indexes)
+
+    def filled_matrix(size):
+        m = np.empty((size, size))
+        m.fill(-1)
+        return m
+
+    return hashing_dictionary, {iteration: filled_matrix(num_indexes)
                                 for iteration in checkpoint_iteration_indices}
 
 
@@ -58,8 +70,8 @@ def populate_new_statistics(benchmark_stat, confusion_matrix_dict, hashing_dicti
     index1, index2 = find_indexes(benchmark_stat, hashing_dictionary)
     winrates = benchmark_stat.winrates
 
-    if confusion_matrix_dict[iteration][index1][index2] is not None:
-        raise LookupError('Tried to access already populated index: [{},{}]'.format(index1, index2))
+    # if confusion_matrix_dict[iteration][index1][index2] is not None and index1 != index2:
+    #     raise LookupError('Tried to access already populated index: [{},{}]'.format(index1, index2))
 
     confusion_matrix_dict[iteration][index1][index2] = winrates[0]
     confusion_matrix_dict[iteration][index2][index1] = winrates[1]
@@ -76,7 +88,17 @@ def write_matrices(directory, matrix_dict):
         os.mkdir(directory)
     for iteration, matrix in matrix_dict.items():
         winrate_matrix = np.array(matrix)
-        np.savetxt(f'{directory}/winrates-{iteration}.txt', winrate_matrix[:, :])
+        np.savetxt(f'{directory}/confusion_matrix-{iteration}.txt', winrate_matrix[:, :], delimiter=', ')
+
+
+def write_average_winrates(directory, matrix_dict, hashing_dictionary):
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+    for name, index in hashing_dictionary.items():
+        with open(f'{directory}/{name}.txt', 'a') as f:
+            for iteration, matrix in matrix_dict.items():
+                avg_winrate = sum(matrix[index]) / len(matrix)
+                f.write(f'{iteration}, {avg_winrate}\n')
 
 
 def check_for_termination(matrix_dic):
@@ -88,6 +110,12 @@ def check_for_termination(matrix_dic):
     for matrix in matrix_dic.values():
         for i in range(len(matrix)):
             for j in range(len(matrix[0])):
-                if matrix[i][j] is None:
+                if matrix[i][j] == -1:
                     return False
     return True
+
+
+def write_legend_file(hashing_dictionary, path):
+    with open(path, 'w') as f:
+        for name, index in hashing_dictionary.items():
+            f.write(f'{name}, {index}\n')

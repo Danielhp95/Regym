@@ -4,10 +4,11 @@ def run_episode(env, policy_vector, training):
     :param env: OpenAI gym environment
     :param policy_vector: Vector containing the policy for each agent in the environment
     :param training: (boolean) Whether the agents will learn from the experience they recieve
+    :returns: Trajectory (s,a,r,s')
     '''
     state = env.reset()
     done = False
-    trajectory = list()
+    trajectory = []
     while not done:
         action_vector = [agent.take_action(state) for agent in policy_vector]
         succ_state, reward_vector, done, info = env.step(action_vector)
@@ -33,13 +34,16 @@ def self_play_training(env, training_policy, self_play_scheme, target_episodes=1
     :param curator: Gating function which determines if the current policy will be added to the menagerie at the end of an episode
     :param target_episodes: number of episodes that will be run before training ends.
     :param opci: Opponent Policy Change Interval
+    :returns: Menagerie after target_episodes have elapsed
     :returns: Trained policy. freshly baked!
+    :returns: Array of arrays of trajectories for all target_episodes
     '''
     menagerie = menagerie
-
+    trajectories = []
     for episode in range(target_episodes):
         if episode % opci == 0:
             opponent_policy_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_policy.clone(training=False))
-        trajectory = run_episode(env, opponent_policy_vector_e + [training_policy], training=True)
-        menagerie = self_play_scheme.curator(menagerie, training_policy.clone(training=False), trajectory)
-    return menagerie, training_policy.clone(training=True)
+        episode_trajectory = run_episode(env, [training_policy] + opponent_policy_vector_e, training=True)
+        menagerie = self_play_scheme.curator(menagerie, training_policy.clone(training=False), episode_trajectory)
+        trajectories.append(episode_trajectory)
+    return menagerie, training_policy.clone(training=True), trajectories
