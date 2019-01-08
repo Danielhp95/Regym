@@ -14,9 +14,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import torchvision.transforms as T
 
-import threading
-from threading import Lock
-
+from threading import Thread, Lock, Event
+"""
+from torch.multiprocessing import Process, Lock 
+"""
 
 Transition = namedtuple('Transition', ('state','action','next_state', 'reward','done') )
 TransitionPR = namedtuple('TransitionPR', ('idx','priority','state','action','next_state', 'reward','done') )
@@ -309,16 +310,19 @@ class DuelingDQN(nn.Module) :
         return cloned 
 
     def forward(self, x) :
-        if self.useCNN['use'] :
-            x = self.actfn( self.bn1(self.conv1(x) ) )
-            x = self.actfn( self.bn2(self.conv2(x) ) )
-            x = self.actfn( self.bn3(self.conv3(x) ) )
-            x = x.view( x.size(0), -1)
-        
-            #print(x.size())
-        else :
-            x = self.actfn( self.f1(x) )
-            x = self.actfn( self.f2(x) )
+        try:
+            if self.useCNN['use'] :
+                x = self.actfn( self.bn1(self.conv1(x) ) )
+                x = self.actfn( self.bn2(self.conv2(x) ) )
+                x = self.actfn( self.bn3(self.conv3(x) ) )
+                x = x.view( x.size(0), -1)
+            
+                #print(x.size())
+            else :
+                x = self.actfn( self.f1(x) )
+                x = self.actfn( self.f2(x) )
+        except Exception as e:
+            raise e 
 
         fx = self.actfn( self.f(x) )
 
@@ -395,6 +399,7 @@ class DeepQNetworkAlgorithm :
         self.use_cuda = kwargs["use_cuda"]
         
         self.model = kwargs["model"]
+        self.model.eval()
 
         self.nbr_worker = kwargs["nbr_worker"]
 
@@ -402,6 +407,7 @@ class DeepQNetworkAlgorithm :
         self.paths = []
         for i in range(self.nbr_worker) :
             self.wmodels.append( self.model.clone() )
+            self.wmodels[-1].training = True
             hard_update(self.wmodels[-1],self.model)
             if self.use_cuda :
                 self.wmodels[-1] = self.wmodels[-1].cuda()
@@ -424,29 +430,45 @@ class DeepQNetworkAlgorithm :
         self.preprocess = kwargs["preprocess"]
 
         
+        self.worker_nbr_steps_max = kwargs["worker_nbr_steps_max"]
         self.w2m_update_interval = kwargs["w2m_update_interval"]
         self.epsend = 0.05
         self.epsstart = 0.9
         self.epsdecay = 10
 
         self.workerfns = []
-        self.threads = []
-        self.stop = []
+        self.processes = []
+        self.stops = []
         for i in range(self.nbr_worker) :
-            self.stop.append(False)
+            self.stops.append(Event())
+            """
             self.workerfns.append( lambda: self.train(
                                         worker_index=i,
                                         model=self.wmodels[i],
                                         replayBuffer=self.replayBuffer,
                                         optimizer=self.optimizer,
+                                        stop=self.stops[-1],
                                         epsend=self.epsend,
                                         epsstart=self.epsstart,
                                         epsdecay=self.epsdecay
                                         )
             )
 
-            self.threads.append( threading.Thread(target=self.workerfns[i]) )
-
+            #self.processes.append( Process(target=self.workerfns[i], name='DQN_Proc_{}'.format(i)) )
+            self.processes.append( Thread(target=self.workerfns[i], name='DQN_Proc_{}'.format(i)) )
+            """
+            self.processes.append( Thread(target=self.train, name='DQN_Proc_{}'.format(i),
+                                            args=(i,
+                                                self.wmodels[i],
+                                                self.replayBuffer,
+                                                self.optimizer,
+                                                self.stops[-1],
+                                                self.epsend,
+                                                self.epsstart,
+                                                self.epsdecay,
+                                                )
+                                            )
+            )
 
     def clone(self) :
         """
@@ -463,30 +485,31 @@ class DeepQNetworkAlgorithm :
             self.start(index=i)
 
     def start(self, index=0) :
-        self.threads[index].start()
+        self.processes[index].start()
 
     def join_all(self) :
         for i in range(self.nbr_worker):
             self.join(index=i)
     
     def join(self, index=0) :
-        self.threads[index].join()
+        self.processes[index].join()
     
     def stop_all(self) :
         for i in range(self.nbr_worker):
             self.stop(index=i)
 
     def stop(self, index=0) :
-        self.stop[index] = True 
+        self.stops[index].set()
+        #self.stops[index] = True 
 
     
     def from_worker2model(self, index=0) :
         self.model.lock()
-
+        
         self.optimizer.zero_grad()
 
         weights_decay_lambda = 1e-0
-        weights_decay_loss = decay_lambda * 0.5*sum( [torch.mean(param*param) for param in self.model.parameters()])
+        weights_decay_loss = weights_decay_lambda * 0.5*sum( [torch.mean(param*param) for param in self.model.parameters()])
         weights_decay_loss.backward()
         
         for wparam, mparam in zip(self.wmodels[index].parameters(), self.model.parameters() ) :
@@ -638,28 +661,35 @@ class DeepQNetworkAlgorithm :
             self.replayBuffer.push( experience)
 
 
-    def train(self,worker_index,model,replayBuffer,optimizer,epsend=0.05,epsstart=0.9,epsdecay=10): 
+    def train(self,worker_index,model,replayBuffer,optimizer,stop,epsend=0.05,epsstart=0.9,epsdecay=10): 
+        print("LAUNCHING TRAINING on worker:{} : OK.".format(worker_index))
         try :
-            target_model = copy.deepcopy(model)
+            target_model = model.clone()
             hard_update(target_model,model)
             target_model.eval()
             if self.use_cuda :
                 target_model = target_model.cuda()
                 
             for t in count() :
-                lossnp = self.optimize_model(model,target_model,replayBuffer,optimizer)                   
+                #lossnp = self.optimize_model(model,target_model,replayBuffer,optimizer)                   
+                lossnp = self.optimize_model(model,target_model,replayBuffer)                   
                 # SOFT UPDATE :
                 soft_update(target_model,model,self.TAU)
             
                 if t % self.w2m_update_interval == 0:
                     self.from_worker2model()
-                    
-                if self.stop[worker_index]:
+                #if self.stops[worker_index]:
+                if stop.isSet() or t>self.worker_nbr_steps_max:
+                    print("STOPPING TRAINING on worker:{} : ...".format(worker_index))
                     break
 
         except Exception as e :
             #bashlogger.exception(e)
+            print(e)
             raise e 
+
+
+        print("STOPPING TRAINING on worker:{} : OK.".format(worker_index))
 
 
 class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
@@ -806,15 +836,22 @@ class DeepQNetworkAgent():
         self.hashing_function = self.algorithm.kwargs["preprocess"]
 
     def launch_training(self):
+        print("Launching training: ...")
         self.algorithm.start_all()
         self.training = True 
+        print("Launching training: OK.")
 
     def stop_training(self):
+        print("Stopping training: ...")
         self.algorithm.stop_all()
         self.training = False
+        print("Stopping training: OK.")
 
     def handle_experience(self, s, a, r, succ_s,done=False):
-        experience = EXP(self.hashing_function(s),self.hashing_function(a), self.hashing_function(succ_s),self.hashing_function(r),done)
+        hs = self.hashing_function(s)
+        hsucc = self.hashing_function(succ_s)
+        r = torch.ones(1)*r
+        experience = EXP(hs,a, hsucc,r,done)
         self.algorithm.handle_experience(experience=experience)
     
     def take_action(self, state, eps=0.0):
@@ -824,21 +861,14 @@ class DeepQNetworkAgent():
     def select_action(self,model,state,eps) :
         sample = random.random()
         if sample > eps :
-            print(state)
-            try:
-                output = model( state ).data
-                qsa, action = output.max(1)
-                action = action.view(1,1)
-                qsa = output.max(1)[0].view(1,1)[0,0]
-            except Exception as e :
-                print(e)
-                action = 0
-                qsa = 0.0
-
-            return action, qsa
+            output = model( Variable(state) ).cpu().data
+            qsa, action = output.max(1)
+            action = action.view(1,1)
+            qsa = output.max(1)[0].view(1,1)[0,0]
+            return action.numpy(), qsa
         else :
-            random_action = LongTensor( [[random.randrange(self.network.nbr_actions) ] ] )
-            return random_action, 0.0
+            random_action = torch.LongTensor( [[random.randrange(self.network.nbr_actions) ] ] )
+            return random_action.numpy(), 0.0
 
     def clone(self, training=False):
         cloned_network = self.network.clone()
@@ -852,34 +882,7 @@ class DeepQNetworkAgent():
 
 
 
-
-
-
-def test_algo_init():
-    import gym
-    
-    global use_cuda 
-    use_cuda = True 
-
-    global nbr_actions
-    env = 'CartPole-v1'
-    #env = 'MountainCar-v0'
-    task = gym.make(env)
-    nbr_actions = task.action_space.n
-    useCNN = {'use':False,'dim':task.observation_space.shape[0]}
-
-    task.reset()
-    #task.render()
-    task.close()
-    
-    if useCNN['use']:
-        preprocess = T.Compose([T.ToPILImage(),
-                    T.Scale(64, interpolation=Image.CUBIC),
-                    T.ToTensor() ] )
-    else :
-        preprocess = T.Compose([
-                    T.ToTensor() ] )
-
+def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None,double=False,dueling=False):
     kwargs = dict()
     """
     :param kwargs:
@@ -902,65 +905,11 @@ def test_algo_init():
         "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
         
         "w2m_update_interval": int, worker2model update interval used for each worker/learner [default: w2m_update_interval=10].
+        "worker_nbr_steps_max": int, number of steps of the training loop for each worker/learner [default: worker_nbr_steps_max=1000].
 
         "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
     """
 
-    # Create model architecture:
-    #model = DQN(nbr_actions)
-    model = DuelingDQN(nbr_actions,useCNN=useCNN)
-    model.share_memory()
-    if use_cuda :
-        model = model.cuda()
-    kwargs["model"] = model
-
-    numep = 1000
-    BATCH_SIZE = 256
-    GAMMA = 0.999
-    TAU = 1e-2
-    MIN_MEMORY = 1e3
-    alphaPER = 0.8
-    lr = 1e-3
-    memoryCapacity = 25e3
-    num_worker = 1
-
-    #model_path = './'+env+'::CNN+DuelingDoubleDQN+PR-alpha'+str(alphaPER)+'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)+'/'
-    model_path = './'+env+'::CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
-    +'+IS+PER-alpha'+str(alphaPER) \
-    +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)+'/'
-    #+'+PER-alpha'+str(alphaPER) \
-    #+'+TruePR-alpha'+str(alphaPER)\
-    
-
-    #mkdir :
-    path=model_path+env
-    
-    kwargs["path"] = path 
-    kwargs["use_cuda"] = True 
-
-    # Initialize replay buffer:
-    #memory = PrioritizedReplayBuffer(capacity=replay_capacity,alpha=PER_alpha)
-    kwargs["replay_capacity"] = memoryCapacity
-    kwargs["min_capacity"] = MIN_MEMORY
-    kwargs["batch_size"] = BATCH_SIZE
-    kwargs["use_PER"] = True
-    kwargs["PER_alpha"] = alphaPER
-
-    kwargs["lr"] = lr 
-    kwargs["tau"] = TAU 
-    kwargs["gamma"] = GAMMA
-
-    kwargs["preprocess"] = preprocess
-    kwargs["w2m_update_interval"] = 10
-    kwargs["nbr_worker"] = 1
-    
-
-    DeepQNetwork_algo = DeepQNetworkAlgorithm(kwargs=kwargs)
-    print("DeepQNetworkAlgorithm initialized: OK")
-
-
-
-def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None,double=False,dueling=False):
     use_cuda = True 
 
     """
@@ -977,7 +926,8 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
 
     if hash_function is not None :
         if use_cuda :
-            preprocess = (lambda x: torch.from_numpy(np.array( hash_function(x) )).unsqueeze(0).type(torch.cuda.FloatTensor))
+            kwargs['hash_function'] = hash_function
+            preprocess = (lambda x: torch.from_numpy( hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor))
         else :
             preprocess = (lambda x: torch.from_numpy(np.array( hash_function(x) )).unsqueeze(0).type(torch.FloatTensor))
         #preprocess = (lambda x: torch.from_numpy( np.ones((1,1))*hash_function(x)).type(torch.cuda.FloatTensor) )
@@ -988,31 +938,7 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
         """
         preprocess = (lambda x: preprocess_model(x))
 
-    kwargs = dict()
-    """
-    :param kwargs:
-        "model": model of the agent to use/optimize in this algorithm.
-
-        "path": str specifying where to save the model(s).
-        "use_cuda": boolean to specify whether to use CUDA.
-
-        "replay_capacity": int, capacity of the replay buffer to use.
-        "min_capacity": int, minimal capacity before starting to learn.
-        "batch_size": int, batch size to use [default: batch_size=256].
-
-        "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
-        "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
-
-        "lr": float, learning rate [default: lr=1e-3].
-        "tau": float, soft-update rate [default: tau=1e-3].
-        "gamma": float, Q-learning gamma rate [default: gamma=0.999].
-
-        "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
-        
-        "w2m_update_interval": int, worker2model update interval used for each worker/learner [default: w2m_update_interval=10].
-
-        "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
-    """
+    kwargs["worker_nbr_steps_max"] = 1000
 
     # Create model architecture:
     if dueling :
@@ -1033,7 +959,7 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
     alphaPER = 0.8
     lr = 1e-3
     memoryCapacity = 25e3
-    num_worker = 1
+    num_worker = 8
 
     model_path = './CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
     +'+IS+PER-alpha'+str(alphaPER) \
@@ -1058,7 +984,7 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
 
     kwargs["preprocess"] = preprocess
     kwargs["w2m_update_interval"] = 10
-    kwargs["nbr_worker"] = 1
+    kwargs["nbr_worker"] = num_worker
     
 
     DeepQNetwork_algo = DeepQNetworkAlgorithm(kwargs=kwargs)
@@ -1129,6 +1055,5 @@ def run():
 
 
 if __name__ == "__main__":
-    #test_algo_init()
     build_DQN_Agent()
     build_DQN_Agent(double=True,dueling=True)

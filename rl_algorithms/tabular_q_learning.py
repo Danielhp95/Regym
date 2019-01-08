@@ -16,7 +16,7 @@ class TabularQLearning():
         self.name = 'TabularQLearning'
         pass
 
-    def handle_experience(self, s, a, r, succ_s):
+    def handle_experience(self, s, a, r, succ_s, done=False):
         if self.training:
             self.update_q_table(self.hashing_function(s), a, r, self.hashing_function(succ_s))
             self.anneal_learning_rate()
@@ -28,6 +28,7 @@ class TabularQLearning():
         pass
 
     def take_action(self, state):
+        print(self.hashing_function(state))
         optimal_moves = self.find_optimal_moves(self.Q_table, self.hashing_function(state))
         return random.choice(optimal_moves)
 
