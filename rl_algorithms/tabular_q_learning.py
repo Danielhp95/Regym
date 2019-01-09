@@ -28,7 +28,6 @@ class TabularQLearning():
         pass
 
     def take_action(self, state):
-        print(self.hashing_function(state))
         optimal_moves = self.find_optimal_moves(self.Q_table, self.hashing_function(state))
         return random.choice(optimal_moves)
 
