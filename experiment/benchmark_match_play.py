@@ -20,7 +20,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     :param name: String identifying this benchmarking process
     """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     logger.info('Started for {} episodes'.format(num_episodes))
 
     policy_vector = [recorded_policy.policy for recorded_policy in benchmark_job.recorded_policy_vector]
@@ -35,17 +35,12 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
         for future in as_completed(futures):
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
-        winrates = [calculate_individual_winrate(wins_vector, i)
-                    for i in range(len(policy_vector))]
+        winrates = [winrate / num_episodes for winrate in wins_vector]
 
     matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
                                          benchmark_job.recorded_policy_vector,
                                          winrates))
     logger.info('Benchmarking finished')
-
-
-def calculate_individual_winrate(wins_vector, agent_index):
-    return sum([wins_vector[agent_index] for i in range(len(wins_vector))]) / len(wins_vector)
 
 
 def single_match(env, policy_vector):

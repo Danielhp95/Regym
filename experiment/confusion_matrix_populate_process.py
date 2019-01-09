@@ -38,7 +38,7 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
         if check_for_termination(confusion_matrix_dict):
             logger.info('All confusion matrices completed. Writing to memory')
 
-            filled_matrices = {key: fill_winrate_diagonal(confusion_matrix, value='50') for key, confusion_matrix in confusion_matrix_dict.items()}
+            filled_matrices = {key: fill_winrate_diagonal(confusion_matrix, value='0.5') for key, confusion_matrix in confusion_matrix_dict.items()}
             write_matrices(directory=f'{results_path}/confusion_matrices', matrix_dict=filled_matrices)
             write_average_winrates(directory=f'{results_path}/winrates', matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
 
