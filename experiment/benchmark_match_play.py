@@ -4,6 +4,7 @@ import numpy as np
 from collections import namedtuple
 BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_policy_vector winrates')
 
+from multiprocessing import Process
 from concurrent.futures import as_completed
 
 from multiagent_loops.simultaneous_action_rl_loop import run_episode
@@ -19,7 +20,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     :param name: String identifying this benchmarking process
     """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     logger.info('Started for {} episodes'.format(num_episodes))
 
     policy_vector = [recorded_policy.policy for recorded_policy in benchmark_job.recorded_policy_vector]
@@ -34,17 +35,12 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
         for future in as_completed(futures):
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
-        winrates = [calculate_individual_winrate(wins_vector, i)
-                    for i in range(len(policy_vector))]
+        winrates = [winrate / num_episodes for winrate in wins_vector]
 
     matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
                                          benchmark_job.recorded_policy_vector,
                                          winrates))
     logger.info('Benchmarking finished')
-
-
-def calculate_individual_winrate(wins_vector, agent_index):
-    return sum([wins_vector[agent_index] for i in range(len(wins_vector))]) / len(wins_vector)
 
 
 def single_match(env, policy_vector):
@@ -60,3 +56,22 @@ def single_match(env, policy_vector):
 def choose_winner(cumulative_reward_vector, break_ties=random.choice):
     indexes_max_score = np.argwhere(cumulative_reward_vector == np.amax(cumulative_reward_vector))
     return break_ties(indexes_max_score.flatten().tolist())
+
+
+def create_benchmark_process(benchmarking_episodes, createNewEnvironment, benchmark_job, pool, matrix_queue, name):
+    """
+    Creates a benchmarking process for the precomputed benchmark_job.
+    The results of the benchmark will be put in the matrix_queue to populate confusion matrix
+
+    :param benchmarking_episodes: Number of episodes that each benchmarking process will run for
+    :param createNewEnvironment: OpenAI gym environment creation function
+    :param benchmark_job: precomputed BenchmarkingJob
+    :param pool: ProcessPoolExecutor shared between benchmarking_jobs to carry out benchmarking matches
+    :param matrix_queue: Queue reference sent to benchmarking process, where it will put the bencharmking result
+    :param name: BenchmarkingJob name identifier
+    """
+    benchmark_process = Process(target=benchmark_match_play_process,
+                                args=(benchmarking_episodes, createNewEnvironment,
+                                      benchmark_job, pool, matrix_queue, name))
+    benchmark_process.start()
+    return benchmark_process

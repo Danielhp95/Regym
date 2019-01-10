@@ -81,9 +81,9 @@ def create_aggregated_benchmark_winrate_plot(winrate_dict, target_dir):
 
         plt.errorbar(iterations, means, standard_deviations, marker='o', label=name)
 
-        y_max = 100
+        y_max = 1
         plt.xticks(iterations)
-        plt.yticks(np.arange(0, y_max * + 20, 10)) # Watch out when changing y_max
+        plt.yticks(np.arange(0, y_max + y_max*0.1, y_max * 0.1)) # Watch out when changing y_max
         plt.plot((0, max(iterations)), (y_max / 2, y_max / 2), '--')
 
     plt.legend(loc='best')
@@ -124,7 +124,7 @@ def create_single_heatmap(source, target_dir, axis_labels):
 
     fig, ax = plt.subplots()
 
-    v_max = 100
+    v_max = 1
 
     ax.set_xticks(np.arange(len(axis_labels)))
     ax.set_yticks(np.arange(len(axis_labels)))
@@ -154,9 +154,9 @@ def create_average_winrate_graph(source_dir, target_dir):
 
         benchmark_winrate_dict[file_name] = (iterations, winrates)
 
-        y_max = 100
+        y_max = 1
         plt.xticks(iterations)
-        plt.yticks(np.arange(0, y_max * + 20, 10)) # Watch out when changing y_max
+        plt.yticks(np.arange(0, y_max + y_max*0.1, y_max * 0.1)) # TODO refactor copied lines
         plt.plot((0, max(iterations)), (y_max / 2, y_max / 2), '--')
         plt.plot(iterations, winrates, marker='o', label=file_name)
 

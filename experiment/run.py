@@ -101,6 +101,9 @@ def initialize_algorithms(environment, algorithms_cli):
     def parse_algorithm(algorithm, env):
         if algorithm.lower() == 'tabularqlearning':
             return TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)
+        if algorithm.lower() == 'deepqlearning':
+            from rl_algorithms import build_DQN_Agent
+            return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=True, dueling=True)
         else: raise ValueError(f'Unknown algorithm {algorithm}. Try defining it inside this script.')
     return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli]
 
@@ -115,7 +118,7 @@ def initialize_fixed_agents(fixed_agents_cli):
 
 
 if __name__ == '__main__':
-    print('''
+    logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888
 8888888888888888888888888888888888888888888888888888888888888O888888888888888888
@@ -154,7 +157,7 @@ if __name__ == '__main__':
     '''
 
     options = docopt(_USAGE)
-    print(options)
+    logger.info(options)
 
     createNewEnvironment  = define_environment_creation_funcion(options['--environment'])
     env = createNewEnvironment()
