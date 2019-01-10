@@ -9,7 +9,10 @@ def opponent_sampling_distribution(menagerie, training_policy):
     :param training_policy: Policy currently being trained
     :returns: Policy, sampled from the menagerie, to be used as an opponent in the next episode
     '''
-    return [training_policy]
+    if len(menagerie):
+        return [menagerie[0]]
+    else :
+        return [training_policy]
 
 
 def curator(menagerie, training_policy, episode_trajectory):
