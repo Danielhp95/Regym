@@ -1,0 +1,1 @@
+python run.py --environment RockPaperScissors-v0 --experiment_id TESTDQN --number_of_runs 1000 --checkpoint_at_iterations 10 --benchmarking_episodes 100 --self_play_training_schemes naiveselfplay --algorithms deepqlearning --fixed_agents rockAgent
