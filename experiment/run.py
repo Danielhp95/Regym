@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 from collections import namedtuple
-from multiprocessing import Process, Queue
+#from multiprocessing import Process, Queue
+from torch.multiprocessing import Process, Queue
 from concurrent.futures import ProcessPoolExecutor
 
 import gym
@@ -71,11 +72,18 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
     return (training_processes, mm_process, cfm_process)
 
 
+class EnvironmentCreationFunction(object) :
+    def __init__(self, environment_name_cli):
+        self.environment_name_cli = environment_name_cli
+
+    def __call__(self) :
+        return gym.make(self.environment_name_cli)
+
 def define_environment_creation_funcion(environment_name_cli):
     valid_environments = ['RockPaperScissors-v0']
     if environment_name_cli not in valid_environments:
-        raise ValueError(f'Unknown environment {environment_name_cli}\t valid environments: {valid_environments}')
-    return lambda: gym.make(environment_name_cli)
+        raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli,valid_environments))
+    return EnvironmentCreationFunction(environment_name_cli)
 
 
 def run_processes(training_process, mm_process, cfm_process):
@@ -92,8 +100,8 @@ def initialize_training_schemes(training_schemes_cli):
     def parse_training_scheme(training_scheme):
         if training_scheme.lower() == 'fullhistoryselfplay': return FullHistorySelfPlay
         elif training_scheme.lower() == 'halfhistoryselfplay': return HalfHistorySelfPlay
-        elif training_scheme.lower() == 'naiveSelfplay': return NaiveSelfPlay
-        else: raise ValueError(f'Unknown training scheme {training_scheme}. Try defining it inside this script.')
+        elif training_scheme.lower() == 'naiveselfplay': return NaiveSelfPlay
+        else: raise ValueError('Unknown training scheme {}. Try defining it inside this script.'.format(training_scheme))
     return [parse_training_scheme(t_s) for t_s in training_schemes_cli]
 
 
@@ -104,7 +112,7 @@ def initialize_algorithms(environment, algorithms_cli):
         if algorithm.lower() == 'deepqlearning':
             from rl_algorithms import build_DQN_Agent
             return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=True, dueling=True)
-        else: raise ValueError(f'Unknown algorithm {algorithm}. Try defining it inside this script.')
+        else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
     return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli]
 
 
@@ -113,11 +121,13 @@ def initialize_fixed_agents(fixed_agents_cli):
         if agent.lower() == 'rockagent': return rockAgent
         elif agent.lower() == 'paperagent': return paperAgent
         elif agent.lower() == 'scissorsagent': return scissorsAgent
-        else: raise ValueError(f'Unknown fixed agent {agent}. Try defining it inside this script.')
+        else: raise ValueError('Unknown fixed agent {}. Try defining it inside this script.'.format(agent))
     return [parse_fixed_agent(agent) for agent in fixed_agents_cli]
 
 
 if __name__ == '__main__':
+    import torch
+    torch.multiprocessing.set_start_method('spawn')
     logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888
@@ -162,7 +172,7 @@ if __name__ == '__main__':
     createNewEnvironment  = define_environment_creation_funcion(options['--environment'])
     env = createNewEnvironment()
 
-    experiment_id = int(options['--experiment_id'])
+    experiment_id = options['--experiment_id']
     number_of_runs = int(options['--number_of_runs'])
 
     checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]
@@ -179,16 +189,16 @@ if __name__ == '__main__':
     (initial_fixed_policies_to_benchmark,
      fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
 
-    experiment_directory = f'experiment-{experiment_id}'
+    experiment_directory = 'experiment-{}'.format(experiment_id)
     if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
     os.mkdir(experiment_directory)
 
-    with open(f'{experiment_directory}/experiment_parameters.yml', 'w') as outfile:
+    with open('{}/experiment_parameters.yml'.format(experiment_directory), 'w') as outfile:
         yaml.dump(options, outfile, default_flow_style=False)
 
     for run_id in range(number_of_runs):
-        logger.info(f'Starting run: {run_id}')
-        results_path = f'{experiment_directory}/run-{run_id}'
+        logger.info('Starting run: {}'.format(run_id))
+        results_path = '{}/run-{}'.format(experiment_directory,run_id)
         if not os.path.exists(results_path):
             os.mkdir(results_path)
 
@@ -201,6 +211,6 @@ if __name__ == '__main__':
                                                      fixed_policies_for_confusion, results_path)
 
         run_processes(training_processes, mm_process, cfm_process)
-        logger.info(f'Finished run: {run_id}\n')
+        logger.info('Finished run: {}\n'.format(run_id))
 
     create_plots(experiment_directory=experiment_directory, number_of_runs=number_of_runs)

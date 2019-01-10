@@ -9,20 +9,20 @@ from matplotlib import pyplot as plt
 
 
 def create_plots(experiment_directory, number_of_runs):
-    os.mkdir(f'{experiment_directory}/plots')
+    os.mkdir('{}/plots'.format(experiment_directory))
 
     aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict = {}, {}
     for run_id in range(number_of_runs):
-        os.mkdir(f'{experiment_directory}/run-{run_id}/plots')
+        os.mkdir('{}/run-{}/plots'.format(experiment_directory,run_id))
         new_episodic_reward_dict, \
         new_winrate_dict = plot_single_run(run_id=run_id,
-                                           source_dir=f'{experiment_directory}/run-{run_id}')
+                                           source_dir='{}/run-{}'.format(experiment_directory,run_id))
         update_aggregated_statistics(aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict,
                                      new_episodic_reward_dict, new_winrate_dict)
 
     create_aggregated_plots(aggregated_episodic_reward_dict,
                             aggregated_benchmark_winrate_dict,
-                            target_dir=f'{experiment_directory}/plots')
+                            target_dir='{}/plots'.format(experiment_directory) )
 
 
 def update_aggregated_statistics(aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict,
@@ -61,9 +61,9 @@ def create_aggregated_individual_episodic_reward_plots(episodic_reward_dict, tar
 
         plt.xlabel('Training episode')
         plt.ylabel('Average episodic reward')
-        plt.title(f'Average episodic reward \nfor policy: {name}')
+        plt.title('Average episodic reward \nfor policy: {}'.format(name))
 
-        plt.savefig(f'{target_dir}/episodic_reward-{name}.svg', format='svg')
+        plt.savefig('{}/episodic_reward-{}.svg'.format(target_dir,name), format='svg')
         plt.tight_layout()
         plt.close()
 
@@ -91,28 +91,28 @@ def create_aggregated_benchmark_winrate_plot(winrate_dict, target_dir):
     plt.xlabel('Training iteration')
     plt.title('Average winrate against all opponents')
     plt.tight_layout()
-    plt.savefig(f'{target_dir}/benchmark_winrates.svg', format='svg')
+    plt.savefig('{}/benchmark_winrates.svg'.format(target_dir), format='svg')
     plt.close()
 
 
 def plot_single_run(run_id, source_dir):
-    create_confusion_matrix_heatmaps(source_dir=f'{source_dir}/confusion_matrices',
-                                     target_dir=f'{source_dir}/plots')
+    create_confusion_matrix_heatmaps(source_dir='{}/confusion_matrices'.format(source_dir),
+                                     target_dir='{}/plots'.format(source_dir))
     plt.close()
-    benchmark_winrate_dict = create_average_winrate_graph(source_dir=f'{source_dir}/winrates',
-                                                          target_dir=f'{source_dir}/plots')
+    benchmark_winrate_dict = create_average_winrate_graph(source_dir='{}/winrates'.format(source_dir),
+                                                          target_dir='{}/plots'.format(source_dir))
     plt.close()
-    episodic_reward_dict = create_individual_episodic_reward_graph(source_dir=f'{source_dir}/episodic_rewards',
-                                                                   target_dir=f'{source_dir}/plots')
+    episodic_reward_dict = create_individual_episodic_reward_graph(source_dir='{}/episodic_rewards'.format(source_dir),
+                                                                   target_dir='{}/plots'.format(source_dir))
     plt.close()
     return episodic_reward_dict, benchmark_winrate_dict
 
 
 def create_confusion_matrix_heatmaps(source_dir, target_dir):
-    axis_labels = [axis.replace('-', '\n') for axis in read_labels_from_file(f'{source_dir}/legend.txt')]
+    axis_labels = [axis.replace('-', '\n') for axis in read_labels_from_file('{}/legend.txt'.format(source_dir))]
     files = all_files_in_directory(source_dir)
     for f in files:
-        if f == f'{source_dir}/legend.txt': continue
+        if f == '{}/legend.txt'.format(source_dir): continue
         create_single_heatmap(f, target_dir, axis_labels)
         plt.close()
 
@@ -138,10 +138,10 @@ def create_single_heatmap(source, target_dir, axis_labels):
     [[ax.text(j, i, file_content[i, j], ha='center', va='center', color='w')
       for j in range(len(file_content))] for i in range(len(file_content))]
 
-    plt.title(f'Head to head winrates after training iteration {iteration}')
+    plt.title('Head to head winrates after training iteration {}'.format(iteration))
     plt.tight_layout()
 
-    fig.savefig(f'{target_dir}/heatmap-{file_name}.svg', format='svg')
+    fig.savefig('{}/heatmap-{}.svg'.format(target_dir,file_name), format='svg')
 
 
 def create_average_winrate_graph(source_dir, target_dir):
@@ -165,7 +165,7 @@ def create_average_winrate_graph(source_dir, target_dir):
     plt.ylabel('Average Winrate')
     plt.xlabel('Training iteration')
     plt.title('Average winrate against all opponents')
-    plt.savefig(f'{target_dir}/benchmark_winrates.svg', format='svg')
+    plt.savefig('{}/benchmark_winrates.svg'.format(target_dir), format='svg')
 
     return benchmark_winrate_dict
 
@@ -186,8 +186,8 @@ def create_individual_episodic_reward_graph(source_dir, target_dir):
         plt.ylabel('Average episodic reward')
         plt.plot(iterations, avg_reward)
 
-        plt.title(f'Average episodic reward during training\nfor policy: {file_name}')
-        plt.savefig(f'{target_dir}/episodic_reward-{file_name}.svg', format='svg')
+        plt.title('Average episodic reward during training\nfor policy: {}'.format(file_name))
+        plt.savefig('{}/episodic_reward-{}.svg'.format(target_dir,file_name), format='svg')
         plt.close()
     return episodic_reward_dict
 

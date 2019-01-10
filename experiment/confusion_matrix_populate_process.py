@@ -39,10 +39,10 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             logger.info('All confusion matrices completed. Writing to memory')
 
             filled_matrices = {key: fill_winrate_diagonal(confusion_matrix, value='0.5') for key, confusion_matrix in confusion_matrix_dict.items()}
-            write_matrices(directory=f'{results_path}/confusion_matrices', matrix_dict=filled_matrices)
-            write_average_winrates(directory=f'{results_path}/winrates', matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
+            write_matrices(directory='{}/confusion_matrices', matrix_dict=filled_matrices)
+            write_average_winrates(directory='{}/winrates'.format(results_path), matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
 
-            write_legend_file(hashing_dictionary, path=f'{results_path}/confusion_matrices/legend.txt')
+            write_legend_file(hashing_dictionary, path='{}/confusion_matrices/legend.txt'.format(results_path))
             logger.info('Writing completed')
             break
 
@@ -88,17 +88,17 @@ def write_matrices(directory, matrix_dict):
         os.mkdir(directory)
     for iteration, matrix in matrix_dict.items():
         winrate_matrix = np.array(matrix)
-        np.savetxt(f'{directory}/confusion_matrix-{iteration}.txt', winrate_matrix[:, :], delimiter=', ')
+        np.savetxt('{}/confusion_matrix-{}.txt'.format(directory,iteration), winrate_matrix[:, :], delimiter=', ')
 
 
 def write_average_winrates(directory, matrix_dict, hashing_dictionary):
     if not os.path.exists(directory):
         os.mkdir(directory)
     for name, index in hashing_dictionary.items():
-        with open(f'{directory}/{name}.txt', 'a') as f:
+        with open('{}/{}.txt'.format(directory,name), 'a') as f:
             for iteration, matrix in matrix_dict.items():
                 avg_winrate = sum(matrix[index]) / len(matrix)
-                f.write(f'{iteration}, {avg_winrate}\n')
+                f.write('{}, {}\n'.format(iteration,avg_winrate))
 
 
 def check_for_termination(matrix_dic):
@@ -118,4 +118,4 @@ def check_for_termination(matrix_dic):
 def write_legend_file(hashing_dictionary, path):
     with open(path, 'w') as f:
         for name, index in hashing_dictionary.items():
-            f.write(f'{name}, {index}\n')
+            f.write('{}, {}\n'.format(name,index))

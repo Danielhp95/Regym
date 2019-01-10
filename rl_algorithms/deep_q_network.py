@@ -853,6 +853,8 @@ class DeepQNetworkAgent():
         self.epsdecay = self.kwargs['epsdecay']
         self.nbr_steps = 0 
 
+        self.name = self.kwargs['name']
+
         self.mutex = Lock()
 
     def lock(self) :
@@ -1023,12 +1025,15 @@ def build_DQN_Agent(state_space_size=32,
     lr = 1e-3
     memoryCapacity = 25e3
     
-    model_path = './CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
+    name = 'CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
     +'+IS+PER-alpha'+str(alphaPER) \
     +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)+'/'
 
+    model_path = './'+name 
     
     path=model_path
+
+    kwargs['name'] = name 
     kwargs["path"] = path 
     kwargs["use_cuda"] = True 
 

@@ -36,9 +36,9 @@ def test_selfplay_DQNvsFixedAgent():
 										dueling=True,
 										num_worker=1,
 										MIN_MEMORY=1e1,
-										epsstart=0.5,
-										epsend=0.3,
-										epsdecay=1e2)
+										epsstart=0.9,
+										epsend=0.01,
+										epsdecay=2e2)
 
 	fixedAgent = gym_rock_paper_scissors.fixed_agents.rockAgent
 
