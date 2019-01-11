@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 from collections import namedtuple
-#from multiprocessing import Process, Queue
 from torch.multiprocessing import Process, Queue
 from concurrent.futures import ProcessPoolExecutor
 
@@ -154,7 +153,7 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
 
 if __name__ == '__main__':
     import torch
-    torch.multiprocessing.set_start_method('spawn')
+    # torch.multiprocessing.set_start_method('spawn') Fixing this is the purpose of develop-dqn-multiprocessing
     logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888

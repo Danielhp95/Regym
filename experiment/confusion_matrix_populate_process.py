@@ -39,7 +39,7 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             logger.info('All confusion matrices completed. Writing to memory')
 
             filled_matrices = {key: fill_winrate_diagonal(confusion_matrix, value='0.5') for key, confusion_matrix in confusion_matrix_dict.items()}
-            write_matrices(directory='{}/confusion_matrices', matrix_dict=filled_matrices)
+            write_matrices(directory='{}/confusion_matrices'.format(results_path), matrix_dict=filled_matrices)
             write_average_winrates(directory='{}/winrates'.format(results_path), matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
 
             write_legend_file(hashing_dictionary, path='{}/confusion_matrices/legend.txt'.format(results_path))

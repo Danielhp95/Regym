@@ -9,26 +9,16 @@ def run_episode(env, policy_vector, training):
     state = env.reset()
     done = False
     trajectory = []
-    cum_reward = None
-    step = 0
     while not done:
         action_vector = [agent.take_action(state) for agent in policy_vector]
         succ_state, reward_vector, done, info = env.step(action_vector)
         trajectory.append((state, action_vector, reward_vector, succ_state, done))
+        state = succ_state
         if training:
             for i, agent in enumerate(policy_vector):
                 agent.handle_experience(state, action_vector[i], reward_vector[i], succ_state, done)
-        
-        step += 1
-        state = succ_state
-        if cum_reward is None :
-            cum_reward = reward_vector
-        else :
-            for i in range(len(cum_reward)):
-                cum_reward[i] += reward_vector[i]
-        print("Step:{} / Cumulative Reward: {} / Actions: {}".format( step, cum_reward, action_vector), end='\r' )
 
-    return trajectory, cum_reward
+    return trajectory
 
 
 def self_play_training(env, training_policy, self_play_scheme, target_episodes=10, opci=1, menagerie=[]):
@@ -51,23 +41,11 @@ def self_play_training(env, training_policy, self_play_scheme, target_episodes=1
     '''
     menagerie = menagerie
     trajectories = []
-    cum_cum_reward = None 
     for episode in range(target_episodes):
-        print("Episode:{}".format(episode))
         if episode % opci == 0:
             opponent_policy_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_policy.clone(training=False))
-        episode_trajectory, cum_reward = run_episode(env, [training_policy]+opponent_policy_vector_e, training=True)
+        episode_trajectory = run_episode(env, [training_policy]+opponent_policy_vector_e, training=True)
         menagerie = self_play_scheme.curator(menagerie, training_policy.clone(training=False), episode_trajectory)
         trajectories.append(episode_trajectory)
-        
-        print('\n', end='\r')
-
-        if cum_cum_reward is None :
-            cum_cum_reward = cum_reward
-        else :
-            for i in range(len(cum_reward)):
-                cum_cum_reward[i] += cum_reward[i]
-
-        print('RUNNING CUM_REWARD: {}', cum_cum_reward)
 
     return menagerie, training_policy.clone(training=True), trajectories
