@@ -928,11 +928,15 @@ class DeepQNetworkAgent():
         return cloned
 
 class PreprocessFunction(object) :
-    def __init__(self, hash_function):
+    def __init__(self, hash_function, state_space_size):
         self.hash_function = hash_function
+        self.state_space_size = state_space_size
 
     def __call__(self,x) :
-        return torch.from_numpy( self.hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor)
+        x = self.hash_function(x)
+        one_hot_encoded_state = np.zeros(self.state_space_size)
+        one_hot_encoded_state[x] = 1.0
+        return torch.from_numpy( one_hot_encoded_state ).unsqueeze(0).type(torch.cuda.FloatTensor)
 
 def build_DQN_Agent(state_space_size=32, 
                         action_space_size=3, 
@@ -993,7 +997,7 @@ def build_DQN_Agent(state_space_size=32,
     if hash_function is not None :
         if use_cuda :
             kwargs['hash_function'] = hash_function
-            preprocess = PreprocessFunction(hash_function=hash_function)#(lambda x: torch.from_numpy( hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor))
+            preprocess = PreprocessFunction(hash_function=hash_function, state_space_size=state_space_size)#(lambda x: torch.from_numpy( hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor))
         else :
             preprocess = (lambda x: torch.from_numpy(np.array( hash_function(x) )).unsqueeze(0).type(torch.FloatTensor))
         #preprocess = (lambda x: torch.from_numpy( np.ones((1,1))*hash_function(x)).type(torch.cuda.FloatTensor) )

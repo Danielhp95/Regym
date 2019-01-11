@@ -25,9 +25,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 from collections import namedtuple
-#from multiprocessing import Process, Queue
 from torch.multiprocessing import Process, Queue
-from concurrent.futures import ProcessPoolExecutor
+#from concurrent.futures import ProcessPoolExecutor
 
 import gym
 import gym_rock_paper_scissors
@@ -55,7 +54,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
     # TODO Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
     benchmark_process_number_workers = 4
-    benchmark_process_pool = ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
+    benchmark_process_pool = None#ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
     training_processes = create_training_processes(training_jobs, createNewEnvironment,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
@@ -127,7 +126,7 @@ def initialize_fixed_agents(fixed_agents_cli):
 
 if __name__ == '__main__':
     import torch
-    torch.multiprocessing.set_start_method('spawn')
+    torch.multiprocessing.set_start_method('forkserver')
     logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888
