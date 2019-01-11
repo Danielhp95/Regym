@@ -3,6 +3,7 @@ import sys
 
 sys.path.append(os.path.abspath('..'))
 
+import time
 import logging
 from multiprocessing import Process
 
@@ -23,23 +24,32 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
     logger.info('Started')
+    process_start_time = time.time()
 
     completed_iterations = 0
     menagerie = []
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
+
+        training_start = time.time()
         (menagerie, trained_policy,
          trajectories) = self_play_training(env=env, training_policy=training_policy,
                                             self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
                                             menagerie=menagerie)
+        training_duration = time.time() - training_start
+
         completed_iterations += next_training_iterations
 
-        logger.info('Submitted policy at iteration {}'.format(target_iteration))
         policy_queue.put([target_iteration, self_play_scheme, trained_policy])
+
+        logger.info('Submitted policy at iteration {}'.format(target_iteration))
+        logger.info('Training duration between iterations [{},{}]: {} (seconds)'.format(target_iteration - next_training_iterations, target_iteration, training_duration))
 
         file_name = f'{self_play_scheme.name}-{training_policy.name}.txt'
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
         write_episodic_reward(enumerated_trajectories, target_file_path=f'{results_path}/{file_name}')
+
+    logger.info('All training completed. Total duration: {} seconds'.format(time.time() - process_start_time))
 
 
 def write_episodic_reward(enumerated_trajectories, target_file_path):
@@ -64,7 +74,6 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
 
     logger = logging.getLogger('CreateTrainingProcesses')
     logger.setLevel(logging.DEBUG)
-
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
     ps = []
     for job in training_jobs:

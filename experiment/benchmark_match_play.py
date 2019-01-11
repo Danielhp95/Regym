@@ -1,3 +1,4 @@
+import time
 import logging
 import random
 import numpy as np
@@ -25,22 +26,25 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
 
     policy_vector = [recorded_policy.policy for recorded_policy in benchmark_job.recorded_policy_vector]
 
-    # TODO Use given pool, but how?
+    # TODO Use given pool by having a multiprocessing.Manager?
     from concurrent.futures import ProcessPoolExecutor
     with ProcessPoolExecutor(max_workers=3) as executor:
+        benchmark_start = time.time()
         futures = [executor.submit(single_match, *[createNewEnvironment(), policy_vector])
                    for _ in range(num_episodes)]
 
         wins_vector = [0 for _ in range(len(policy_vector))]
+
         for future in as_completed(futures):
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
+        benchmark_duration = time.time() - benchmark_start
         winrates = [winrate / num_episodes for winrate in wins_vector]
 
     matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
                                          benchmark_job.recorded_policy_vector,
                                          winrates))
-    logger.info('Benchmarking finished')
+    logger.info('Benchmarking finished. Duration: {} seconds'.format(benchmark_duration))
 
 
 def single_match(env, policy_vector):
