@@ -45,9 +45,9 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
         logger.info('Submitted policy at iteration {}'.format(target_iteration))
         logger.info('Training duration between iterations [{},{}]: {} (seconds)'.format(target_iteration - next_training_iterations, target_iteration, training_duration))
 
-        file_name = f'{self_play_scheme.name}-{training_policy.name}.txt'
+        file_name = '{}-{}.txt'.format(self_play_scheme.name,training_policy.name)
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
-        write_episodic_reward(enumerated_trajectories, target_file_path=f'{results_path}/{file_name}')
+        write_episodic_reward(enumerated_trajectories, target_file_path='{}/{}'.format(results_path,file_name))
 
     logger.info('All training completed. Total duration: {} seconds'.format(time.time() - process_start_time))
 
@@ -56,7 +56,7 @@ def write_episodic_reward(enumerated_trajectories, target_file_path):
     with open(target_file_path, 'a') as f:
         for iteration, trajectory in enumerated_trajectories:
             player_1_average_reward = sum(map(lambda t: t[2][0], trajectory)) / len(trajectory) # TODO find a way of not hardcoding indexes
-            f.write(f'{iteration}, {player_1_average_reward}\n')
+            f.write('{}, {}\n'.format(iteration,player_1_average_reward))
 
 
 def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, policy_queue, results_path):
@@ -68,7 +68,7 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     :returns: array of process handlers, needed to join processes at the end of experiment computation
     """
     # TODO Create experiment directory tree structure much earlier, and all together
-    episodic_reward_directory = f'{results_path}/episodic_rewards'
+    episodic_reward_directory = '{}/episodic_rewards'.format(results_path)
     if not os.path.exists(episodic_reward_directory):
         os.mkdir(episodic_reward_directory)
 

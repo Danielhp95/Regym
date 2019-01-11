@@ -14,10 +14,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import torchvision.transforms as T
 
+"""
 from threading import Thread, Lock, Event
 """
-from torch.multiprocessing import Process, Lock 
-"""
+from torch.multiprocessing import Process, Lock, Event 
 
 Transition = namedtuple('Transition', ('state','action','next_state', 'reward','done') )
 TransitionPR = namedtuple('TransitionPR', ('idx','priority','state','action','next_state', 'reward','done') )
@@ -259,9 +259,11 @@ class DQN(nn.Module) :
     def unlock(self) :
         self.mutex.release()
 
+def LeakyReLU(x) :
+    return F.leaky_relu(x,0.1)
 
 class DuelingDQN(nn.Module) :
-    def __init__(self,nbr_actions=2,actfn= lambda x : F.leaky_relu(x,0.1), useCNN={'use':True,'dim':3}, use_cuda=True ) :
+    def __init__(self,nbr_actions=2,actfn=LeakyReLU, useCNN={'use':True,'dim':3}, use_cuda=True ) :
         super(DuelingDQN,self).__init__()
         
         self.nbr_actions = nbr_actions
@@ -457,7 +459,8 @@ class DeepQNetworkAlgorithm :
             #self.processes.append( Process(target=self.workerfns[i], name='DQN_Proc_{}'.format(i)) )
             self.processes.append( Thread(target=self.workerfns[i], name='DQN_Proc_{}'.format(i)) )
             """
-            self.processes.append( Thread(target=self.train, name='DQN_Proc_{}'.format(i),
+            #self.processes.append( Thread(target=self.train, name='DQN_Proc_{}'.format(i),
+            self.processes.append( Process(target=self.train, name='DQN_Proc_{}'.format(i),
                                             args=(i,
                                                 self.wmodels[i],
                                                 self.replayBuffer,
@@ -547,7 +550,7 @@ class DeepQNetworkAlgorithm :
         """
         
         if len(replayBuffer) < self.min_capacity :
-            return
+            return None
         
         #Create batch with PrioritizedReplayBuffer/PER:
         prioritysum = replayBuffer.total()
@@ -672,14 +675,22 @@ class DeepQNetworkAlgorithm :
                 
             for t in count() :
                 #lossnp = self.optimize_model(model,target_model,replayBuffer,optimizer)                   
+                #print("WORKER:{} : optimizing : ...".format(worker_index))
                 lossnp = self.optimize_model(model,target_model,replayBuffer)                   
+                #print("WORKER:{} : optimizing : OK.".format(worker_index))
+                
                 # SOFT UPDATE :
+                #print("WORKER:{} : soft update : ...".format(worker_index))
                 soft_update(target_model,model,self.TAU)
-            
+                #print("WORKER:{} : soft update : OK.".format(worker_index))
+                
                 if t % self.w2m_update_interval == 0:
+                    #print("WORKER:{} : learner sync : ...".format(worker_index))
                     self.from_worker2model()
+                    #print("WORKER:{} : learner sync : OK.".format(worker_index))
+                    
                 #if self.stops[worker_index]:
-                if stop.isSet() or t>self.worker_nbr_steps_max:
+                if stop.is_set() :#or t>self.worker_nbr_steps_max:
                     print("STOPPING TRAINING on worker:{} : ...".format(worker_index))
                     break
 
@@ -723,7 +734,7 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
         """
         
         if len(replayBuffer) < self.min_capacity :
-            return
+            return None 
         
         #Create batch with PrioritizedReplayBuffer/PER:
         prioritysum = replayBuffer.total()
@@ -834,6 +845,23 @@ class DeepQNetworkAgent():
         self.algorithm = algorithm
         self.training = False
         self.hashing_function = self.algorithm.kwargs["preprocess"]
+        
+        self.kwargs = algorithm.kwargs
+
+        self.epsend = self.kwargs['epsend']
+        self.epsstart = self.kwargs['epsstart']
+        self.epsdecay = self.kwargs['epsdecay']
+        self.nbr_steps = 0 
+
+        self.name = self.kwargs['name']
+
+        self.mutex = Lock()
+
+    def lock(self) :
+        self.mutex.acquire()
+
+    def unlock(self) :
+        self.mutex.release()
 
     def launch_training(self):
         print("Launching training: ...")
@@ -848,15 +876,29 @@ class DeepQNetworkAgent():
         print("Stopping training: OK.")
 
     def handle_experience(self, s, a, r, succ_s,done=False):
+        self.lock()
         hs = self.hashing_function(s)
         hsucc = self.hashing_function(succ_s)
         r = torch.ones(1)*r
+        a = torch.from_numpy(a)
         experience = EXP(hs,a, hsucc,r,done)
         self.algorithm.handle_experience(experience=experience)
-    
-    def take_action(self, state, eps=0.0):
-        action,qsa = self.select_action(model=self.network,state=self.hashing_function(state),eps=eps)            
+        self.unlock()
+
+    def take_action(self, state):
+        self.lock()
+        self.nbr_steps += 1
+        self.eps = self.epsend + (self.epsstart-self.epsend) * math.exp(-1.0 * self.nbr_steps / self.epsdecay )
+        
+        action,qsa = self.select_action(model=self.network,state=self.hashing_function(state),eps=self.eps)
+        
+        self.unlock()
         return action
+
+    def reset_eps():
+        self.lock()
+        self.eps = self.epsstart
+        self.unlock()
 
     def select_action(self,model,state,eps) :
         sample = random.random()
@@ -871,18 +913,38 @@ class DeepQNetworkAgent():
             return random_action.numpy(), 0.0
 
     def clone(self, training=False):
+        """
+        TODO : decide whether to launch the training automatically or do it manually.
+        So far it is being done manually...
+        """
+
         cloned_network = self.network.clone()
         cloned_algorithm = self.algorithm.clone()
         cloned = DeepQNetworkAgent(network=cloned_network, algorithm=cloned_algorithm)
         
-        if training :
-            cloned.launch_training()
+        #if training :
+        #    cloned.launch_training()
 
         return cloned
 
+class PreprocessFunction(object) :
+    def __init__(self, hash_function):
+        self.hash_function = hash_function
 
+    def __call__(self,x) :
+        return torch.from_numpy( self.hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor)
 
-def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None,double=False,dueling=False):
+def build_DQN_Agent(state_space_size=32, 
+                        action_space_size=3, 
+                        hash_function=None,
+                        double=False,
+                        dueling=False, 
+                        num_worker=1, 
+                        MIN_MEMORY = 1e1,
+                        epsstart=0.9,
+                        epsend=0.05,
+                        epsdecay=1e3
+                        ):
     kwargs = dict()
     """
     :param kwargs:
@@ -908,6 +970,10 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
         "worker_nbr_steps_max": int, number of steps of the training loop for each worker/learner [default: worker_nbr_steps_max=1000].
 
         "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
+
+        "epsstart":
+        "epsend":
+        "epsdecay":
     """
 
     use_cuda = True 
@@ -927,7 +993,7 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
     if hash_function is not None :
         if use_cuda :
             kwargs['hash_function'] = hash_function
-            preprocess = (lambda x: torch.from_numpy( hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor))
+            preprocess = PreprocessFunction(hash_function=hash_function)#(lambda x: torch.from_numpy( hash_function(x) ).unsqueeze(0).type(torch.cuda.FloatTensor))
         else :
             preprocess = (lambda x: torch.from_numpy(np.array( hash_function(x) )).unsqueeze(0).type(torch.FloatTensor))
         #preprocess = (lambda x: torch.from_numpy( np.ones((1,1))*hash_function(x)).type(torch.cuda.FloatTensor) )
@@ -938,7 +1004,7 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
         """
         preprocess = (lambda x: preprocess_model(x))
 
-    kwargs["worker_nbr_steps_max"] = 1000
+    kwargs["worker_nbr_steps_max"] = 10
 
     # Create model architecture:
     if dueling :
@@ -955,18 +1021,19 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
     BATCH_SIZE = 256
     GAMMA = 0.999
     TAU = 1e-2
-    MIN_MEMORY = 1e3
     alphaPER = 0.8
     lr = 1e-3
     memoryCapacity = 25e3
-    num_worker = 8
-
-    model_path = './CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
+    
+    name = 'CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
     +'+IS+PER-alpha'+str(alphaPER) \
     +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)+'/'
 
+    model_path = './'+name 
     
     path=model_path
+
+    kwargs['name'] = name 
     kwargs["path"] = path 
     kwargs["use_cuda"] = True 
 
@@ -985,6 +1052,10 @@ def build_DQN_Agent(state_space_size=32, action_space_size=3, hash_function=None
     kwargs["preprocess"] = preprocess
     kwargs["w2m_update_interval"] = 10
     kwargs["nbr_worker"] = num_worker
+
+    kwargs['epsstart'] = epsstart
+    kwargs['epsend'] = epsend
+    kwargs['epsdecay'] = epsdecay
     
 
     DeepQNetwork_algo = DeepQNetworkAlgorithm(kwargs=kwargs)
