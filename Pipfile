@@ -15,6 +15,7 @@ matplotlib = "*"
 docopt = "*"
 pyyaml = "*"
 pip = "*"
+robosumo = {git = "https://github.com/openai/robosumo", editable = true}
 
 [requires]
 python_version = "3.6"
