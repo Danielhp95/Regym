@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 import logging
-from multiprocessing import Process
+from torch.multiprocessing import Process
 
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 

@@ -1,7 +1,6 @@
 import os
 import logging
 
-from queue import Empty
 import numpy as np
 
 

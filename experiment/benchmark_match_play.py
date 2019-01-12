@@ -4,7 +4,7 @@ import numpy as np
 from collections import namedtuple
 BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_policy_vector winrates')
 
-from multiprocessing import Process
+from torch.multiprocessing import Process
 from concurrent.futures import as_completed
 
 from multiagent_loops.simultaneous_action_rl_loop import run_episode

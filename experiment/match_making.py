@@ -5,7 +5,7 @@ import logging
 from collections import namedtuple
 from collections import Counter
 from queue import Empty
-from multiprocessing import Process
+from torch.multiprocessing import Process
 
 from benchmark_match_play import benchmark_match_play_process
 
