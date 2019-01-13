@@ -10,7 +10,7 @@ def run_episode(env, policy_vector, training):
     done = False
     trajectory = []
     while not done:
-        action_vector = [agent.take_action(state) for agent in policy_vector]
+        action_vector = [agent.act(state) for agent in policy_vector]
         succ_state, reward_vector, done, info = env.step(action_vector)
         trajectory.append((state, action_vector, reward_vector, succ_state, done))
         state = succ_state

@@ -885,7 +885,7 @@ class DeepQNetworkAgent():
         self.algorithm.handle_experience(experience=experience)
         self.unlock()
 
-    def take_action(self, state):
+    def act(self, state):
         self.lock()
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * math.exp(-1.0 * self.nbr_steps / self.epsdecay )

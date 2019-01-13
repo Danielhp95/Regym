@@ -14,27 +14,27 @@ from unittest.mock import Mock
 def test_naive_self_play_with_simulatenous_marl_loop():
     def rockPlayingMockAlgorithm():
         m = Mock(spec=rl_algorithms.TabularQLearning)
-        m.take_action.return_value = 0 # Always return ROCK
+        m.act.return_value = 0 # always return rock
         return m
 
-    mockSelfPlay = Mock(SelfPlayTrainingScheme)
-    mockSelfPlay.opponent_sampling_distribution.return_value = [rockPlayingMockAlgorithm()]
+    mockselfplay = mock(selfplaytrainingscheme)
+    mockselfplay.opponent_sampling_distribution.return_value = [rockplayingmockalgorithm()]
 
-    mockEnv = Mock(gym.Env)
-    mockEnv.step.return_value = (None, [None, None], True, None) # state, reward, done, info
+    mockenv = mock(gym.env)
+    mockenv.step.return_value = (none, [none, none], true, none) # state, reward, done, info
 
-    mockAlgorithm = Mock(spec=rl_algorithms.TabularQLearning)
-    mockAlgorithm.clone.return_value = rockPlayingMockAlgorithm()
-    mockAlgorithm.take_action.return_value = 0 # Always return ROCK
+    mockalgorithm = mock(spec=rl_algorithms.tabularqlearning)
+    mockalgorithm.clone.return_value = rockplayingmockalgorithm()
+    mockalgorithm.act.return_value = 0 # always return rock
 
     target_episodes = 10
     opci = 1
 
-    multiagent_rl_loop.self_play_training(env=mockEnv, training_policy=mockAlgorithm,
-                                          self_play_scheme=mockSelfPlay, target_episodes=target_episodes, opci=opci)
+    multiagent_rl_loop.self_play_training(env=mockenv, training_policy=mockalgorithm,
+                                          self_play_scheme=mockselfplay, target_episodes=target_episodes, opci=opci)
 
-    assert mockSelfPlay.curator.call_count == target_episodes
-    assert mockSelfPlay.opponent_sampling_distribution.call_count == target_episodes
-    assert mockAlgorithm.take_action.call_count == target_episodes
+    assert mockselfplay.curator.call_count == target_episodes
+    assert mockselfplay.opponent_sampling_distribution.call_count == target_episodes
+    assert mockalgorithm.act.call_count == target_episodes
     assert mockEnv.reset.call_count == target_episodes
     assert mockEnv.step.call_count == target_episodes

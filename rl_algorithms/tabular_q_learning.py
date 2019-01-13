@@ -27,7 +27,7 @@ class TabularQLearning():
     def anneal_learning_rate(self):
         pass
 
-    def take_action(self, state):
+    def act(self, state):
         optimal_moves = self.find_optimal_moves(self.Q_table, self.hashing_function(state))
         return random.choice(optimal_moves)
 
