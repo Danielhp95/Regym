@@ -30,6 +30,7 @@ from torch.multiprocessing import Process, Queue
 from concurrent.futures import ProcessPoolExecutor
 
 import gym
+import robosumo
 import gym_rock_paper_scissors
 from gym_rock_paper_scissors.fixed_agents import rockAgent, paperAgent, scissorsAgent
 
@@ -73,7 +74,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
 
 def define_environment_creation_funcion(environment_name_cli):
-    valid_environments = ['RockPaperScissors-v0']
+    valid_environments = ['RockPaperScissors-v0', 'RoboSumo-Bug-vs-Bug-v0']
     if environment_name_cli not in valid_environments:
         raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
     return lambda: gym.make(environment_name_cli)
