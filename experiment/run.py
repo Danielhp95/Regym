@@ -195,7 +195,7 @@ if __name__ == '__main__':
     options = docopt(_USAGE)
     logger.info(options)
 
-    experiment_id = int(options['--experiment_id'])
+    experiment_id = options['--experiment_id']
     number_of_runs = int(options['--number_of_runs'])
 
     # TODO create directory structure function
