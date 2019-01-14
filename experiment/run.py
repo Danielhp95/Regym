@@ -101,6 +101,9 @@ def initialize_training_schemes(training_schemes_cli):
 
 def initialize_algorithms(environment, algorithms_cli):
     def parse_algorithm(algorithm, env):
+        if algorithm.lower() == 'random':
+            from rl_algorithms.random import Random
+            return Random(env)
         if algorithm.lower() == 'tabularqlearning':
             return TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)
         if algorithm.lower() == 'deepqlearning':
@@ -128,7 +131,7 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
 
     training_schemes = initialize_training_schemes(options['--self_play_training_schemes'].split(','))
     algorithms       = initialize_algorithms(env, options['--algorithms'].split(','))
-    fixed_agents     = initialize_fixed_agents(options['--fixed_agents'].split(','))
+    fixed_agents     = initialize_fixed_agents(options['--fixed_agents'].split(',')) if options['--fixed_agents'] is not None else []
 
     training_jobs = enumerate_training_jobs(training_schemes, algorithms)
 
