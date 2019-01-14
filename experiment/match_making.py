@@ -7,7 +7,7 @@ from collections import Counter
 from queue import Empty
 from multiprocessing import Process
 
-from benchmark_match_play import benchmark_match_play_process
+from benchmark_match_play import benchmark_match_play_process, create_benchmark_process
 
 RecordedPolicy = namedtuple('RecordedPolicy', 'iteration training_scheme policy')
 BenchmarkingJob = namedtuple('BenchmarkingJob', 'iteration recorded_policy_vector')
@@ -106,22 +106,3 @@ def is_benchmarking_job_already_recorded(job, recorded_benchmarking_jobs):
     """
     job_equality = lambda job1, job2: job1.iteration == job2.iteration and Counter(job1.recorded_policy_vector) == Counter(job2.recorded_policy_vector)
     return any([job_equality(job, recorded_job) for recorded_job in recorded_benchmarking_jobs])
-
-
-def create_benchmark_process(benchmarking_episodes, createNewEnvironment, benchmark_job, pool, matrix_queue, name):
-    """
-    Creates a benchmarking process for the precomputed benchmark_job.
-    The results of the benchmark will be put in the matrix_queue to populate confusion matrix
-
-    :param benchmarking_episodes: Number of episodes that each benchmarking process will run for
-    :param createNewEnvironment: OpenAI gym environment creation function
-    :param benchmark_job: precomputed BenchmarkingJob
-    :param pool: ProcessPoolExecutor shared between benchmarking_jobs to carry out benchmarking matches
-    :param matrix_queue: Queue reference sent to benchmarking process, where it will put the bencharmking result
-    :param name: BenchmarkingJob name identifier
-    """
-    benchmark_process = Process(target=benchmark_match_play_process,
-                                args=(benchmarking_episodes, createNewEnvironment,
-                                      benchmark_job, pool, matrix_queue, name))
-    benchmark_process.start()
-    return benchmark_process
