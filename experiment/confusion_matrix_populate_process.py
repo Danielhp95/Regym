@@ -20,8 +20,7 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     """
     logger = logging.getLogger('ConfusionMatrixPopulate')
     logger.setLevel(logging.INFO)
-    logger.info('Started')
-
+    
     hashing_dictionary, confusion_matrix_dict = create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices)
     while True:
         # poll for new
@@ -39,13 +38,12 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
         logger.info('Populating new statistics: ...')
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
         logger.info('Populating new statistics: OK.')
-        print(confusion_matrix_dict)
-
+        
         if check_for_termination(confusion_matrix_dict):
             logger.info('All confusion matrices completed. Writing to memory')
 
             filled_matrices = {key: fill_winrate_diagonal(confusion_matrix, value='0.5') for key, confusion_matrix in confusion_matrix_dict.items()}
-            write_matrices(directory='{}/confusion_matrices', matrix_dict=filled_matrices)
+            write_matrices(directory='{}/confusion_matrices'.format(results_path), matrix_dict=filled_matrices)
             write_average_winrates(directory='{}/winrates'.format(results_path), matrix_dict=filled_matrices, hashing_dictionary=hashing_dictionary)
 
             write_legend_file(hashing_dictionary, path='{}/confusion_matrices/legend.txt'.format(results_path))
@@ -53,7 +51,6 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             break
         else :
             logger.info('Not all confusion matrices completed yet ....')
-            print(confusion_matrix_dict)
 
 def fill_winrate_diagonal(matrix, value):
     np.fill_diagonal(matrix, value)
@@ -115,10 +112,6 @@ def check_for_termination(matrix_dic):
     Signaling the end of the process
     :param matrix: Dictionary of confusion matrices
     """
-    logger = logging.getLogger('ConfusionMatrixPopulate')
-    logger.setLevel(logging.INFO)
-    logger.info('Started')
-
     for matrix in matrix_dic.values():
         for i in range(len(matrix)):
             for j in range(len(matrix[0])):

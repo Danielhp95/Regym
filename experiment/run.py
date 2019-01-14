@@ -1,11 +1,12 @@
 import os
 import sys
+import time 
 sys.path.append(os.path.abspath('..'))
 
 import shutil
 
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
-from rl_algorithms import TabularQLearning
+from rl_algorithms import TabularQLearning, DeepQNetworkAgent, build_DQN_Agent
 
 from plot_util import create_plots
 
@@ -109,8 +110,7 @@ def initialize_algorithms(environment, algorithms_cli):
         if algorithm.lower() == 'tabularqlearning':
             return TabularQLearning(env.state_space_size, env.action_space_size, env.hash_state)
         if algorithm.lower() == 'deepqlearning':
-            from rl_algorithms import build_DQN_Agent
-            return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=True, dueling=True)
+            return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=False, dueling=False)
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
     return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli]
 
@@ -126,7 +126,8 @@ def initialize_fixed_agents(fixed_agents_cli):
 
 if __name__ == '__main__':
     import torch
-    torch.multiprocessing.set_start_method('forkserver')
+    torch.multiprocessing.set_start_method('spawn')
+    #torch.multiprocessing.set_start_method('forkserver')
     logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888
@@ -201,8 +202,15 @@ if __name__ == '__main__':
         if not os.path.exists(results_path):
             os.mkdir(results_path)
 
-        list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
-
+        logger.info('Initial Policy Queued: {}'.format(initial_fixed_policies_to_benchmark))
+        logger.info('Status of Queue : Empty ? {} // Full ? {}'.format( policy_queue.empty(), policy_queue.full()))
+        #list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
+        for el in initial_fixed_policies_to_benchmark:
+          policy_queue.put(el)
+          time.sleep(1)
+          logger.info('INNER : Status of Queue : Empty ? {} // Full ? {}'.format( policy_queue.empty(), policy_queue.full()))
+        logger.info('Status of Queue : Empty ? {} // Full ? {}'.format( policy_queue.empty(), policy_queue.full()))
+        
         (training_processes,
          mm_process,
          cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
@@ -212,4 +220,4 @@ if __name__ == '__main__':
         run_processes(training_processes, mm_process, cfm_process)
         logger.info('Finished run: {}\n'.format(run_id))
 
-    create_plots(experiment_directory=experiment_directory, number_of_runs=number_of_runs)
+    #create_plots(experiment_directory=experiment_directory, number_of_runs=number_of_runs)

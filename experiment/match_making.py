@@ -1,4 +1,5 @@
 import os
+import time
 import signal
 import logging
 
@@ -31,7 +32,7 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
     logger = logging.getLogger('MatchMaking')
     logger.setLevel(logging.DEBUG)
     logger.info('Started')
-
+    time.sleep(10)
     # Initialize variables
     received_policies = 0
     recorded_policies = []
@@ -39,9 +40,26 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
 
     benchmarking_child_processes = []
     while True:
-        logger.info("Polling for policy {}: ...".format(received_policies))
-        iteration, training_scheme, policy = policy_queue.get() # wait_for_policy(policy_queue)
-        logger.info("Polling for policy {}: OK.".format(received_policies))
+        logger.info("Polling for policy {}: Queue {} :: ...".format(received_policies, policy_queue.qsize()))
+        wait =True 
+        begin = time.time()
+        previouselt = 0 
+        while wait:
+            try :
+                iteration, training_scheme, policy = policy_queue.get_nowait() # wait_for_policy(policy_queue)
+                wait = False
+            except Exception as e : 
+                current = time.time()
+                elt = current-begin
+                if previouselt != int(elt) and int(elt) % 2 == 0:
+                    #logger.info("Polling for policy {}: queue empty : {}...".format(received_policies, policy_queue.empty() ) )
+                    logger.info("Polling for policy {}: Queue {} :: ELT {} seconds...".format(received_policies, policy_queue.qsize(), elt))
+                    previouselt = int(elt)
+                    #print("Polling for policy {}: ELT : {} seconds.".format(received_policies, elt ), end='\r' )
+                
+        logger.info("Polling for policy {}: Queue {} :: OK.".format(received_policies, policy_queue.qsize()))
+        
+        policy = policy.queue2policy()
         
         received_policies += 1
         logger.info('Received ({},{},{}). {}/{} received'.format(iteration, training_scheme.name, policy.name, received_policies, expected_number_of_policies))
@@ -53,12 +71,12 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
                      for match_name, match in calculate_new_benchmarking_jobs(recorded_policies, recorded_benchmarking_jobs, iteration)]
         
         for index, p in enumerate(processes):
-            logger.info("Benchmark process: {}/{} :: {}".format(index+1,len(processes),p.name))
+            #logger.info("Benchmark process: {}/{} :: {}".format(index+1,len(processes),p.name))
             benchmarking_child_processes.append(p)
 
-        logger.info("Check for termination: ...")
+        #logger.info("Check for termination: ...")
         check_for_termination(received_policies, expected_number_of_policies, benchmarking_child_processes, pool)
-        logger.info("Check for termination: OK.")
+        #logger.info("Check for termination: OK.")
         
 
 def check_for_termination(received_policies, expected_number_of_policies, child_processes, pool):
@@ -74,7 +92,7 @@ def check_for_termination(received_policies, expected_number_of_policies, child_
     """
     if received_policies >= expected_number_of_policies:
         [p.join() for p in child_processes]
-        pool.shutdown()
+        if pool is not None : pool.shutdown()
         os.kill(os.getpid(), signal.SIGTERM)
 
 

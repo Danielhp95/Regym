@@ -33,8 +33,9 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
 
         wins_vector = [0 for _ in range(len(policy_vector))]
         for index, future in enumerate(as_completed(futures) ):
-            logger.info("Episode winner 's future value launched {} / {}".format(index,len(futures)))
+            #logger.info("Episode winner 's future value launched {} / {} :: ...".format(index+1,len(futures)))
             episode_winner = future.result()
+            #logger.info("Episode winner 's future value launched {} / {} :: OK.".format(index+1,len(futures)))
             wins_vector[episode_winner] += 1
         winrates = [winrate / num_episodes for winrate in wins_vector]
 

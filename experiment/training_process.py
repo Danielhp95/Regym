@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 sys.path.append(os.path.abspath('..'))
 
@@ -22,31 +23,36 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
     """
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
-    logger.info('Started')
-
+    
     completed_iterations = 0
     menagerie = []
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
-        logger.info('LOOP START :: Checkpoint target {} :: selfplay training :: ...'.format(target_iteration))
+        #logger.info('LOOP START :: Checkpoint target {} :: selfplay training :: ...'.format(target_iteration))
         (menagerie, trained_policy,
          trajectories) = self_play_training(env=env, training_policy=training_policy,
                                             self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
                                             menagerie=menagerie,name=process_name)
-        logger.info('LOOP START :: Checkpoint target {} :: selfplay training :: OK.'.format(target_iteration))
+        #logger.info('LOOP START :: Checkpoint target {} :: selfplay training :: OK.'.format(target_iteration))
         completed_iterations += next_training_iterations
 
-        logger.info('Submitted policy at iteration {} :: ...'.format(target_iteration))
-        policy_queue.put([target_iteration, self_play_scheme, trained_policy])
-        logger.info('Submitted policy at iteration {} :: OK.'.format(target_iteration))
+        logger.info('Submit policy at iteration {} :: ...'.format(target_iteration))
+        logger.info('BEFORE :: Submit policy at iteration {} :: ... Queue {} : Empty ? {} // Full ? {}'.format(target_iteration, policy_queue.qsize(), policy_queue.empty(), policy_queue.full()))
         
-        logger.info('Write episodic reward at iteration {} :: ...'.format(target_iteration))
+        #policy_queue.put([target_iteration, self_play_scheme, trained_policy.clone()])
+        policy2queue = trained_policy.clone4queue()
+        policy_queue.put([target_iteration, self_play_scheme, policy2queue])
+        
+        logger.info('JUST AFTER :: Submit policy at iteration {} :: ... Queue {} : Empty ? {} // Full ? {}'.format(target_iteration, policy_queue.qsize(), policy_queue.empty(), policy_queue.full()))
+        logger.info('Submit policy at iteration {} :: OK.'.format(target_iteration))
+        
+        #logger.info('Write episodic reward at iteration {} :: ...'.format(target_iteration))
         file_name = '{}-{}.txt'.format(self_play_scheme.name,training_policy.name)
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
         write_episodic_reward(enumerated_trajectories, target_file_path='{}/{}'.format(results_path,file_name))
-        logger.info('Write episodic reward at iteration {} :: OK.'.format(target_iteration))
+        #logger.info('Write episodic reward at iteration {} :: OK.'.format(target_iteration))
     
-    logger.info("END LOOP :: training process returning") 
+    #logger.info("END LOOP :: training process returning") 
 
 def write_episodic_reward(enumerated_trajectories, target_file_path):
     with open(target_file_path, 'a') as f:

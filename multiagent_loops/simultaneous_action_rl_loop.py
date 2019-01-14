@@ -13,9 +13,9 @@ def run_episode(env, policy_vector, training,name=None):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     
-    logger.info('Reset environment :: ...')
+    #logger.info('Reset environment :: ...')
     state = env.reset()
-    logger.info('Reset environment :: OK.')
+    #logger.info('Reset environment :: OK.')
     done = False
     trajectory = []
     it = 0 
@@ -62,9 +62,9 @@ def self_play_training(env, training_policy, self_play_scheme, target_episodes=1
             #logger.info("Running episode : {} / {} :: choosing opponent :: ...".format(episode,target_episodes) )
             opponent_policy_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_policy.clone(training=False))
             #logger.info("Running episode : {} / {} :: choosing opponent :: OK.".format(episode,target_episodes) )
-        logger.info("Running episode : {} / {} :: ...".format(episode,target_episodes) )
+        #logger.info("Running episode : {} / {} :: ...".format(episode,target_episodes) )
         episode_trajectory = run_episode(env, [training_policy]+opponent_policy_vector_e, training=True,name=name)
-        logger.info("Running episode : {} / {} :: OK.".format(episode,target_episodes) )
+        #logger.info("Running episode : {} / {} :: OK.".format(episode,target_episodes) )
         menagerie = self_play_scheme.curator(menagerie, training_policy.clone(training=False), episode_trajectory)
         trajectories.append(episode_trajectory)
         
