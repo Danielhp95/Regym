@@ -25,15 +25,22 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     hashing_dictionary, confusion_matrix_dict = create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices)
     while True:
         # poll for new
+        logger.info('Polling for new statistics: ...')
         benchmark_statistics = matrix_queue.get()
-
+        logger.info('Polling for new statistics: OK.')
+        
         # TODO find a better way of doing this. May need to restructure information that is sent around
         logger.info('Received: it:{} ({},{})-({},{})'.format(benchmark_statistics.iteration,
                                                              benchmark_statistics.recorded_policy_vector[0].training_scheme.name,
                                                              benchmark_statistics.recorded_policy_vector[0].policy.name,
                                                              benchmark_statistics.recorded_policy_vector[1].training_scheme.name,
                                                              benchmark_statistics.recorded_policy_vector[1].policy.name))
+        
+        logger.info('Populating new statistics: ...')
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
+        logger.info('Populating new statistics: OK.')
+        print(confusion_matrix_dict)
+
         if check_for_termination(confusion_matrix_dict):
             logger.info('All confusion matrices completed. Writing to memory')
 
@@ -44,7 +51,9 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             write_legend_file(hashing_dictionary, path='{}/confusion_matrices/legend.txt'.format(results_path))
             logger.info('Writing completed')
             break
-
+        else :
+            logger.info('Not all confusion matrices completed yet ....')
+            print(confusion_matrix_dict)
 
 def fill_winrate_diagonal(matrix, value):
     np.fill_diagonal(matrix, value)
@@ -106,6 +115,10 @@ def check_for_termination(matrix_dic):
     Signaling the end of the process
     :param matrix: Dictionary of confusion matrices
     """
+    logger = logging.getLogger('ConfusionMatrixPopulate')
+    logger.setLevel(logging.INFO)
+    logger.info('Started')
+
     for matrix in matrix_dic.values():
         for i in range(len(matrix)):
             for j in range(len(matrix[0])):

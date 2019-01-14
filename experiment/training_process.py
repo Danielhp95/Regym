@@ -28,19 +28,25 @@ def training_process(env, training_policy, self_play_scheme, checkpoint_at_itera
     menagerie = []
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
+        logger.info('LOOP START :: Checkpoint target {} :: selfplay training :: ...'.format(target_iteration))
         (menagerie, trained_policy,
          trajectories) = self_play_training(env=env, training_policy=training_policy,
                                             self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
-                                            menagerie=menagerie)
+                                            menagerie=menagerie,name=process_name)
+        logger.info('LOOP START :: Checkpoint target {} :: selfplay training :: OK.'.format(target_iteration))
         completed_iterations += next_training_iterations
 
-        logger.info('Submitted policy at iteration {}'.format(target_iteration))
+        logger.info('Submitted policy at iteration {} :: ...'.format(target_iteration))
         policy_queue.put([target_iteration, self_play_scheme, trained_policy])
-
+        logger.info('Submitted policy at iteration {} :: OK.'.format(target_iteration))
+        
+        logger.info('Write episodic reward at iteration {} :: ...'.format(target_iteration))
         file_name = '{}-{}.txt'.format(self_play_scheme.name,training_policy.name)
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
         write_episodic_reward(enumerated_trajectories, target_file_path='{}/{}'.format(results_path,file_name))
-
+        logger.info('Write episodic reward at iteration {} :: OK.'.format(target_iteration))
+    
+    logger.info("END LOOP :: training process returning") 
 
 def write_episodic_reward(enumerated_trajectories, target_file_path):
     with open(target_file_path, 'a') as f:
@@ -67,10 +73,12 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
 
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
     ps = []
-    for job in training_jobs:
+    for index, job in enumerate(training_jobs):
+        logger.info("Creating training process: {} / {} :: ...".format(index+1, len(training_jobs)))
         p = Process(target=training_process,
                     args=(createNewEnvironment(), job.algorithm, job.training_scheme,
                           checkpoint_at_iterations, policy_queue, job.name, episodic_reward_directory))
+        logger.info("Creating training process: {} / {} :: OK.".format(index+1, len(training_jobs)))
         ps.append(p)
     logger.info("All training jobs submitted")
     return ps

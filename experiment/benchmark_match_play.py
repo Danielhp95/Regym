@@ -6,6 +6,7 @@ BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_poli
 
 from torch.multiprocessing import Process
 from concurrent.futures import as_completed
+from concurrent.futures import ProcessPoolExecutor
 
 from multiagent_loops.simultaneous_action_rl_loop import run_episode
 
@@ -26,13 +27,13 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     policy_vector = [recorded_policy.policy for recorded_policy in benchmark_job.recorded_policy_vector]
 
     # TODO Use given pool, but how?
-    from concurrent.futures import ProcessPoolExecutor
     with ProcessPoolExecutor(max_workers=3) as executor:
         futures = [executor.submit(single_match, *[createNewEnvironment(), policy_vector])
                    for _ in range(num_episodes)]
 
         wins_vector = [0 for _ in range(len(policy_vector))]
-        for future in as_completed(futures):
+        for index, future in enumerate(as_completed(futures) ):
+            logger.info("Episode winner 's future value launched {} / {}".format(index,len(futures)))
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
         winrates = [winrate / num_episodes for winrate in wins_vector]

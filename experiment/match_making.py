@@ -39,8 +39,10 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
 
     benchmarking_child_processes = []
     while True:
+        logger.info("Polling for policy {}: ...".format(received_policies))
         iteration, training_scheme, policy = policy_queue.get() # wait_for_policy(policy_queue)
-
+        logger.info("Polling for policy {}: OK.".format(received_policies))
+        
         received_policies += 1
         logger.info('Received ({},{},{}). {}/{} received'.format(iteration, training_scheme.name, policy.name, received_policies, expected_number_of_policies))
 
@@ -49,12 +51,15 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
         processes = [create_benchmark_process(benchmarking_episodes, createNewEnvironment,
                                               match, pool, matrix_queue, match_name)
                      for match_name, match in calculate_new_benchmarking_jobs(recorded_policies, recorded_benchmarking_jobs, iteration)]
-
-        for p in processes:
+        
+        for index, p in enumerate(processes):
+            logger.info("Benchmark process: {}/{} :: {}".format(index+1,len(processes),p.name))
             benchmarking_child_processes.append(p)
 
+        logger.info("Check for termination: ...")
         check_for_termination(received_policies, expected_number_of_policies, benchmarking_child_processes, pool)
-
+        logger.info("Check for termination: OK.")
+        
 
 def check_for_termination(received_policies, expected_number_of_policies, child_processes, pool):
     """

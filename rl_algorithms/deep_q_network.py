@@ -56,9 +56,12 @@ class PrioritizedReplayBuffer :
         self.tree = np.zeros(2*self.capacity-1)
         self.data = np.zeros(self.capacity,dtype=object)
         self.sumPi_alpha = 0.0
+        """
         self.mutex = Lock()
         self.update_mutex = Lock()
+        """
 
+    """
     def lock(self) :
         self.mutex.acquire()
 
@@ -71,11 +74,12 @@ class PrioritizedReplayBuffer :
     def update_unlock(self) :
         self.update_mutex.release()
 
+    """
     def reset(self) :
         self.__init__(capacity=self.capacity,alpha=self.alpha)
 
     def add(self, exp, priority) :
-        self.lock()
+        #self.lock()
 
         if np.isnan(priority) or np.isinf(priority) :
             priority = self.total()/self.capacity 
@@ -92,13 +96,13 @@ class PrioritizedReplayBuffer :
         self.sumPi_alpha += priority
         self.update(idx,priority)
 
-        self.unlock()
+        #self.unlock()
 
     def priority(self, error) :
         return (error+self.epsilon)**self.alpha
             
     def update(self, idx, priority) :
-        self.update_lock()
+        #self.update_lock()
 
         if np.isnan(priority) or np.isinf(priority) :
             priority = self.total()/self.capacity 
@@ -117,7 +121,7 @@ class PrioritizedReplayBuffer :
         
         self._propagate(idx,change)
         
-        self.update_unlock()
+        #self.update_unlock()
 
     def _propagate(self, idx, change) :
         parentidx = (idx - 1) // 2
@@ -222,7 +226,13 @@ class DQN(nn.Module) :
         if self.use_cuda:
             self = self.cuda()
         
-        self.mutex = Lock()
+        self.mutex = None#Lock()
+
+    def setMutex(self,mutex):
+        self.mutex = mutex 
+
+    def unsetMutex(self):
+        self.mutex = None 
 
     def clone(self):
         cloned = DQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN, use_cuda=self.use_cuda)
@@ -298,7 +308,13 @@ class DuelingDQN(nn.Module) :
         if self.use_cuda:
             self = self.cuda()
         
-        self.mutex = Lock()
+        self.mutex = None#Lock()
+
+    def setMutex(self,mutex):
+        self.mutex = mutex 
+
+    def unsetMutex(self):
+        self.mutex = None
 
     def clone(self):
         cloned = DuelingDQN(nbr_actions=self.nbr_actions, actfn=self.actfn, useCNN=self.useCNN, use_cuda=self.use_cuda)
@@ -472,6 +488,12 @@ class DeepQNetworkAlgorithm :
                                                 )
                                             )
             )
+
+    def setMutex(self,mutex):
+        self.model.setMutex(mutex)
+
+    def unsetMutex(self):
+        self.model.unsetMutex()
 
     def clone(self) :
         """
@@ -855,13 +877,19 @@ class DeepQNetworkAgent():
 
         self.name = self.kwargs['name']
 
-        self.mutex = Lock()
+    def setMutex(self,mutex):
+        self.network.setMutex(mutex)
+        self.algorithm.setMutex(mutex)
 
+    def unsetMutex(self):
+        self.network.unsetMutex()
+        self.algorithm.unsetMutex()
+        
     def lock(self) :
-        self.mutex.acquire()
+        self.network.lock()
 
     def unlock(self) :
-        self.mutex.release()
+        self.network.unlock()
 
     def launch_training(self):
         print("Launching training: ...")
@@ -1031,7 +1059,7 @@ def build_DQN_Agent(state_space_size=32,
     
     name = 'CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
     +'+IS+PER-alpha'+str(alphaPER) \
-    +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)+'/'
+    +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)
 
     model_path = './'+name 
     
