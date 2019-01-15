@@ -1,12 +1,12 @@
 import os
 import sys
-import time 
 sys.path.append(os.path.abspath('..'))
 
 import shutil
+import time 
 
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
-from rl_algorithms import TabularQLearning, DeepQNetworkAgent, build_DQN_Agent, DeepQNetworkAgent2Queue
+from rl_algorithms import TabularQLearning, build_DQN_Agent
 
 from plot_util import create_plots
 
@@ -43,9 +43,9 @@ def enumerate_training_jobs(training_schemes, algorithms):
 # TODO find better name
 def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     initial_fixed_policies_to_benchmark = [[iteration, EmptySelfPlay, agent]
-                                           for agent in fixed_agents
+                                           for agent in existing_fixed_agents
                                            for iteration in checkpoint_at_iterations]
-    fixed_policies_for_confusion = enumerate_training_jobs([EmptySelfPlay], fixed_agents) # TODO GET RID OF THIS
+    fixed_policies_for_confusion = enumerate_training_jobs([EmptySelfPlay], existing_fixed_agents) # TODO GET RID OF THIS
     return initial_fixed_policies_to_benchmark, fixed_policies_for_confusion
 
 
@@ -86,15 +86,14 @@ def define_environment_creation_funcion(environment_name_cli):
     return EnvironmentCreationFunction(environment_name_cli)
 
 
-def run_processes(training_process, mm_process, cfm_process):
+def run_processes(training_processes, mm_process, cfm_process):
     [p.start() for p in training_processes]
     mm_process.start()
     cfm_process.start()
 
-    cfm_process.join()
-    mm_process.join()
     [p.join() for p in training_processes]
-
+    mm_process.join()
+    cfm_process.join()
 
 def initialize_training_schemes(training_schemes_cli):
     def parse_training_scheme(training_scheme):
@@ -122,6 +121,39 @@ def initialize_fixed_agents(fixed_agents_cli):
         elif agent.lower() == 'scissorsagent': return scissorsAgent
         else: raise ValueError('Unknown fixed agent {}. Try defining it inside this script.'.format(agent))
     return [parse_fixed_agent(agent) for agent in fixed_agents_cli]
+
+
+def run_experiment(experiment_id, experiment_directory, number_of_runs, options, logger):
+    createNewEnvironment  = define_environment_creation_funcion(options['--environment'])
+    env = createNewEnvironment()
+
+    checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]
+    benchmarking_episodes    = int(options['--benchmarking_episodes'])
+
+    training_schemes = initialize_training_schemes(options['--self_play_training_schemes'].split(','))
+    algorithms       = initialize_algorithms(env, options['--algorithms'].split(','))
+    fixed_agents     = initialize_fixed_agents(options['--fixed_agents'].split(','))
+
+    training_jobs = enumerate_training_jobs(training_schemes, algorithms)
+
+    (initial_fixed_policies_to_benchmark,
+     fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
+    policy_queue, matrix_queue = Queue(), Queue()
+
+    logger.info(f'Starting run: {run_id}')
+    results_path = f'{experiment_directory}/run-{run_id}'
+    if not os.path.exists(results_path):
+        os.mkdir(results_path)
+
+    list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
+
+    (training_processes,
+     mm_process,
+     cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
+                                                 policy_queue, matrix_queue, benchmarking_episodes,
+                                                 fixed_policies_for_confusion, results_path)
+
+    run_processes(training_processes, mm_process, cfm_process)
 
 
 if __name__ == '__main__':
@@ -169,27 +201,10 @@ if __name__ == '__main__':
     options = docopt(_USAGE)
     logger.info(options)
 
-    createNewEnvironment  = define_environment_creation_funcion(options['--environment'])
-    env = createNewEnvironment()
-
     experiment_id = options['--experiment_id']
     number_of_runs = int(options['--number_of_runs'])
 
-    checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]
-    benchmarking_episodes    = int(options['--benchmarking_episodes'])
-
-    training_schemes = initialize_training_schemes(options['--self_play_training_schemes'].split(','))
-    algorithms       = initialize_algorithms(env, options['--algorithms'].split(','))
-    fixed_agents     = initialize_fixed_agents(options['--fixed_agents'].split(','))
-
-    training_jobs = enumerate_training_jobs(training_schemes, algorithms)
-
-    #policy_queue, matrix_queue = Queue(), Queue()
-    matrix_queue, policy_queue = Queue(), Queue()
-    
-    (initial_fixed_policies_to_benchmark,
-     fixed_policies_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
-
+    # TODO create directory structure function
     experiment_directory = 'experiment-{}'.format(experiment_id)
     if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
     os.mkdir(experiment_directory)
@@ -197,23 +212,21 @@ if __name__ == '__main__':
     with open('{}/experiment_parameters.yml'.format(experiment_directory), 'w') as outfile:
         yaml.dump(options, outfile, default_flow_style=False)
 
+    experiment_durations = []
     for run_id in range(number_of_runs):
-        logger.info('Starting run: {}'.format(run_id))
-        results_path = '{}/run-{}'.format(experiment_directory,run_id)
-        if not os.path.exists(results_path):
-            os.mkdir(results_path)
+        start_time = time.time()
+        run_experiment(experiment_id, experiment_directory, number_of_runs, options, logger)
+        experiment_duration = time.time() - start_time
+        experiment_durations.append(experiment_duration)
+        logger.info('Finished run: {}. Duration: {} (seconds)\n'.format(run_id, experiment_duration))
 
-        #logger.info('Status of Queue : Empty ? {} // Full ? {}'.format( policy_queue.empty(), policy_queue.full()))
-        list(map(policy_queue.put, initial_fixed_policies_to_benchmark)) # Add initial fixed policies to be benchmarked
-        #logger.info('Status of Queue : Empty ? {} // Full ? {}'.format( policy_queue.empty(), policy_queue.full()))
-        
-        (training_processes,
-         mm_process,
-         cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
-                                                     policy_queue, matrix_queue, benchmarking_episodes,
-                                                     fixed_policies_for_confusion, results_path)
+    import numpy as np
+    total_experiment_duration = sum(experiment_durations)
+    average_experiment_duration = np.mean(experiment_durations)
+    standard_deviation_experiment_duration = np.std(experiment_durations)
 
-        run_processes(training_processes, mm_process, cfm_process)
-        logger.info('Finished run: {}\n'.format(run_id))
+    logger.info('Total experiment duration: {}'.format(total_experiment_duration))
+    logger.info('Experiment mean run duration: {}'.format(average_experiment_duration))
+    logger.info('Experiment std dev duration:  {}'.format(standard_deviation_experiment_duration))
 
     create_plots(experiment_directory=experiment_directory, number_of_runs=number_of_runs)

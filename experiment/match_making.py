@@ -1,11 +1,9 @@
 import os
-import time
 import signal
 import logging
 
 from collections import namedtuple
 from collections import Counter
-from queue import Empty
 from torch.multiprocessing import Process
 
 from benchmark_match_play import benchmark_match_play_process
@@ -32,7 +30,7 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
     logger = logging.getLogger('MatchMaking')
     logger.setLevel(logging.DEBUG)
     logger.info('Started')
-    time.sleep(10)
+
     # Initialize variables
     received_policies = 0
     recorded_policies = []
@@ -40,10 +38,8 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
 
     benchmarking_child_processes = []
     while True:
-        logger.info("Polling for policy {}: Queue {} :: ...".format(received_policies, policy_queue.qsize()))
         iteration, training_scheme, policy = policy_queue.get() # wait_for_policy(policy_queue)
-        logger.info("Polling for policy {}: Queue {} :: OK.".format(received_policies, policy_queue.qsize()))
-        
+
         received_policies += 1
         logger.info('Received ({},{},{}). {}/{} received'.format(iteration, training_scheme.name, policy.name, received_policies, expected_number_of_policies))
 
@@ -52,15 +48,12 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
         processes = [create_benchmark_process(benchmarking_episodes, createNewEnvironment,
                                               match, pool, matrix_queue, match_name)
                      for match_name, match in calculate_new_benchmarking_jobs(recorded_policies, recorded_benchmarking_jobs, iteration)]
-        
-        for index, p in enumerate(processes):
-            #logger.info("Benchmark process: {}/{} :: {}".format(index+1,len(processes),p.name))
+
+        for p in processes:
             benchmarking_child_processes.append(p)
 
-        #logger.info("Check for termination: ...")
         check_for_termination(received_policies, expected_number_of_policies, benchmarking_child_processes, pool)
-        #logger.info("Check for termination: OK.")
-        
+
 
 def check_for_termination(received_policies, expected_number_of_policies, child_processes, pool):
     """

@@ -160,7 +160,6 @@ def create_average_winrate_graph(source_dir, target_dir):
         plt.plot((0, max(iterations)), (y_max / 2, y_max / 2), '--')
         plt.plot(iterations, winrates, marker='o', label=file_name)
 
-    plt.ylim(0, 100) # TODO fix winrate and use 0, 1
     plt.legend(loc='best')
     plt.ylabel('Average Winrate')
     plt.xlabel('Training iteration')

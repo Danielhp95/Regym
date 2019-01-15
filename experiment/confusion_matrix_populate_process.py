@@ -1,5 +1,4 @@
 import os
-import time
 import logging
 
 import numpy as np
@@ -21,27 +20,20 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     """
     logger = logging.getLogger('ConfusionMatrixPopulate')
     logger.setLevel(logging.INFO)
-    time.sleep(20)
-    logger.info("Starting...")
-    
+    logger.info('Started')
+
     hashing_dictionary, confusion_matrix_dict = create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices)
     while True:
         # poll for new
-        logger.info('Polling for new statistics: Queue {} :: ...'.format( matrix_queue.qsize()))
         benchmark_statistics = matrix_queue.get()
-        logger.info('Polling for new statistics: Queue {} :: OK.'.format( matrix_queue.qsize()))
-        
+
         # TODO find a better way of doing this. May need to restructure information that is sent around
         logger.info('Received: it:{} ({},{})-({},{})'.format(benchmark_statistics.iteration,
                                                              benchmark_statistics.recorded_policy_vector[0].training_scheme.name,
                                                              benchmark_statistics.recorded_policy_vector[0].policy.name,
                                                              benchmark_statistics.recorded_policy_vector[1].training_scheme.name,
                                                              benchmark_statistics.recorded_policy_vector[1].policy.name))
-        
-        logger.info('Populating new statistics: ...')
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
-        logger.info('Populating new statistics: OK.')
-        
         if check_for_termination(confusion_matrix_dict):
             logger.info('All confusion matrices completed. Writing to memory')
 
@@ -52,8 +44,8 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             write_legend_file(hashing_dictionary, path='{}/confusion_matrices/legend.txt'.format(results_path))
             logger.info('Writing completed')
             break
-        
-        
+
+
 def fill_winrate_diagonal(matrix, value):
     np.fill_diagonal(matrix, value)
     return matrix
