@@ -39,15 +39,22 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
             wins_vector[episode_winner] += 1
         winrates = [winrate / num_episodes for winrate in wins_vector]
 
+    logger.info("BEFORE :: Submit for conf matrix : Queue {} :: ...".format( matrix_queue.qsize()))
+    print("WINRATE : ", winrates, type(winrates))
     matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
                                          benchmark_job.recorded_policy_vector,
-                                         winrates))
+                                         np.asarray(winrates, dtype=np.float32) ))
+    logger.info("AFTER :: Submit for conf matrix : Queue {} :: ...".format( matrix_queue.qsize()))
     logger.info('Benchmarking finished')
 
 
-def single_match(env, policy_vector):
+def single_match(env, policy_vector,):
     # trajectory: [(s,a,r,s')]
-    trajectory = run_episode(env, policy_vector, training=False)
+    true_policy_vector = []
+    for index, policy in enumerate(policy_vector):
+        true_policy_vector.append( policy.clone().queue2policy() )
+
+    trajectory = run_episode(env, true_policy_vector, training=False)
     reward_vector = lambda t: t[2]
     individal_policy_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
     cumulative_reward_vector = [individal_policy_trajectory_reward(trajectory, i) for i in range(len(policy_vector))]

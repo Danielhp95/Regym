@@ -4,6 +4,7 @@ import copy
 
 import math
 import os
+import time 
 from collections import namedtuple
 from itertools import count
 
@@ -203,8 +204,8 @@ class DQN(nn.Module) :
 
     def clone(self):
         cloned = DQN(nbr_actions=self.nbr_actions,actfn=self.actfn,useCNN=self.useCNN,use_cuda=self.use_cuda)
+        cloned.load_state_dict( self.state_dict() )
         #cloned.share_memory()
-        #TODO : copy the weights data
         return cloned  
 
     def forward(self, x) :
@@ -264,10 +265,13 @@ class DuelingDQN(nn.Module) :
             self = self.cuda()
     
     def clone(self):
+        raise NotImplemented
+        """
         cloned = DuelingDQN(nbr_actions=self.nbr_actions,actfn=self.actfn,useCNN=self.useCNN,use_cuda=self.use_cuda)
-        #cloned.share_memory()
-        #TODO : copy the weights data
+        cloned.load_state_dict( self.state_dict() )
+        cloned.share_memory()
         return cloned  
+        """
 
     def forward(self, x) :
         try:
@@ -352,8 +356,8 @@ class DeepQNetworkAlgorithm :
         
         self.nbr_worker = kwargs["nbr_worker"]
 
-        self.target_model = self.model.clone()
-        self.target_model.share_memory()
+        self.target_model = copy.deepcopy(self.model)
+        #self.target_model.share_memory()
         hard_update(self.target_model,self.model)
         if self.use_cuda :
             self.target_model = self.target_model.cuda()
@@ -388,7 +392,9 @@ class DeepQNetworkAlgorithm :
         cloned_model = self.model.clone()
         self.kwargs['model'] = cloned_model
         cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs)
-        cloned.replayBuffer = self.replayBuffer
+        
+        # TODO : decide whether to transfer the replay buffer or not.
+        #cloned.replayBuffer = self.replayBuffer
         
         return cloned
         
@@ -679,28 +685,56 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
         return loss_np
 
 class DeepQNetworkAgent2Queue():
-    def __init__(self, dqnAgent):
-        self.kwargs = copy.deepcopy(dqnAgent.kwargs)
-        self.kwargs['model'] = None 
-        self.cpu_named_parameters = dqnAgent.algorithm.model.named_parameters()
-        for el in self.cpu_named_parameters:
-            el = (el[0], el[1].cpu() )
+    def __init__(self, dqnAgent, training=False):
+        self.name = dqnAgent.name 
+        self.training = training
+        
+        if isinstance(dqnAgent,DeepQNetworkAgent):                
+            self.kwargs = dict()
+            for name in dqnAgent.kwargs:
+                if 'model' in name :
+                    continue
+                else :
+                    self.kwargs[name] = dqnAgent.kwargs[name]
+            
+            self.kwargs['model'] = dqnAgent.kwargs["model"].state_dict()
+            for name in self.kwargs["model"] :
+                self.kwargs["model"][name] = self.kwargs["model"][name].cpu().numpy()
+        else :
+            # cloning :
+            self.kwargs = copy.deepcopy(dqnAgent.kwargs) 
 
     def queue2policy(self):
-        kwargs = copy.deepcopy(self.kwargs)
+        for name in self.kwargs["model"] :
+            self.kwargs["model"][name] = torch.from_numpy( self.kwargs["model"][name] )
+        
         if self.kwargs['dueling']:
-            model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=self.kwargs['use_cuda'])
+            model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
         else :
-            model = DQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=self.kwargs['use_cuda'])
-        kwargs['model'] = model 
+            model = DQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
+        
+        model.load_state_dict(self.kwargs["model"])
+        if self.kwargs['use_cuda'] :
+            model = model.cuda()
+
+        self.kwargs['model'] = model 
 
         if self.kwargs['double']:
-            algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
+            algorithm = DeepQNetworkAlgorithm(kwargs=self.kwargs)
         else :
-            algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
+            algorithm = DeepQNetworkAlgorithm(kwargs=self.kwargs)
         
+        #TODO : decide whether to clone the replayBuffer or not:
         #cloned.replayBuffer = self.replayBuffer
-        return DeepQNetworkAgent(network=None,algorithm=algorithm)
+        
+        policy = DeepQNetworkAgent(network=None,algorithm=algorithm)
+        policy.training = self.training
+        
+        return policy
+
+    def clone(self):
+        return DeepQNetworkAgent2Queue(self)
+
 
 class DeepQNetworkAgent():
     def __init__(self, network, algorithm):
@@ -758,8 +792,8 @@ class DeepQNetworkAgent():
             return random_action.numpy(), 0.0
 
 
-    def clone4queue(self) :
-        policy2queue = DeepQNetworkAgent2Queue(self)
+    def clone4queue(self,training=False) :
+        policy2queue = DeepQNetworkAgent2Queue(self,training=training)
         return policy2queue
 
     def clone(self, training=False):
@@ -832,6 +866,12 @@ def build_DQN_Agent(state_space_size=32,
         "epsstart":
         "epsend":
         "epsdecay":
+
+        "dueling":
+        "double":
+        "nbr_actions":
+        "actfn":
+        "useCNN":
     """
 
     """
@@ -856,7 +896,9 @@ def build_DQN_Agent(state_space_size=32,
         preprocess = (lambda x: preprocess_model(x))
 
     kwargs["worker_nbr_steps_max"] = 10
-
+    kwargs["nbr_actions"] = action_space_size
+    kwargs["actfn"] = LeakyReLU
+    kwargs["useCNN"] = useCNN
     # Create model architecture:
     if dueling :
         model = DuelingDQN(action_space_size,useCNN=useCNN, use_cuda=use_cuda)
@@ -867,6 +909,8 @@ def build_DQN_Agent(state_space_size=32,
     model.share_memory()
     
     kwargs["model"] = model
+    kwargs["dueling"] = dueling
+    kwargs["double"] = double 
 
     BATCH_SIZE = 32#256
     GAMMA = 0.99
@@ -875,10 +919,12 @@ def build_DQN_Agent(state_space_size=32,
     lr = 1e-3
     memoryCapacity = 25e3
     
+    """
     name = 'CNN+DuelingDoubleDQN+WithZG+GAMMA{}+TAU{}'.format(GAMMA,TAU)\
     +'+IS+PER-alpha'+str(alphaPER) \
     +'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)
-
+    """
+    name = "DQN" 
     model_path = './'+name 
     
     path=model_path

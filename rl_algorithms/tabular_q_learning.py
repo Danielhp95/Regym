@@ -40,3 +40,9 @@ class TabularQLearning():
                                   learning_rate=self.learning_rate, training=training)
         cloned.Q_table = copy.deepcopy(self.Q_table)
         return cloned
+
+    def clone4queue(self,training=False):
+        return self.clone(training=training)
+
+    def queue2policy(self):
+        return self

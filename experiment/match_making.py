@@ -41,25 +41,8 @@ def match_making_process(expected_number_of_policies, benchmarking_episodes, cre
     benchmarking_child_processes = []
     while True:
         logger.info("Polling for policy {}: Queue {} :: ...".format(received_policies, policy_queue.qsize()))
-        wait =True 
-        begin = time.time()
-        previouselt = 0 
-        while wait:
-            try :
-                iteration, training_scheme, policy = policy_queue.get_nowait() # wait_for_policy(policy_queue)
-                wait = False
-            except Exception as e : 
-                current = time.time()
-                elt = current-begin
-                if previouselt != int(elt) and int(elt) % 2 == 0:
-                    #logger.info("Polling for policy {}: queue empty : {}...".format(received_policies, policy_queue.empty() ) )
-                    logger.info("Polling for policy {}: Queue {} :: ELT {} seconds...".format(received_policies, policy_queue.qsize(), elt))
-                    previouselt = int(elt)
-                    #print("Polling for policy {}: ELT : {} seconds.".format(received_policies, elt ), end='\r' )
-                
+        iteration, training_scheme, policy = policy_queue.get() # wait_for_policy(policy_queue)
         logger.info("Polling for policy {}: Queue {} :: OK.".format(received_policies, policy_queue.qsize()))
-        
-        policy = policy.queue2policy()
         
         received_policies += 1
         logger.info('Received ({},{},{}). {}/{} received'.format(iteration, training_scheme.name, policy.name, received_policies, expected_number_of_policies))
@@ -106,7 +89,7 @@ def calculate_new_benchmarking_jobs(recorded_policies, recorded_benchmarking_job
     :param recorded_benchmarking_jobs: Array of benchmarking_jobs that have kill
     :param iteration filter: Filters recorded policies on iteration because policies can only be benchmarked against those of same iteration
     """
-    filtered_recorded_policies = [recorded_policy for recorded_policy in recorded_policies if recorded_policy.iteration == iteration_filter]
+    filtered_recorded_policies = [RecordedPolicy(recorded_policy.iteration, recorded_policy.training_scheme, recorded_policy.policy.clone()) for recorded_policy in recorded_policies if recorded_policy.iteration == iteration_filter]
     for recorded_policy_1 in filtered_recorded_policies:
         for recorded_policy_2 in filtered_recorded_policies:
             benchmark_name = 'Benchmark:({},{}) vs ({},{}). iteration: {}'.format(recorded_policy_1.training_scheme.name,

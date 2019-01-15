@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 
 import numpy as np
@@ -20,13 +21,15 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     """
     logger = logging.getLogger('ConfusionMatrixPopulate')
     logger.setLevel(logging.INFO)
+    time.sleep(20)
+    logger.info("Starting...")
     
     hashing_dictionary, confusion_matrix_dict = create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices)
     while True:
         # poll for new
-        logger.info('Polling for new statistics: ...')
+        logger.info('Polling for new statistics: Queue {} :: ...'.format( matrix_queue.qsize()))
         benchmark_statistics = matrix_queue.get()
-        logger.info('Polling for new statistics: OK.')
+        logger.info('Polling for new statistics: Queue {} :: OK.'.format( matrix_queue.qsize()))
         
         # TODO find a better way of doing this. May need to restructure information that is sent around
         logger.info('Received: it:{} ({},{})-({},{})'.format(benchmark_statistics.iteration,
@@ -49,9 +52,8 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
             write_legend_file(hashing_dictionary, path='{}/confusion_matrices/legend.txt'.format(results_path))
             logger.info('Writing completed')
             break
-        else :
-            logger.info('Not all confusion matrices completed yet ....')
-
+        
+        
 def fill_winrate_diagonal(matrix, value):
     np.fill_diagonal(matrix, value)
     return matrix
