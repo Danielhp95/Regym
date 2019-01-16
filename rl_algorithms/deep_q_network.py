@@ -675,7 +675,10 @@ class DeepQNetworkAgent2Queue():
                 else :
                     self.kwargs[name] = dqnAgent.kwargs[name]
             
-            if use_cuda is not None : self.kwargs['use_cuda'] = use_cuda
+            if use_cuda is not None : 
+                self.kwargs['use_cuda'] = use_cuda
+                self.kwargs['preprocess'].use_cuda = use_cuda
+
             self.kwargs['model'] = dqnAgent.kwargs["model"].state_dict()
             for name in self.kwargs["model"] :
                 self.kwargs["model"][name] = self.kwargs["model"][name].cpu().numpy()
@@ -687,8 +690,10 @@ class DeepQNetworkAgent2Queue():
         for name in self.kwargs["model"] :
             self.kwargs["model"][name] = torch.from_numpy( self.kwargs["model"][name] )
         
-        if use_cuda is not None : self.kwargs['use_cuda'] = use_cuda
-
+        if use_cuda is not None : 
+            self.kwargs['use_cuda'] = use_cuda
+            self.kwargs['preprocess'].use_cuda = use_cuda
+        
         if self.kwargs['dueling']:
             model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
         else :
