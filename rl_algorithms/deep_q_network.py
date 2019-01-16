@@ -908,7 +908,7 @@ def build_DQN_Agent(state_space_size=32,
     name = "DQN"
     if dueling : name = 'Dueling'+name 
     if double : name = 'Double'+name 
-    name += '+GAMMA{}+TAU{}'.format(GAMMA,TAU)+'+PER-alpha'+str(alphaPER)+'-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-m'+str(memoryCapacity)
+    name += '+GAMMA{}+TAU{}'.format(GAMMA,TAU)+'+PER_alpha'+str(alphaPER)+'_w'+str(num_worker)+'_lr'+str(lr)+'_b'+str(BATCH_SIZE)+'_m'+str(memoryCapacity)
     
     model_path = './'+name 
     
