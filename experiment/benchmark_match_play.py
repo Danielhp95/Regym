@@ -51,7 +51,7 @@ def single_match(env, policy_vector,):
     # trajectory: [(s,a,r,s')]
     true_policy_vector = []
     for index, policy in enumerate(policy_vector):
-        true_policy_vector.append( policy.clone().queue2policy() )
+        true_policy_vector.append( policy.clone().queue2policy(use_cuda=False) )
 
     trajectory = run_episode(env, true_policy_vector, training=False)
     reward_vector = lambda t: t[2]

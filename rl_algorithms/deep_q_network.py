@@ -663,7 +663,7 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
         return loss_np
 
 class DeepQNetworkAgent2Queue():
-    def __init__(self, dqnAgent, training=False):
+    def __init__(self, dqnAgent, training=False, use_cuda=None):
         self.name = dqnAgent.name 
         self.training = training
         
@@ -675,6 +675,7 @@ class DeepQNetworkAgent2Queue():
                 else :
                     self.kwargs[name] = dqnAgent.kwargs[name]
             
+            if use_cuda is not None : self.kwargs['use_cuda'] = use_cuda
             self.kwargs['model'] = dqnAgent.kwargs["model"].state_dict()
             for name in self.kwargs["model"] :
                 self.kwargs["model"][name] = self.kwargs["model"][name].cpu().numpy()
@@ -682,10 +683,12 @@ class DeepQNetworkAgent2Queue():
             # cloning :
             self.kwargs = copy.deepcopy(dqnAgent.kwargs) 
 
-    def queue2policy(self):
+    def queue2policy(self, use_cuda=None):
         for name in self.kwargs["model"] :
             self.kwargs["model"][name] = torch.from_numpy( self.kwargs["model"][name] )
         
+        if use_cuda is not None : self.kwargs['use_cuda'] = use_cuda
+
         if self.kwargs['dueling']:
             model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
         else :
