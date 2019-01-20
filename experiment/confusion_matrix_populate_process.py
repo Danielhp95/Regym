@@ -29,10 +29,10 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
 
         # TODO find a better way of doing this. May need to restructure information that is sent around
         logger.info('Received: it:{} ({},{})-({},{})'.format(benchmark_statistics.iteration,
-                                                             benchmark_statistics.recorded_policy_vector[0].training_scheme.name,
-                                                             benchmark_statistics.recorded_policy_vector[0].policy.name,
-                                                             benchmark_statistics.recorded_policy_vector[1].training_scheme.name,
-                                                             benchmark_statistics.recorded_policy_vector[1].policy.name))
+                                                             benchmark_statistics.recorded_agent_vector[0].training_scheme.name,
+                                                             benchmark_statistics.recorded_agent_vector[0].agent.name,
+                                                             benchmark_statistics.recorded_agent_vector[1].training_scheme.name,
+                                                             benchmark_statistics.recorded_agent_vector[1].agent.name))
         populate_new_statistics(benchmark_statistics, confusion_matrix_dict, hashing_dictionary)
         if check_for_termination(confusion_matrix_dict):
             logger.info('All confusion matrices completed. Writing to memory')
@@ -77,8 +77,8 @@ def populate_new_statistics(benchmark_stat, confusion_matrix_dict, hashing_dicti
 
 
 def find_indexes(benchmark_stat, hashing_dictionary):
-    name_ids = ['{}-{}'.format(rec_policy.training_scheme.name, rec_policy.policy.name)
-                for rec_policy in benchmark_stat.recorded_policy_vector]
+    name_ids = ['{}-{}'.format(rec_agent.training_scheme.name, rec_agent.agent.name)
+                for rec_agent in benchmark_stat.recorded_agent_vector]
     return hashing_dictionary[name_ids[0]], hashing_dictionary[name_ids[1]]
 
 

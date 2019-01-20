@@ -1,8 +1,10 @@
-def run_episode(env, policy_vector, training):
+import os 
+
+def run_episode(env, agent_vector, training):
     '''
     Runs a single multi-agent rl loop until termination.
     :param env: OpenAI gym environment
-    :param policy_vector: Vector containing the policy for each agent in the environment
+    :param agent_vector: Vector containing the agent for each agent in the environment
     :param training: (boolean) Whether the agents will learn from the experience they recieve
     :returns: Trajectory (s,a,r,s')
     '''
@@ -10,18 +12,18 @@ def run_episode(env, policy_vector, training):
     done = False
     trajectory = []
     while not done:
-        action_vector = [agent.take_action(state) for agent in policy_vector]
+        action_vector = [agent.take_action(state) for agent in agent_vector]
         succ_state, reward_vector, done, info = env.step(action_vector)
         trajectory.append((state, action_vector, reward_vector, succ_state, done))
         state = succ_state
         if training:
-            for i, agent in enumerate(policy_vector):
+            for i, agent in enumerate(agent_vector):
                 agent.handle_experience(state, action_vector[i], reward_vector[i], succ_state, done)
 
     return trajectory
 
 
-def self_play_training(env, training_policy, self_play_scheme, target_episodes=10, opci=1, menagerie=[]):
+def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], results_path=None):
     '''
     Extension of the multi-agent rl loop. The extension works thus:
     - Opponent sampling distribution
@@ -30,22 +32,32 @@ def self_play_training(env, training_policy, self_play_scheme, target_episodes=1
 
     :param env: OpenAI gym environment
     :param training_scheme
-    :param training_policy: policy being trained, together with training algorithm
+    :param training_agent: AgentHook of the agent being trained, together with training algorithm
     :param opponent_sampling_distribution: Probability distribution that
-    :param curator: Gating function which determines if the current policy will be added to the menagerie at the end of an episode
+    :param curator: Gating function which determines if the current agent will be added to the menagerie at the end of an episode
     :param target_episodes: number of episodes that will be run before training ends.
-    :param opci: Opponent Policy Change Interval
+    :param opci: Opponent Agent Change Interval
+    :param results_path: path of the folder where all results relevant to the current run are being stored.
     :returns: Menagerie after target_episodes have elapsed
-    :returns: Trained policy. freshly baked!
+    :returns: Trained agent. freshly baked!
     :returns: Array of arrays of trajectories for all target_episodes
     '''
+    menagerie_saving_path = '{}/menagerie'.format(results_path)
+    if not os.path.exists(menagerie_saving_path):
+        os.mkdir(menagerie_saving_path)
+
+    # Loading the model from the AgentHook:
+    training_agent = training_agent()
+
     menagerie = menagerie
     trajectories = []
     for episode in range(target_episodes):
+        path = os.path.join(menagerie_saving_path,'temp_train_ep{}.pt'.format(episode) )
+        training_agentHook = training_agent.clone(training=False,path=path)
         if episode % opci == 0:
-            opponent_policy_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_policy.clone(training=False))
-        episode_trajectory = run_episode(env, [training_policy]+opponent_policy_vector_e, training=True)
-        menagerie = self_play_scheme.curator(menagerie, training_policy.clone(training=False), episode_trajectory)
+            opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agentHook)
+        episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
+        menagerie = self_play_scheme.curator(menagerie, training_agentHook, episode_trajectory)
         trajectories.append(episode_trajectory)
 
-    return menagerie, training_policy.clone(training=True), trajectories
+    return menagerie, training_agent.clone(training=True,path=path), trajectories

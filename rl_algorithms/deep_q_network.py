@@ -17,6 +17,7 @@ import torchvision.transforms as T
 
 from torch.multiprocessing import Process 
 
+EXP = namedtuple('EXP', ('state','action','next_state', 'reward','done') )
 Transition = namedtuple('Transition', ('state','action','next_state', 'reward','done') )
 TransitionPR = namedtuple('TransitionPR', ('idx','priority','state','action','next_state', 'reward','done') )
 
@@ -38,11 +39,6 @@ class ReplayBuffer(object) :
 
     def __len__(self) :
         return len(self.memory)
-
-EXP = namedtuple('EXP', ('state','action','next_state', 'reward','done') )
-Transition = namedtuple('Transition', ('state','action','next_state', 'reward','done') )
-TransitionPR = namedtuple('TransitionPR', ('idx','priority','state','action','next_state', 'reward','done') )
-
 
 class PrioritizedReplayBuffer :
     def __init__(self,capacity, alpha=0.2) :
@@ -318,6 +314,8 @@ class DeepQNetworkAlgorithm :
 
             "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
             
+            "nbrTrainIteration": int, number of iteration to train the model at each new experience. [default: nbrTrainIteration=1]
+           
             "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
         """
 
@@ -662,65 +660,6 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
 
         return loss_np
 
-class DeepQNetworkAgent2Queue():
-    def __init__(self, dqnAgent, training=False, use_cuda=None):
-        self.name = dqnAgent.name 
-        self.training = training
-        
-        if isinstance(dqnAgent,DeepQNetworkAgent):                
-            self.kwargs = dict()
-            for name in dqnAgent.kwargs:
-                if 'model' in name :
-                    continue
-                else :
-                    self.kwargs[name] = dqnAgent.kwargs[name]
-            
-            if use_cuda is not None : 
-                self.kwargs['use_cuda'] = use_cuda
-                self.kwargs['preprocess'].use_cuda = use_cuda
-
-            self.kwargs['model'] = dqnAgent.kwargs["model"].state_dict()
-            for name in self.kwargs["model"] :
-                self.kwargs["model"][name] = self.kwargs["model"][name].cpu().numpy()
-        else :
-            # cloning :
-            self.kwargs = copy.deepcopy(dqnAgent.kwargs) 
-
-    def queue2policy(self, use_cuda=None):
-        for name in self.kwargs["model"] :
-            self.kwargs["model"][name] = torch.from_numpy( self.kwargs["model"][name] )
-        
-        if use_cuda is not None : 
-            self.kwargs['use_cuda'] = use_cuda
-            self.kwargs['preprocess'].use_cuda = use_cuda
-        
-        if self.kwargs['dueling']:
-            model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
-        else :
-            model = DQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
-        
-        model.load_state_dict(self.kwargs["model"])
-        if self.kwargs['use_cuda'] :
-            model = model.cuda()
-
-        self.kwargs['model'] = model 
-
-        if self.kwargs['double']:
-            algorithm = DOubleDeepQNetworkAlgorithm(kwargs=self.kwargs)
-        else :
-            algorithm = DeepQNetworkAlgorithm(kwargs=self.kwargs)
-        
-        #TODO : decide whether to clone the replayBuffer or not:
-        #cloned.replayBuffer = self.replayBuffer
-        
-        policy = DeepQNetworkAgent(network=None,algorithm=algorithm)
-        policy.training = self.training
-        
-        return policy
-
-    def clone(self):
-        return DeepQNetworkAgent2Queue(self)
-
 
 class DeepQNetworkAgent():
     def __init__(self, network, algorithm):
@@ -743,6 +682,9 @@ class DeepQNetworkAgent():
 
         self.name = self.kwargs['name']
 
+    def getModel(self):
+        return self.algorithm.model 
+
     def handle_experience(self, s, a, r, succ_s,done=False):
         hs = self.hashing_function(s)
         hsucc = self.hashing_function(succ_s)
@@ -752,7 +694,7 @@ class DeepQNetworkAgent():
         self.algorithm.handle_experience(experience=experience)
         
         if self.training :
-            self.algorithm.train(iteration=1)
+            self.algorithm.train(iteration=self.kwargs['nbrTrainIteration'])
         
     def take_action(self, state):
         self.nbr_steps += 1
@@ -778,23 +720,22 @@ class DeepQNetworkAgent():
             return random_action.numpy(), 0.0
 
 
-    def clone4queue(self,training=False) :
-        policy2queue = DeepQNetworkAgent2Queue(self,training=training)
-        return policy2queue
-
-    def clone(self, training=False):
+    def clone(self, training=None, path=None):
         """
         TODO : decide whether to launch the training automatically or do it manually.
         So far it is being done manually...
         """
 
+        """
         #cloned_network = self.network.clone()
         cloned_algorithm = self.algorithm.clone()
         cloned = DeepQNetworkAgent(network=None, algorithm=cloned_algorithm)
         cloned.reset_eps()
         
         cloned.training = training 
-
+        """
+        from .interface import AgentHook
+        cloned = AgentHook(self, training=training, path=path)
         return cloned
 
 class PreprocessFunction(object) :
@@ -816,7 +757,8 @@ def build_DQN_Agent(state_space_size=32,
                         hash_function=None,
                         double=False,
                         dueling=False, 
-                        num_worker=1, 
+                        num_worker=1,
+                        nbrTrainIteration=32, 
                         use_PER=True,
                         alphaPER = 0.8,
                         MIN_MEMORY = 1e1,
@@ -847,7 +789,9 @@ def build_DQN_Agent(state_space_size=32,
         "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
         
         "worker_nbr_steps_max": int, number of steps of the training loop for each worker/learner [default: worker_nbr_steps_max=1000].
-
+        
+        "nbrTrainIteration": int, number of iteration to train the model at each new experience. [default: nbrTrainIteration=1]
+            
         "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
 
         "epsstart":
@@ -882,6 +826,7 @@ def build_DQN_Agent(state_space_size=32,
         """
         preprocess = (lambda x: preprocess_model(x))
 
+    kwargs['nbrTrainIteration'] = nbrTrainIteration
     kwargs["worker_nbr_steps_max"] = 10
     kwargs["nbr_actions"] = action_space_size
     kwargs["actfn"] = LeakyReLU
@@ -908,7 +853,7 @@ def build_DQN_Agent(state_space_size=32,
     name = "DQN"
     if dueling : name = 'Dueling'+name 
     if double : name = 'Double'+name 
-    name += '+GAMMA{}+TAU{}'.format(GAMMA,TAU)+'+PER_alpha'+str(alphaPER)+'_w'+str(num_worker)+'_lr'+str(lr)+'_b'+str(BATCH_SIZE)+'_m'+str(memoryCapacity)
+    #name += '+GAMMA{}+TAU{}'.format(GAMMA,TAU)+'+PER_alpha'+str(alphaPER)+'_w'+str(num_worker)+'_lr'+str(lr)+'_b'+str(BATCH_SIZE)+'_m'+str(memoryCapacity)
     
     model_path = './'+name 
     

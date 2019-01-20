@@ -3,7 +3,7 @@ import logging
 import random
 import numpy as np
 from collections import namedtuple
-BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_policy_vector winrates')
+BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
 
 from torch.multiprocessing import Process
 from concurrent.futures import as_completed
@@ -16,7 +16,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     """
     :param num_episodes: Number of episodes used for stats collection
     :param createNewEnvironment OpenAI gym environment creation function
-    :param benchmark_job: BenchmarkingJob containing iteration and policy vector to benchmark
+    :param benchmark_job: BenchmarkingJob containing iteration and agent vector to benchmark
     :param process_pool: ProcessPoolExecutor used to submit match runs jobs
     :param matrix_queue: Queue to which submit stats
     :param name: String identifying this benchmarking process
@@ -25,15 +25,15 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     logger.setLevel(logging.DEBUG)
     logger.info('Started for {} episodes'.format(num_episodes))
 
-    policy_vector = [recorded_policy.policy for recorded_policy in benchmark_job.recorded_policy_vector]
+    agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
 
     # TODO Use given pool, but how?
     with ProcessPoolExecutor(max_workers=3) as executor:
         benchmark_start = time.time()
-        futures = [executor.submit(single_match, *[createNewEnvironment(), policy_vector])
+        futures = [executor.submit(single_match, *[createNewEnvironment(), agent_vector])
                    for _ in range(num_episodes)]
 
-        wins_vector = [0 for _ in range(len(policy_vector))]
+        wins_vector = [0 for _ in range(len(agent_vector))]
 
         for index, future in enumerate(as_completed(futures) ):
             episode_winner = future.result()
@@ -42,21 +42,18 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
         winrates = [winrate / num_episodes for winrate in wins_vector]
 
     matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
-                                         benchmark_job.recorded_policy_vector,
+                                         benchmark_job.recorded_agent_vector,
                                          winrates))
     logger.info('Benchmarking finished. Duration: {} seconds'.format(benchmark_duration))
 
 
-def single_match(env, policy_vector,):
+def single_match(env, agent_vector,):
     # trajectory: [(s,a,r,s')]
-    true_policy_vector = []
-    for index, policy in enumerate(policy_vector):
-        true_policy_vector.append( policy.clone().queue2policy(use_cuda=False) )
-
-    trajectory = run_episode(env, true_policy_vector, training=False)
+    agent_vector = [agent(training=False, use_cuda=False) for agent in agent_vector]
+    trajectory = run_episode(env, agent_vector, training=False)
     reward_vector = lambda t: t[2]
-    individal_policy_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
-    cumulative_reward_vector = [individal_policy_trajectory_reward(trajectory, i) for i in range(len(policy_vector))]
+    individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
+    cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]
     episode_winner = choose_winner(cumulative_reward_vector)
     return episode_winner
 

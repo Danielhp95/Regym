@@ -1,24 +1,21 @@
 '''
-Classical notion of self-play. Where the opponent is ALWAYS the same as the policy that is being learnt.
+Classical notion of self-play. Where the opponent is ALWAYS the same as the agent that is being learnt.
 '''
 
 
-def opponent_sampling_distribution(menagerie, training_policy):
+def opponent_sampling_distribution(menagerie, training_agent):
     '''
-    :param menagerie: archive of policies selected by the curator and the potential opponents
-    :param training_policy: Policy currently being trained
-    :returns: Policy, sampled from the menagerie, to be used as an opponent in the next episode
+    :param menagerie: archive of agents selected by the curator and the potential opponents
+    :param training_agent: AgentHook of the agent that is currently being trained
+    :returns: Agent, sampled from the menagerie, to be used as an opponent in the next episode
     '''
-    if len(menagerie):
-        return [menagerie[0]]
-    else :
-        return [training_policy]
+    return [training_agent()]
 
 
-def curator(menagerie, training_policy, episode_trajectory):
+def curator(menagerie, training_agent, episode_trajectory):
     '''
-    :param menagerie: archive of policies selected by the curator and the potential opponents
-    :param training_policy: Policy currently being trained
+    :param menagerie: archive of agents selected by the curator and the potential opponents
+    :param training_agent: Agent currently being trained
     :returns: menagerie to be used in the next training episode.
     '''
     return menagerie
