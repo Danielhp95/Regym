@@ -32,9 +32,10 @@ class AgentHook():
 					continue
 				else :
 					self.kwargs[name] = agent.kwargs[name]
-			# Saving CPU state_dict:
+			# Saving CPU state_dict and RB:
 			if self.path is not None :
 				torch.save( agent.getModel().cpu().state_dict(), self.path)
+				agent.algorithm.replayBuffer.save(self.path)
 			else :
 				self.agent = copy.deepcopy(agent) 
 		elif isinstance(agent,TabularQLearningAgent):
@@ -75,6 +76,8 @@ class AgentHook():
 				agent = DeepQNetworkAgent(network=None,algorithm=algorithm)
 				if training is not None :
 					agent.training = training
+				if agent.training :
+					agent.algorithm.replayBuffer.load(self.path)
 				return agent
 		else :
 			# MixedStrategyAgent

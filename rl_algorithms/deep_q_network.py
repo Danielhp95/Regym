@@ -40,6 +40,16 @@ class ReplayBuffer(object) :
     def __len__(self) :
         return len(self.memory)
 
+    def save(self,path):
+        path += '.rb'
+        np.savez(path, memory=self.memory, position=np.asarray(self.position) )
+
+    def load(self,path):
+        path += '.rb.npz'
+        data= np.load(path)
+        self.memory =data['memory']
+        self.position = int(data['position']) 
+
 class PrioritizedReplayBuffer :
     def __init__(self,capacity, alpha=0.2) :
         self.length = 0
@@ -50,6 +60,22 @@ class PrioritizedReplayBuffer :
         self.tree = np.zeros(2*self.capacity-1)
         self.data = np.zeros(self.capacity,dtype=object)
         self.sumPi_alpha = 0.0
+    
+    def save(self,path):
+        path += '.prb'
+        np.savez(path, tree=self.tree, data=self.data, 
+            length=np.asarray(self.length), sumPi=np.asarray(self.sumPi_alpha),
+            counter=np.asarray(self.counter), alpha=np.asarray(self.alpha) )
+
+    def load(self,path):
+        path += '.prb.npz'
+        data= np.load(path)
+        self.tree =data['tree']
+        self.data = data['data']
+        self.counter = int(data['counter'])
+        self.length = int(data['length'])
+        self.sumPi_alpha = float(data['sumPi'])
+        self.alpha = float(data['alpha'])
         
     def reset(self) :
         self.__init__(capacity=self.capacity,alpha=self.alpha)

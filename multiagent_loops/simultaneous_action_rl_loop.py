@@ -48,7 +48,7 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
 
     # Loading the model from the AgentHook:
     training_agentHook = training_agent
-    training_agent = training_agent()
+    training_agent = training_agent(training=True)
 
     menagerie = menagerie
     trajectories = []
