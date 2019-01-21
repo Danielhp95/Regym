@@ -23,7 +23,7 @@ def run_episode(env, agent_vector, training):
     return trajectory
 
 
-def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], results_path=None):
+def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], results_path=None, iteration=None):
     '''
     Extension of the multi-agent rl loop. The extension works thus:
     - Opponent sampling distribution
@@ -47,17 +47,18 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
         os.mkdir(menagerie_saving_path)
 
     # Loading the model from the AgentHook:
+    training_agentHook = training_agent
     training_agent = training_agent()
 
     menagerie = menagerie
     trajectories = []
     for episode in range(target_episodes):
-        path = os.path.join(menagerie_saving_path,'temp_train_ep{}.pt'.format(episode) )
-        training_agentHook = training_agent.clone(training=False,path=path)
+        training_agentHook = training_agent.clone(training=False)
         if episode % opci == 0:
             opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agentHook)
         episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
         menagerie = self_play_scheme.curator(menagerie, training_agentHook, episode_trajectory)
         trajectories.append(episode_trajectory)
-
+    
+    path = os.path.join(menagerie_saving_path,'temp_train_ep{}.pt'.format(iteration) )    
     return menagerie, training_agent.clone(training=True,path=path), trajectories

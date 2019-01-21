@@ -24,7 +24,6 @@ class AgentHook():
 		self.type = None 
 
 		if isinstance(agent,DeepQNetworkAgent):
-			assert(path is not None)
 			self.path=path
 			self.type = AgentType.DQN 
 			self.kwargs = dict()
@@ -34,9 +33,12 @@ class AgentHook():
 				else :
 					self.kwargs[name] = agent.kwargs[name]
 			# Saving CPU state_dict:
-			print('SAVING : ',self.path)
-			torch.save( agent.getModel().cpu().state_dict(), self.path)
-			print('SAVING : {} :: OK'.format(self.path) )
+			if self.path is not None :
+				print('SAVING : ',self.path)
+				torch.save( agent.getModel().cpu().state_dict(), self.path)
+				print('SAVING : {} :: OK'.format(self.path) )
+			else :
+				self.agent = copy.deepcopy(agent) 
 		elif isinstance(agent,TabularQLearningAgent):
 			self.type = AgentType.TQL 
 			self.agent = agent
@@ -49,34 +51,35 @@ class AgentHook():
 		if self.type == AgentType.TQL :
 			return copy.deepcopy(self.agent)
 		if self.type == AgentType.DQN :
-			if use_cuda is not None :
-				self.kwargs['use_cuda'] = use_cuda
-				self.kwargs['preprocess'].use_cuda = use_cuda
-			# Init Model:
-			if self.kwargs['dueling']:
-				model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
+			if self.path is None :
+				return self.agent
 			else :
-				model = DQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
-			# Loading CPU state_dict:
-			print('LOADING : ',self.path)
-			model.load_state_dict( torch.load(self.path) )
-			print('LOADING : {} :: OK'.format(self.path) )
-			if self.kwargs['use_cuda'] :
-				model = model.cuda()
-			# Init Algorithm
-			kwargs = copy.deepcopy(self.kwargs)
-			kwargs['model'] = model 
-			if self.kwargs['double']:
-				algorithm = DoubleDeepQNetworkAlgorithm(kwargs=kwargs)
-			else :
-				algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
-			#TODO : decide whether to clone the replayBuffer or not:
-			#cloned.replayBuffer = self.replayBuffer
-			# Init Agent
-			agent = DeepQNetworkAgent(network=None,algorithm=algorithm)
-			if training is not None :
-				agent.training = training
-			return agent
+				if use_cuda is not None :
+					self.kwargs['use_cuda'] = use_cuda
+					self.kwargs['preprocess'].use_cuda = use_cuda
+				# Init Model:
+				if self.kwargs['dueling']:
+					model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
+				else :
+					model = DQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
+				# Loading CPU state_dict:
+				print('LOADING : ',self.path)
+				model.load_state_dict( torch.load(self.path) )
+				print('LOADING : {} :: OK'.format(self.path) )
+				if self.kwargs['use_cuda'] :
+					model = model.cuda()
+				# Init Algorithm
+				kwargs = copy.deepcopy(self.kwargs)
+				kwargs['model'] = model 
+				if self.kwargs['double']:
+					algorithm = DoubleDeepQNetworkAlgorithm(kwargs=kwargs)
+				else :
+					algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
+				# Init Agent
+				agent = DeepQNetworkAgent(network=None,algorithm=algorithm)
+				if training is not None :
+					agent.training = training
+				return agent
 		else :
 			# MixedStrategyAgent
 			return self.agent 

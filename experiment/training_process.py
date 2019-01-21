@@ -35,7 +35,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
         (menagerie, trained_agent,
          trajectories) = self_play_training(env=env, training_agent=training_agent,
                                             self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
-                                            menagerie=menagerie, results_path=results_path)
+                                            menagerie=menagerie, results_path=results_path, iteration=completed_iterations)
         training_duration = time.time() - training_start
 
         completed_iterations += next_training_iterations
@@ -51,6 +51,9 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
         file_name = '{}-{}.txt'.format(self_play_scheme.name,training_agent.name)
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
         write_episodic_reward(enumerated_trajectories, target_file_path='{}/{}'.format(results_path,file_name))
+
+        # Updating:
+        training_agent = trained_agent
 
     logger.info('All training completed. Total duration: {} seconds'.format(time.time() - process_start_time))
 

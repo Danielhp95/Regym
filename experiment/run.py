@@ -32,6 +32,10 @@ from torch.multiprocessing import Process, Queue
 import gym
 import gym_rock_paper_scissors
 
+#import resource
+#soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+#resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
 USE_CUDA = False
 

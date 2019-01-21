@@ -352,10 +352,14 @@ class DeepQNetworkAlgorithm :
         if self.use_cuda :
             self.target_model = self.target_model.cuda()
 
-        if kwargs["use_PER"] :
-            self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"],alpha=kwargs["PER_alpha"])
+        if self.kwargs['replayBuffer'] is None :
+            if kwargs["use_PER"] :
+                self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"],alpha=kwargs["PER_alpha"])
+            else :
+                self.replayBuffer = ReplayMemory(capacity=kwargs["replay_capacity"])
+            #self.kwargs['replayBuffer'] = self.replayBuffer 
         else :
-            self.replayBuffer = ReplayMemory(capacity=kwargs["replay_capacity"])
+            self.replayBuffer = self.kwargs['replayBuffer']
         
         self.min_capacity = kwargs["min_capacity"]
         self.batch_size = kwargs["batch_size"]
@@ -376,9 +380,6 @@ class DeepQNetworkAlgorithm :
         cloned_model = self.model.clone()
         self.kwargs['model'] = cloned_model
         cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs)
-        
-        # TODO : decide whether to transfer the replay buffer or not.
-        #cloned.replayBuffer = self.replayBuffer
         
         return cloned
         
@@ -532,10 +533,6 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
         cloned_model = self.model.clone()
         self.kwargs['model'] = cloned_model
         cloned = DoubleDeepQNetworkAlgorithm(kwargs=cloned_kwargs)
-        
-        # TODO : decide whether to transfer the replay buffer or not.
-        #cloned.replayBuffer = self.replayBuffer
-        
         return cloned
         
 
@@ -755,14 +752,15 @@ class PreprocessFunction(object) :
 def build_DQN_Agent(state_space_size=32, 
                         action_space_size=3, 
                         hash_function=None,
+                        learning_rate=6.25e-5,
                         double=False,
                         dueling=False, 
                         num_worker=1,
                         nbrTrainIteration=32, 
                         use_PER=True,
-                        alphaPER = 0.8,
-                        MIN_MEMORY = 1e1,
-                        epsstart=0.9,
+                        alphaPER=0.6,
+                        MIN_MEMORY=5e1,
+                        epsstart=0.5,
                         epsend=0.05,
                         epsdecay=1e3,
                         use_cuda = False
@@ -880,6 +878,8 @@ def build_DQN_Agent(state_space_size=32,
     kwargs['epsstart'] = epsstart
     kwargs['epsend'] = epsend
     kwargs['epsdecay'] = epsdecay
+
+    kwargs['replayBuffer'] = None 
     
 
     if dueling :
