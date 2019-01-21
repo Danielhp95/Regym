@@ -37,7 +37,7 @@ import gym_rock_paper_scissors
 #resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
-USE_CUDA = False
+USE_CUDA = True
 
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
     if paths is None :

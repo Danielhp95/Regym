@@ -34,9 +34,7 @@ class AgentHook():
 					self.kwargs[name] = agent.kwargs[name]
 			# Saving CPU state_dict:
 			if self.path is not None :
-				print('SAVING : ',self.path)
 				torch.save( agent.getModel().cpu().state_dict(), self.path)
-				print('SAVING : {} :: OK'.format(self.path) )
 			else :
 				self.agent = copy.deepcopy(agent) 
 		elif isinstance(agent,TabularQLearningAgent):
@@ -63,9 +61,7 @@ class AgentHook():
 				else :
 					model = DQN(nbr_actions=self.kwargs['nbr_actions'],actfn=self.kwargs['actfn'],useCNN=self.kwargs['useCNN'],use_cuda=False)
 				# Loading CPU state_dict:
-				print('LOADING : ',self.path)
 				model.load_state_dict( torch.load(self.path) )
-				print('LOADING : {} :: OK'.format(self.path) )
 				if self.kwargs['use_cuda'] :
 					model = model.cuda()
 				# Init Algorithm
