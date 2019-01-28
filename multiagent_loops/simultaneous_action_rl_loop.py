@@ -43,9 +43,9 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     :returns: Array of arrays of trajectories for all target_episodes
     '''
     menagerie_path = '{}/menagerie'.format(results_path)
-    agent_menagerie_path = '{}/{}'.format(mengerie_path, training_agent.name)
-    if not os.path.exists(menagerie_saving_path):
-        os.mkdir(menagerie_saving_path)
+    agent_menagerie_path = '{}/{}'.format(menagerie_path, training_agent.name)
+    if not os.path.exists(menagerie_path):
+        os.mkdir(menagerie_path)
     if not os.path.exists(agent_menagerie_path):
         os.mkdir(agent_menagerie_path)
         

@@ -37,7 +37,7 @@ import gym_rock_paper_scissors
 #resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
-USE_CUDA = True
+USE_CUDA = False#True
 
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
     if paths is None :
@@ -76,13 +76,18 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
                                 matrix_queue, results_path))
     return (training_processes, mm_process, cfm_process)
 
+class EnvironmentCreationFunction(object) :
+    def __init__(self, environment_name_cli):
+      self.environment_name_cli = environment_name_cli
+
+    def __call__(self) :
+      return gym.make(self.environment_name_cli)
 
 def define_environment_creation_funcion(environment_name_cli):
     valid_environments = ['RockPaperScissors-v0']
     if environment_name_cli not in valid_environments:
-        raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
-    return lambda: gym.make(environment_name_cli)
-
+      raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli,valid_environments))
+    return EnvironmentCreationFunction(environment_name_cli)
 
 def run_processes(training_processes, mm_process, cfm_process):
     [p.start() for p in training_processes]
