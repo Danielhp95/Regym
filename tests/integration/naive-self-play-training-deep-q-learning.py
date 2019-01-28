@@ -10,6 +10,7 @@ import numpy as np
 
 import gym
 import gym_rock_paper_scissors
+from gym_rock_paper_scissors.fixed_agents import rockAgent, paperAgent, scissorsAgent
 
 def test_selfplay():
 	env = gym.make('RockPaperScissors-v0')
@@ -38,12 +39,11 @@ def test_selfplay_DQNvsFixedAgent():
 										MIN_MEMORY=1e1,
 										epsstart=0.9,
 										epsend=0.01,
-										epsdecay=2e2)
+										epsdecay=2e2,
+										use_cuda=False)
 
-	fixedAgent = gym_rock_paper_scissors.fixed_agents.rockAgent
+	fixedAgent = rockAgent
 
-	training_policy.launch_training()
-	
 	policy = simultaneous_action_rl_loop.self_play_training(env=env,
 															menagerie=[fixedAgent],
 															training_policy=training_policy,
@@ -51,7 +51,6 @@ def test_selfplay_DQNvsFixedAgent():
 	                                                        target_episodes=target_episodes, 
 	                                                        opci=1)
 
-	training_policy.stop_training()
 	#assert np.array_equal(policy.Q_table, training_policy.Q_table)
 	#np.savetxt('policy', policy.Q_table) # To manually inspect the policy
 
