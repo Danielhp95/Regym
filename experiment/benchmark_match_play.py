@@ -36,7 +36,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
 
         wins_vector = [0 for _ in range(len(agent_vector))]
 
-        for index, future in enumerate(as_completed(futures) ):
+        for future in as_completed(futures):
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
         benchmark_duration = time.time() - benchmark_start

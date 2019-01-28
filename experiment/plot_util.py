@@ -77,8 +77,6 @@ def create_aggregated_benchmark_winrate_plot(winrate_dict, target_dir):
         winrates = np.array(winrates)
 
         means, standard_deviations = winrates.mean(axis=0), winrates.std(axis=0)
-        upper_bound = [mean + std for mean, std in zip(means, standard_deviations)]
-        lower_bound = [mean - std for mean, std in zip(means, standard_deviations)]
 
         plt.errorbar(iterations, means, standard_deviations, marker='o', label=name)
 

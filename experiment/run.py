@@ -77,18 +77,11 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
     return (training_processes, mm_process, cfm_process)
 
 
-class EnvironmentCreationFunction(object) :
-    def __init__(self, environment_name_cli):
-        self.environment_name_cli = environment_name_cli
-
-    def __call__(self) :
-        return gym.make(self.environment_name_cli)
-
 def define_environment_creation_funcion(environment_name_cli):
     valid_environments = ['RockPaperScissors-v0']
     if environment_name_cli not in valid_environments:
-        raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli,valid_environments))
-    return EnvironmentCreationFunction(environment_name_cli)
+        raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
+    return lambda: gym.make(environment_name_cli)
 
 
 def run_processes(training_processes, mm_process, cfm_process):
@@ -166,8 +159,8 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
 
 if __name__ == '__main__':
     import torch
-    #torch.multiprocessing.set_start_method('spawn')
     torch.multiprocessing.set_start_method('forkserver')
+    
     logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888
@@ -208,7 +201,7 @@ if __name__ == '__main__':
 
     options = docopt(_USAGE)
     logger.info(options)
-
+    
     experiment_id = options['--experiment_id']
     number_of_runs = int(options['--number_of_runs'])
 

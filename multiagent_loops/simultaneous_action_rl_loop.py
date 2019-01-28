@@ -42,11 +42,15 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     :returns: Trained agent. freshly baked!
     :returns: Array of arrays of trajectories for all target_episodes
     '''
-    menagerie_saving_path = '{}/menagerie'.format(results_path)
+    menagerie_path = '{}/menagerie'.format(results_path)
+    agent_menagerie_path = '{}/{}'.format(mengerie_path, training_agent.name)
     if not os.path.exists(menagerie_saving_path):
         os.mkdir(menagerie_saving_path)
+    if not os.path.exists(agent_menagerie_path):
+        os.mkdir(agent_menagerie_path)
+        
 
-    # Loading the model from the AgentHook:
+    # Loading the model from the AgentHook: TODO maybe rename agentHook
     training_agentHook = training_agent
     training_agent = training_agent(training=True)
 
@@ -60,5 +64,5 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
         menagerie = self_play_scheme.curator(menagerie, training_agentHook, episode_trajectory)
         trajectories.append(episode_trajectory)
     
-    path = os.path.join(menagerie_saving_path,'temp_train_ep{}.pt'.format(iteration) )    
+    path = os.path.join(agent_menagerie_path,'checkpoint_episode_{}.pt'.format(iteration) )    
     return menagerie, training_agent.clone(training=True,path=path), trajectories

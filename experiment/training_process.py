@@ -10,7 +10,6 @@ from torch.multiprocessing import Process
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
-# TODO make self_play_training yield trajectories?
 def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, results_path):
     """
     :param env: Environment where agents will be trained on
@@ -36,11 +35,12 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
          trajectories) = self_play_training(env=env, training_agent=training_agent,
                                             self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
                                             menagerie=menagerie, results_path=results_path, iteration=completed_iterations)
+
         training_duration = time.time() - training_start
 
         completed_iterations += next_training_iterations
 
-        path = results_path+process_name+'_tp_it{}.pt'.format(target_iteration)
+        path = f'{results_path}{process_name}_tp_it{target_iteration}.pt'
         logger.info('Submitted agent at iteration {} :: saving at {}'.format(target_iteration,path))
         agent2queue = trained_agent.clone(path=path)
         agent_queue.put([target_iteration, self_play_scheme, agent2queue])
@@ -54,7 +54,6 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
 
         # Updating:
         training_agent = trained_agent
-
     logger.info('All training completed. Total duration: {} seconds'.format(time.time() - process_start_time))
 
 
