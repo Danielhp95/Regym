@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 import shutil
-import time 
+import time
 
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 from rl_algorithms import build_TabularQ_Agent, build_DQN_Agent, rockAgent, paperAgent, scissorsAgent, AgentHook
@@ -27,22 +27,18 @@ logger.setLevel(logging.DEBUG)
 
 from collections import namedtuple
 from torch.multiprocessing import Process, Queue
-#from concurrent.futures import ProcessPoolExecutor
 
 import gym
 import gym_rock_paper_scissors
 
-#import resource
-#soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-#resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
-
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
 USE_CUDA = True
 
+
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
-    if paths is None :
-      paths = ['' for algorithm in algorithms]
-    return [TrainingJob(training_scheme, algorithm.clone(training=True,path=path), '{}-{}'.format(training_scheme.name, algorithm.name)) for training_scheme in training_schemes for algorithm,path in zip(algorithms,paths)]
+    if paths is None:
+        paths = ['' for algorithm in algorithms]
+    return [TrainingJob(training_scheme, algorithm.clone(training=True, path=path), '{}-{}'.format(training_scheme.name, algorithm.name)) for training_scheme in training_schemes for algorithm, path in zip(algorithms, paths)]
 
 
 # TODO find better name
@@ -77,11 +73,16 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
     return (training_processes, mm_process, cfm_process)
 
 
-def define_environment_creation_funcion(environment_name_cli):
-    valid_environments = ['RockPaperScissors-v0']
-    if environment_name_cli not in valid_environments:
-        raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
-    return lambda: gym.make(environment_name_cli)
+class EnvironmentCreationFunction():
+
+    def __init__(self, environment_name_cli):
+        valid_environments = ['RockPaperScissors-v0']
+        if environment_name_cli not in valid_environments:
+            raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
+        self.environment_name = environment_name_cli
+
+    def __call__(self):
+        return gym.make(self.environment_name)
 
 
 def run_processes(training_processes, mm_process, cfm_process):
@@ -93,6 +94,7 @@ def run_processes(training_processes, mm_process, cfm_process):
     mm_process.join()
     cfm_process.join()
 
+
 def initialize_training_schemes(training_schemes_cli):
     def parse_training_scheme(training_scheme):
         if training_scheme.lower() == 'fullhistoryselfplay': return FullHistorySelfPlay
@@ -102,15 +104,15 @@ def initialize_training_schemes(training_schemes_cli):
     return [parse_training_scheme(t_s) for t_s in training_schemes_cli]
 
 
-def initialize_algorithms(environment, algorithms_cli,base_path):
+def initialize_algorithms(environment, algorithms_cli, base_path):
     def parse_algorithm(algorithm, env):
         if algorithm.lower() == 'tabularqlearning':
             return build_TabularQ_Agent(env.state_space_size, env.action_space_size, env.hash_state)
         if algorithm.lower() == 'deepqlearning':
             return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=False, dueling=False, use_cuda=USE_CUDA)
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
-    
-    return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli], [os.path.join(base_path,algorithm.lower())+'.pt' for algorithm in algorithms_cli]
+
+    return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]
 
 
 def initialize_fixed_agents(fixed_agents_cli):
@@ -129,7 +131,7 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
         os.mkdir(results_path)
     base_path = results_path
 
-    createNewEnvironment  = define_environment_creation_funcion(options['--environment'])
+    createNewEnvironment  = EnvironmentCreationFunction(options['--environment'])
     env = createNewEnvironment()
 
     checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]
@@ -145,7 +147,6 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
      fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
     agent_queue, matrix_queue = Queue(), Queue()
 
-    
     list(map(agent_queue.put, initial_fixed_agents_to_benchmark)) # Add initial fixed agents to be benchmarked
 
     (training_processes,
@@ -160,7 +161,7 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
 if __name__ == '__main__':
     import torch
     torch.multiprocessing.set_start_method('forkserver')
-    
+
     logger.info('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
 88888888888888888888888888888888888888888888888888888888888O88888888888888888888
@@ -201,7 +202,7 @@ if __name__ == '__main__':
 
     options = docopt(_USAGE)
     logger.info(options)
-    
+
     experiment_id = options['--experiment_id']
     number_of_runs = int(options['--number_of_runs'])
 
