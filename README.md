@@ -1,5 +1,66 @@
 # Generalized-RL-Self-Play-Framework
 
+### Installation:
+
+First, clone this repository:
+
+```
+git clone https://github.com/Danielhp95/Generalized-RL-Self-Play-Framework
+cd Generalized-RL-Self-Play-Framework
+(For integrating PPO ) git checkout https://github.com/Danielhp95/Generalized-RL-Self-Play-Framework/tree/develop-ppo-integration
+```
+
+### Python Dependencies
+
+For managing Python dependencies we use [pipenv](https://readthedocs.org/projects/pipenv/). Once you have cloned the repository, proceed to install the dependencies defined in the `Pipfile`, which can be done using `pipenv`. 
+
+For this experiment we use Python `3.6` 
+
+#### `Ubuntu 16.04`
+Install python3.6 [link](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/)
+
+
+```
+pipenv install
+or
+conda install --yes --file requirements.txt   (need to generate requirements.txt file first)
+``` 
+
+
+(Alex: write requirements.txt)
+(Dani: update gym_rock_paper_scissors gym)
+
+### Getting started:
+
+This experiment aims at measuring the effect self-play training schemes on X different environments, and Y different algorithms and 
+Z self-play training schemes. The effect is measured by looking at:
+
++ The winrates of every a self-play scheme and algorithm pair against all other pairs after a specific number of episodes
++ The evolution of these winrates over time.
++ The episodic reward of every individual training policy. 
+
+The experiment trains in parallel a set of self-play schemes / algorithm pairs on a given environment, creating a separate processes for each SP scheme, algorithm environment. A list of  **benchmarking checkpoints** is specified, containing episode numbers. Once a training process, successfully simulates a number of episodes specified in **benchmarking checkpoints**, a benchmarking procedure begins, where it is  policies are frozen and benchmarked against one another. The benchmarking that takes place only fares against (could be interesting to benchmark old menageries vs new menageries)  
+
+    Usage:
+      run [options]
+
+    Options:
+      --environment STRING                    OpenAI environment used to train agents on
+      --experiment_id STRING                  Experimment id used to identify between different experiments
+      --number_of_runs INTEGER                Number of runs used to calculate standard deviations for various metrics
+      --checkpoint_at_iterations INTEGER...   Iteration numbers at which agents will be benchmarked against one another
+      --benchmarking_episodes INTEGER         Number of head to head matches used to infer winrates between agents
+      --self_play_training_schemes STRING...  Self play training schemes used to choose opponent agent agents during training
+      --algorithms STRING...                  Algorithms used to learn a agent
+      --fixed_agents STRING...                Fixed agents used to benchmark training agents against
+
+### Sending policies between processes
+Currently: 
+    DQN: 
+        Saves pytorch model (weights and graph) into disk.
+        Sends a python object (AgentHook) which contains the logic for (re)building an agent that has been saved.
+
+
 ## Modules
 
 ### `rl_algorithms/`
@@ -42,4 +103,3 @@ class Algorithm():
 Module that defines environment loops. Some environments need agents to submit all actions simultaneously, such as Rock Paper Scissors, whilst others like Go need one action at a time.
 
 ### `experiment/`
-
