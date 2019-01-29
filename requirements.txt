@@ -1,0 +1,13 @@
+pytest
+ipython
+gym
+gym-rock-paper-scissors
+matplotlib
+docopt
+pyyaml
+pip
+baselines
+tensorboardx
+opencv-python
+pytorch
+torchvision 
