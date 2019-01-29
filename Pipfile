@@ -15,6 +15,9 @@ matplotlib = "*"
 docopt = "*"
 pyyaml = "*"
 pip = "*"
+baselines = "*"
+tensorboardx = "*"
+opencv-python = "*"
 
 [requires]
 python_version = "3.6"
