@@ -1,31 +1,45 @@
 # Generalized-RL-Self-Play-Framework
 
-### Installation:
+This is the repository hosting the code used for the paper (AWESOME PAPER NAME).
+
+Installation
+Getting Started  (turn into links)
+Running experiment
+Results
+Modules
+
+## Installation
 
 First, clone this repository:
 
 ```
 git clone https://github.com/Danielhp95/Generalized-RL-Self-Play-Framework
 cd Generalized-RL-Self-Play-Framework
-(For integrating PPO ) git checkout https://github.com/Danielhp95/Generalized-RL-Self-Play-Framework/tree/develop-ppo-integration
+(For integrating PPO ) git checkout develop-ppo-integration
 ```
+
+### Dependencies
+
+#### Python version
+
+For this experiment we use Python `3.6`. Here's a [guide to installing Python `3.6` in Ubuntu 16.04](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/)
 
 ### Python Dependencies
 
-For managing Python dependencies we use [pipenv](https://readthedocs.org/projects/pipenv/). Once you have cloned the repository, proceed to install the dependencies defined in the `Pipfile`, which can be done using `pipenv`. 
+For managing Python dependencies we use [pipenv](https://readthedocs.org/projects/pipenv/). Once you have cloned the repository, proceed to install the dependencies defined in the `Pipfile`
 
-For this experiment we use Python `3.6` 
-
-#### `Ubuntu 16.04`
-Install python3.6 [link](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/)
-
+#### pipenv 
+This can be done by calling `pipenv install` inside of the directory holding this repository.
 
 ```
 pipenv install
-or
+```
+
+#### conda
+
+```
 conda install --yes --file requirements.txt   (need to generate requirements.txt file first)
 ``` 
-
 
 (Alex: write requirements.txt)
 (Dani: update gym_rock_paper_scissors gym)
@@ -66,11 +80,6 @@ Currently:
 ### `rl_algorithms/`
 
 Module containing a set of classes representing various RL algorithms.
-
-Currently implemented:
-+ Tabular Q Learning.
-+ DQN derivative (**not done**)
-
 
  The interface they must follow is:
 
