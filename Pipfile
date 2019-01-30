@@ -18,6 +18,8 @@ pip = "*"
 baselines = "*"
 tensorboardx = "*"
 opencv-python = "*"
+torch = "*"
+torchvision = "*"
 
 [requires]
 python_version = "3.6"
