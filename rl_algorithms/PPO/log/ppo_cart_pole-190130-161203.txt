@@ -1,5 +1,0 @@
-2019-01-30 16:12:03,549 - root - INFO: Generating grammar tables from /usr/lib/python3.6/lib2to3/Grammar.txt
-2019-01-30 16:12:03,567 - root - INFO: Generating grammar tables from /usr/lib/python3.6/lib2to3/PatternGrammar.txt
-2019-01-30 16:12:04,605 - root - INFO: total steps 6400, returns 22.69/19.00/9.00/63.00 (mean/median/min/max), 6459.27 steps/s
-2019-01-30 16:12:05,585 - root - INFO: total steps 12800, returns 32.66/27.50/10.00/112.00 (mean/median/min/max), 6531.26 steps/s
-2019-01-30 16:12:06,561 - root - INFO: total steps 19200, returns 46.18/37.00/10.00/156.00 (mean/median/min/max), 6558.81 steps/s
