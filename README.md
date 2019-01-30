@@ -26,7 +26,7 @@ For this experiment we use Python `3.6`. Here's a [guide to installing Python `3
 
 ### Python Dependencies
 
-For managing Python dependencies we use [pipenv](https://readthedocs.org/projects/pipenv/). Once you have cloned the repository, proceed to install the dependencies defined in the `Pipfile`
+For managing Python dependencies it is possible to use [pipenv](https://readthedocs.org/projects/pipenv/) and [conda](https://conda.io/en/latest/). Once you have cloned the repository, proceed to install the dependencies defined in the `Pipfile` (requirements.txt?)
 
 #### pipenv 
 This can be done by calling `pipenv install` inside of the directory holding this repository.
