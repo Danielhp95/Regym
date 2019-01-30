@@ -9,9 +9,9 @@ from ..component import *
 from .BaseAgent import *
 
 
-class PPOAgent(BaseAgent):
+class OldPPOAgent(BaseAgent):
 
-    def __init__(self, env, config):
+    def __init__(self, config):
         BaseAgent.__init__(self, config)
         self.config = config
         self.task = config.task_fn()
@@ -118,7 +118,3 @@ class PPOAgent(BaseAgent):
         '''
         steps = config.rollout_length * config.num_workers
         self.total_steps += steps
-
-
-def build_PPO_Agent(env):
-    return PPOAgent(env, None)

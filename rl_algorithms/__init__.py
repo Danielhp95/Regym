@@ -1,5 +1,6 @@
 from .tabular_q_learning import TabularQLearningAlgorithm, TabularQLearningAgent, build_TabularQ_Agent
 from .deep_q_network import DeepQNetworkAlgorithm, DeepQNetworkAgent, build_DQN_Agent
+from .PPO.agent.PPO_agent import build_PPO_Agent
 from .gym_rock_paper_scissors_agent import MixedStrategyAgent
 from .agent_hook import AgentHook
 
