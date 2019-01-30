@@ -19,7 +19,6 @@ For this experiment we use Python `3.6`
 #### `Ubuntu 16.04`
 Install python3.6 [link](http://ubuntuhandbook.org/index.php/2017/07/install-python-3-6-1-in-ubuntu-16-04-lts/)
 
-
 ```
 pipenv install
 or
