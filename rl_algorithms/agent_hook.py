@@ -16,7 +16,6 @@ class AgentHook():
 
             :param agent: any agent to hang for transportation between processes.
             :param path: path where to save the current agent.
-
             """
 
             self.name = agent.name
