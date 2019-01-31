@@ -71,7 +71,7 @@ class AgentHook():
                             else:
                                     algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
                             # Init Agent
-                            agent = DeepQNetworkAgent(network=None, algorithm=algorithm)
+                            agent = DeepQNetworkAgent(algorithm=algorithm)
                             if training is not None:
                                     agent.training = training
                             if agent.training:
