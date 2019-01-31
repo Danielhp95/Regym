@@ -1,0 +1,19 @@
+name: self-play  # for self-play environment
+channels:
+- menpo
+- defaults
+dependencies:
+- python=3.6
+- pytorch
+- torchvision
+- opencv
+- pip:
+  - pytest
+  - ipython
+  - gym
+  - gym-rock-paper-scissors
+  - matplotlib
+  - docopt
+  - pyyaml
+  - baselines
+  - tensorboardx
