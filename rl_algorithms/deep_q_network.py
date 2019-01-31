@@ -743,7 +743,7 @@ class DeepQNetworkAgent():
         TODO : decide whether to launch the training automatically or do it manually.
         So far it is being done manually...
         """
-        from .interface import AgentHook
+        from .agent_hook import AgentHook
         cloned = AgentHook(self, training=training, path=path)
         return cloned
 
