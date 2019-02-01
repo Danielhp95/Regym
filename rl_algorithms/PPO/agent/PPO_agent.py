@@ -8,26 +8,34 @@ from ..network import *
 from ..component import *
 from .BaseAgent import *
 
-
 class PPOAgent(BaseAgent):
 
-    def __init__(self, env, config):
+    def __init__(self, config):
         BaseAgent.__init__(self, config)
+        # Create network here (will be changed for Robosymo)
+        # Categorical Neural net, takes input from env
         self.config = config
-        self.task = config.task_fn()
         self.network = config.network_fn()
         self.opt = config.optimizer_fn(self.network.parameters())
+        self.task = config.task_fn()
         self.total_steps = 0
         self.online_rewards = np.zeros(config.num_workers)
         self.episode_rewards = []
-        self.states = self.task.reset()
-        self.states = config.state_normalizer(self.states)
+        # self.states = self.task.reset()
+        # self.states = config.state_normalizer(self.states)
 
     def handle_experience(self, s, a, r, succ_s, done):
         pass
 
+    '''
+    TODO potential issues:
+        - Numpy array format
+        - Storing the prediction in the self.Storage
+    '''
     def take_action(self, state):
-        pass
+        prediction = self.network(state)
+        action = to_np(prediction['a'])
+        return action
 
     def step(self):
         '''
@@ -43,7 +51,7 @@ class PPOAgent(BaseAgent):
         1. The step function interacts with the environment for an _entire_ episode.
         '''
         config = self.config
-        storage = Storage(config.rollout_length)
+        storage = Storage(config.rollout_length) # Make storage global, flush on episode termination?
         states = self.states
         for _ in range(config.rollout_length):
             prediction = self.network(states)
@@ -120,5 +128,23 @@ class PPOAgent(BaseAgent):
         self.total_steps += steps
 
 
-def build_PPO_Agent(env):
-    return PPOAgent(env, None)
+def build_PPO_Agent(action_dimensions, state_dimensions, env):
+    '''
+    Build a Config (same as DeepRL) codebase.
+    :param env: multiagent environment where agent will be trained.
+    :returns: PPOAgent adapted to be trained on given environment
+    '''
+    config = Config()
+    config.discount = 0.99
+    config.use_gae = Tru
+    config.gae_tau = 0.95
+    config.entropy_weight = 0.01
+    config.gradient_clip = 5
+    # config.rollout_length = 128 No longer necessary. DeepRL implementation used fixed rollout lenghts
+    config.optimization_epochs = 10
+    config.mini_batch_size = 32 * 5
+    config.ppo_ratio_clip = 0.2
+    config.log_interval = 128 * 5 * 10
+    config.network_fn = lambda: CategoricalActorCriticNet(state_dimensions, action_dimensions, NatureConvBody())
+    config.optimizer_fn = lambda params: torch.optim.Adam(params, lr=3e-4, eps=1e-5)
+    return PPOAgent(config)
