@@ -33,7 +33,6 @@ import gym_rock_paper_scissors
 import util
 
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
-USE_CUDA = True
 
 
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
@@ -57,7 +56,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
     # TODO Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
     benchmark_process_number_workers = 4
-    benchmark_process_pool = None#ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
+    benchmark_process_pool = None #ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
     training_processes = create_training_processes(training_jobs, createNewEnvironment,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
@@ -97,7 +96,6 @@ def run_processes(training_processes, mm_process, cfm_process):
 
 
 def run_experiment(experiment_id, experiment_directory, number_of_runs, options, logger):
-    logger.info(f'Starting run: {run_id}')
     results_path = f'{experiment_directory}/run-{run_id}'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
@@ -188,6 +186,7 @@ if __name__ == '__main__':
 
     experiment_durations = []
     for run_id in range(number_of_runs):
+        logger.info(f'Starting run: {run_id}')
         start_time = time.time()
         run_experiment(experiment_id, experiment_directory, number_of_runs, options, logger)
         experiment_duration = time.time() - start_time
