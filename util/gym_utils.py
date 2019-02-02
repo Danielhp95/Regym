@@ -4,7 +4,7 @@ from gym.spaces.box import Box
 from gym.spaces.discrete import Discrete
 
 
-def obtain_observation_dimensions(env):
+def get_observation_dimensions(env):
     '''
     Finds the dimensions of the action space for the agent on a symmetric multiagent environment.
     :param env: multiagent environment. Observation space symmetry is assumed. All agents share the same observation space
@@ -15,7 +15,7 @@ def obtain_observation_dimensions(env):
     return int(np.prod(env.observation_space.spaces[0].shape))
 
 
-def obtain_action_dimensions(env):
+def get_action_dimensions(env):
     '''
     Finds the dimensions of the action space for the agent on a symmetric multiagent environment.
     If the action space is discrete, return action count
