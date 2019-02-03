@@ -9,7 +9,8 @@ from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, 
 
 from rl_algorithms import build_DQN_Agent
 from rl_algorithms import build_TabularQ_Agent 
-from rl_algorithms import build_PPO_Agent
+from rl_algorithms import build_DDPG_Agent
+#from rl_algorithms import build_PPO_Agent
 from rl_algorithms import rockAgent, paperAgent, scissorsAgent
 from rl_algorithms import AgentHook
 
@@ -115,8 +116,10 @@ def initialize_algorithms(environment, algorithms_cli, base_path):
             return build_TabularQ_Agent(env.state_space_size, env.action_space_size, env.hash_state)
         if algorithm.lower() == 'deepqlearning':
             return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=False, dueling=False, use_cuda=USE_CUDA)
-        if algorithm.lower() == 'ppo':
-            return build_PPO_Agent(env)
+        if algorithm.lower() == 'ddpg':
+            return build_DDPG_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, use_cuda=USE_CUDA)
+        #if algorithm.lower() == 'ppo':
+        #    return build_PPO_Agent(env)
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
 
     return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]

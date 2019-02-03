@@ -17,6 +17,8 @@ import torchvision.transforms as T
 
 from torch.multiprocessing import Process
 
+EPS = 3e-1
+
 EXP = namedtuple('EXP', ('state','action','next_state', 'reward','done') )
 Transition = namedtuple('Transition', ('state','action','next_state', 'reward','done') )
 TransitionPR = namedtuple('TransitionPR', ('idx','priority','state','action','next_state', 'reward','done') )
@@ -188,141 +190,219 @@ def LeakyReLU(x) :
     return F.leaky_relu(x,0.1)
 
 
-class DQN(nn.Module) :
-    def __init__(self,nbr_actions=2,actfn=LeakyReLU, useCNN={'use':True,'dim':3}, use_cuda=False ) :
-        super(DQN,self).__init__()
+def init_weights(size):
+    v = 1. / np.sqrt(size[0])
+    return torch.Tensor(size).uniform_(-v, v)
 
-        self.nbr_actions = nbr_actions
-        self.use_cuda = use_cuda
+class ActorNN(nn.Module) :
+    def __init__(self,state_dim=3,action_dim=2,action_scaler=1.0,useCNN={'use_cnn':False,'input_size':3},HER=False,actfn=LeakyReLU, use_cuda=False ) :
+        super(ActorNN,self).__init__()
+        
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.action_scaler = action_scaler
+
+        self.CNN = useCNN
+        # dictionnary with :
+        # - 'input_size' : int
+        # - 'use_cnn' : bool
+        if self.CNN['use_cnn'] :
+            self.state_dim = self.CNN['input_size']
+
+        self.HER = HER
+        if self.HER :
+            self.state_dim *= 2
 
         self.actfn = actfn
-        self.useCNN = useCNN
-
-        """
+        #Features :
+        '''
         TODO :
         implement the cloning scheme for this:
 
-        if self.useCNN['use'] :
-            self.conv1 = nn.Conv2d(3,16, kernel_size=5, stride=2)
+        if self.CNN['use_cnn'] :
+            self.conv1 = nn.Conv2d(self.state_dim,16, kernel_size=5, stride=2)
             self.bn1 = nn.BatchNorm2d(16)
             self.conv2 = nn.Conv2d(16,32, kernel_size=5, stride=2)
             self.bn2 = nn.BatchNorm2d(32)
             self.conv3 = nn.Conv2d(32,32, kernel_size=5, stride=2)
             self.bn3 = nn.BatchNorm2d(32)
-            #self.f = nn.Linear(192,128)
-            self.f = nn.Linear(1120,32)
-
+            #self.featx = nn.Linear(448,self.nbr_actions)
+            #self.featx = nn.Linear(192,128)
+            self.featx = nn.Linear(2592,128)
         else :
-        """
-        self.f1 = nn.Linear(self.useCNN['dim'], 1024)
-        self.f2 = nn.Linear(1024, 256)
-        self.f = nn.Linear(256,64)
+        '''
+        self.featx = nn.Linear(self.state_dim,400)
+        self.featx.weight.data = init_weights(self.featx.weight.data.size())
+        
+        # Actor network :
+        self.actor1 = nn.Linear(400,300)
+        self.actor1.weight.data.uniform_(-EPS,EPS)
+        self.actor2 = nn.Linear(300,self.action_dim)
+        self.actor2.weight.data.uniform_(-EPS,EPS)
 
-        self.qsa = nn.Linear(64,self.nbr_actions)
-
-        if self.use_cuda:
+        self.use_cuda = use_cuda
+        if self.use_cuda :
             self = self.cuda()
 
 
+    def features(self,x) :
+        '''
+        if self.CNN['use_cnn'] :
+            x1 = F.relu( self.bn1(self.conv1(x) ) )
+            x2 = F.relu( self.bn2(self.conv2(x1) ) )
+            x3 = F.relu( self.bn3(self.conv3(x2) ) )
+            x4 = x3.view( x3.size(0), -1)
+            #print(x4.size())
+            fx = F.relu( self.featx( x4) )
+            # batch x 128 
+        else :
+        '''
+        fx = self.actfn( self.featx( x) )
+        # batch x 400
+        return fx
+
+    def forward(self, x) :
+        fx = self.features(x)
+        # batch x 400
+        out = self.actfn( self.actor1( fx ) )
+        # batch x 300
+        out = self.actor2( fx )
+        # batch x self.action_dim
+        
+        #scale the actions :
+        unscaled = F.tanh(xx)
+        scaled = unscaled * self.action_scaler
+        return scaled
+
     def clone(self):
-        cloned = DQN(nbr_actions=self.nbr_actions,actfn=self.actfn,useCNN=self.useCNN,use_cuda=self.use_cuda)
+        cloned = ActorNN(state_dim=self.state_dim,action_dim=self.action_dim,action_scaler=self.action_scaler,CNN=self.CNN,HER=self.HER,actfn=self.actfn, use_cuda=self.use_cuda)
         cloned.load_state_dict( self.state_dict() )
         return cloned
 
-    def forward(self, x) :
-        if self.useCNN['use'] :
-            x = self.actfn( self.bn1(self.conv1(x) ) )
-            x = self.actfn( self.bn2(self.conv2(x) ) )
-            x = self.actfn( self.bn3(self.conv3(x) ) )
-            x = x.view( x.size(0), -1)
+class CriticNN(nn.Module) :
+    def __init__(self,state_dim=3,action_dim=2,useCNN={'use_cnn':False,'input_size':3},HER=False,actfn=LeakyReLU,, use_cuda=False  ) :
+        super(CriticNN,self).__init__()
+        
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.CNN = useCNN
+        # dictionnary with :
+        # - 'input_size' : int
+        # - 'use_cnn' : bool
+        if self.CNN['use_cnn'] :
+            self.state_dim = self.CNN['input_size']
 
-            #print(x.size())
-        else :
-            x = self.actfn( self.f1(x) )
-            x = self.actfn( self.f2(x) )
-
-        fx = self.actfn( self.f(x) )
-
-        qsa = self.qsa(fx)
-
-        return qsa
-
-
-
-class DuelingDQN(nn.Module) :
-    def __init__(self,nbr_actions=2,actfn=LeakyReLU, useCNN={'use':True,'dim':3}, use_cuda=False ) :
-        super(DuelingDQN,self).__init__()
-
-        self.nbr_actions = nbr_actions
-        self.use_cuda = use_cuda
+        self.HER = HER
+        if self.HER :
+            self.state_dim *= 2
 
         self.actfn = actfn
-        self.useCNN = useCNN
-
-        """
+        
+        #Features :
+        '''
         TODO :
         implement the cloning scheme for this:
-
-        if self.useCNN['use'] :
-            self.conv1 = nn.Conv2d(3,16, kernel_size=5, stride=2)
+        if self.CNN['use_cnn'] :
+            self.conv1 = nn.Conv2d(self.state_dim,16, kernel_size=5, stride=2)
             self.bn1 = nn.BatchNorm2d(16)
             self.conv2 = nn.Conv2d(16,32, kernel_size=5, stride=2)
             self.bn2 = nn.BatchNorm2d(32)
             self.conv3 = nn.Conv2d(32,32, kernel_size=5, stride=2)
             self.bn3 = nn.BatchNorm2d(32)
-            #self.f = nn.Linear(192,128)
-            self.f = nn.Linear(1120,32)
-
+            #self.featx = nn.Linear(448,self.nbr_actions)
+            self.featx = nn.Linear(192,128)
         else :
-        """
-        self.f1 = nn.Linear(self.useCNN['dim'], 1024)
-        self.f2 = nn.Linear(1024, 256)
-        self.f = nn.Linear(256,64)
+        '''
+        self.featx = nn.Linear(self.state_dim,400)
+        self.featx.weight.data = init_weights(self.featx.weight.data.size())
 
-        self.value = nn.Linear(64,1)
-        self.advantage = nn.Linear(64,self.nbr_actions)
+        # Critic network :
+        ## state value path :
+        self.critic1 = nn.Linear(400+self.action_dim,300)
+        self.critic1.weight.data = init_weights(self.critic1.weight.data.size())
+        
+        self.critic2 = nn.Linear(300,1)
+        self.critic2.weight.data.uniform_(-EPS*1e-1,EPS*1e-1) 
 
-        if self.use_cuda:
+        self.use_cuda = use_cuda
+        if self.use_cuda :
             self = self.cuda()
 
+    def features(self,x) :
+        '''
+        if self.CNN['use_cnn'] :
+            x1 = F.relu( self.bn1(self.conv1(x) ) )
+            x2 = F.relu( self.bn2(self.conv2(x1) ) )
+            x3 = F.relu( self.bn3(self.conv3(x2) ) )
+            x4 = x3.view( x3.size(0), -1)
+            
+            fx = F.relu( self.featx( x4) )
+            # batch x 300 
+        else :
+        '''
+        fx = self.actfn( self.featx(x) )
+        # batch x 400
+    
+        return fx
+
+    def forward(self, x,a) :
+        fx = self.features(x)
+        # batch x 400
+        concat = torch.cat([ fx, a], dim=1)
+        # batch x 400+self.action_dim
+        out = self.actfn( self.critic1( concat ) )
+        # batch x 300
+        out = self.critic2(out)
+        # batch x 1 
+        return out
+
     def clone(self):
-        cloned = DuelingDQN(nbr_actions=self.nbr_actions,actfn=self.actfn,useCNN=self.useCNN,use_cuda=self.use_cuda)
+        cloned = CriticNN(state_dim=self.state_dim,action_dim=self.action_dim,CNN=self.CNN,HER=self.HER,actfn=self.actfn, use_cuda=self.use_cuda)
         cloned.load_state_dict( self.state_dict() )
         return cloned
 
-    def forward(self, x) :
-        try:
-            if self.useCNN['use'] :
-                x = self.actfn( self.bn1(self.conv1(x) ) )
-                x = self.actfn( self.bn2(self.conv2(x) ) )
-                x = self.actfn( self.bn3(self.conv3(x) ) )
-                x = x.view( x.size(0), -1)
 
-                #print(x.size())
-            else :
-                x = self.actfn( self.f1(x) )
-                x = self.actfn( self.f2(x) )
-        except Exception as e:
-            raise e
 
-        fx = self.actfn( self.f(x) )
+class DeepDeterministicPolicyGradientAlgorithm() :
+    def optimize(self,optimizer_critic,optimizer_actor) :
+        
+        '''
+        critic_grad = 0.0
+        for p in self.critic.parameters() :
+            critic_grad += np.mean(p.grad.cpu().data.numpy())
+        print( 'Mean Critic Grad : {}'.format(critic_grad) )
+        '''
+        
+        actor_grad = 0.0
+        for p in self.actor.parameters() :
+            actor_grad += np.max( np.abs(p.grad.cpu().data.numpy() ) )
+        #print( 'Mean Actor Grad : {}'.format(actor_grad) )
+        
 
-        v = self.value(fx)
-        va = torch.cat( [ v for i in range(self.nbr_actions) ], dim=1)
-        a = self.advantage(fx)
+        #UPDATE THE PR :
+        if isinstance(self.memory, PrioritizedReplayBuffer) :
+            self.mutex.acquire()
+            loss = torch.abs(actor_loss) + torch.abs(critic_loss)
+            #loss = torch.abs(actor_loss) #+ torch.abs(critic_loss)
+            loss_np = loss.cpu().data.numpy()
+            for (idx, new_error) in zip(batch.idx,loss_np) :
+                new_priority = self.memory.priority(new_error)
+                #print( 'prior = {} / {}'.format(new_priority,self.rBuffer.total()) )
+                self.memory.update(idx,new_priority)
+            self.mutex.release()
 
-        suma = torch.mean(a,dim=1,keepdim=True)
-        suma = torch.cat( [ suma for i in range(self.nbr_actions) ], dim=1)
+        closs = critic_loss.cpu()
+        aloss = actor_loss.cpu()
+        
+        return closs.data.numpy(), aloss.data.numpy()
 
-        x = va+a-suma
 
-        return x
-
-class DeepQNetworkAlgorithm :
+class DeepDeterministicPolicyGradientAlgorithm :
     def __init__(self,kwargs) :
         """
         :param kwargs:
-            "model": model of the agent to use/optimize in this algorithm.
+            "model_actor": actor model of the agent to use/optimize in this algorithm.
+            "model_critic": critic model of the agent to use/optimize in this algorithm.
 
             "path": str specifying where to save the model(s).
             "use_cuda": boolean to specify whether to use CUDA.
@@ -357,26 +437,23 @@ class DeepQNetworkAlgorithm :
 
         """
 
-        """
-        TODO:
-        So far, each worker/learner encompasses its own pair of target and working model.
-
-        Investigate the use of only one target model that is converging towards the main model
-        and shared among all the worker/learner threads.
-
-        """
-
         self.kwargs = kwargs
         self.use_cuda = kwargs["use_cuda"]
 
-        self.model = kwargs["model"]
+        self.model_actor = kwargs["model_actor"]
+        self.model_critic = kwargs["model_critic"]
 
-        self.nbr_worker = kwargs["nbr_worker"]
+        self.target_actor = copy.deepcopy(actor)
+        self.target_critic = copy.deepcopy(critic)
 
-        self.target_model = copy.deepcopy(self.model)
-        hard_update(self.target_model,self.model)
         if self.use_cuda :
-            self.target_model = self.target_model.cuda()
+            self.target_actor = self.target_actor.cuda()
+            self.target_critic = self.target_critic.cuda()
+        hard_update(self.target_actor, self.actor)
+        hard_update(self.target_critic, self.critic)
+    
+        
+        self.nbr_worker = kwargs["nbr_worker"]
 
         if self.kwargs['replayBuffer'] is None :
             if kwargs["use_PER"] :
@@ -393,37 +470,41 @@ class DeepQNetworkAlgorithm :
         self.lr = kwargs["lr"]
         self.TAU = kwargs["tau"]
         self.GAMMA = kwargs["gamma"]
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr )
+        
+        self.optimizer_actor = optim.Adam(self.model_actor.parameters(), lr=self.lr*1e-1 )
+        self.optimizer_critic = optim.Adam(self.model_critic.parameters(), lr=self.lr )
 
         self.preprocess = kwargs["preprocess"]
 
-        self.epsend = 0.05
-        self.epsstart = 0.9
-        self.epsdecay = 10
-
+        self.noise = OrnsteinUhlenbeckNoise(self.model_actor.action_dim)
+    
     def clone(self) :
         cloned_kwargs = self.kwargs
-        cloned_model = self.model.clone()
-        self.kwargs['model'] = cloned_model
-        cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs)
-
+        cloned_model_actor = self.model_actor.clone()
+        cloned_model_critic = self.model_critic.clone()
+        self.kwargs['model_actor'] = cloned_model_actor
+        self.kwargs['model_actor'] = cloned_model_critic
+        cloned = DeepDeterministicPolicyGradientAlgorithm(kwargs=cloned_kwargs)
         return cloned
 
+    def evaluate(self, state,action,target=False) :
+        if self.use_cuda :
+            state = state.cuda()
+            action = action.cuda()
+        if ~target :
+            qsa = self.critic( state, action).detach()
+        else :
+            qsa = self.target_critic( state, action).detach()
+        return qsa.cpu().data.numpy()
+
+    def update_targets(self):
+        soft_update(self.target_critic, self.critic, self.tau)
+        soft_update(self.target_actor, self.actor, self.tau)
+        
     def optimize_model(self) :
-        """
-        1) Estimate the gradients of the loss with respect to the
-        current learner model on a batch of experiences sampled
-        from the Prioritized Experience Replay buffer.
-        2) Backward the loss.
-        3) Update the weights with the optimizer.
-        4) Update the Prioritized Experience Replay buffer with new priorities.
-
-        :returns loss_np: numpy scalar of the estimated loss function.
-        """
-
         if len(self.replayBuffer) < self.min_capacity :
             return None
-
+        
         if self.kwargs['use_PER'] :
             #Create batch with PrioritizedReplayBuffer/PER:
             prioritysum = self.replayBuffer.total()
@@ -483,53 +564,87 @@ class DeepQNetworkAlgorithm :
             reward_batch = reward_batch.cuda()
             done_batch = done_batch.cuda()
 
-        self.optimizer.zero_grad()
 
-        state_action_values = self.model(state_batch)
-        state_action_values_g = state_action_values.gather(dim=1, index=action_batch)
+        self.optimizer_critic.zero_grad()
 
-        ############################
-        targetQ_nextS_A_values = self.target_model(next_state_batch)
-        argmaxA_targetQ_nextS_A_values, index_argmaxA_targetQ_nextS_A_values = targetQ_nextS_A_values.max(1)
-        argmaxA_targetQ_nextS_A_values = argmaxA_targetQ_nextS_A_values.view(-1,1)
-        ############################
-
-        # Compute the expected Q values
-        gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values)#.type(torch.cuda.FloatTensor)
-        expected_state_action_values = reward_batch + done_batch*gamma_next
-
+        # Critic :
+        # sample action from next_state, without gradient repercusion :
+        next_taction = self.target_actor(next_state_batch).detach()
+        # evaluate the next state action over the target, without repercusion :
+        next_tqsa = torch.squeeze( self.target_critic( next_state_batch, next_taction).detach() ).view((-1))
+        # Critic loss :
+        ## y_true :
+        y_true = reward_batch + (1.0-done_batch)*self.gamma*next_tqsa
+        ## y_pred :
+        y_pred = torch.squeeze( self.critic(state_batch,action_batch) )
+        
         # Compute loss:
-        diff = expected_state_action_values - state_action_values_g
+        diff = y_true - y_pred
         if self.kwargs['use_PER'] :
             diff_squared = importanceSamplingWeights.unsqueeze(1) * diff.pow(2.0)
         else :
             diff_squared = diff.pow(2.0)
-        loss_per_item = diff_squared
-        loss = torch.mean( diff_squared)
-        loss.backward()
-
-        # TODO:
-        #
-        # investigate clamping on the learner/worker's model gradients
-        # knowing that they are used as gradient accumulators...
-        #
-        """
-        for param in model.parameters():
-            if param.grad is not None :
-                if param.grad.data is not None :
-                    param.grad.data.clamp_(-1, 1)
-        """
-
-
+        critic_loss_per_item = diff_squared
+        critic_loss = torch.mean( diff_squared)
+        critic_loss.backward()
+        '''
+        #critic_loss = F.smooth_l1_loss(y_pred,y_true)
+        criterion = nn.MSELoss()
+        critic_loss = criterion(y_pred,y_true)
+        critic_loss.backward()
+        '''
+        #weight decay :
         weights_decay_lambda = 1e-0
-        weights_decay_loss = weights_decay_lambda * 0.5*sum( [torch.mean(param*param) for param in self.model.parameters()])
+        weights_decay_loss = weights_decay_lambda * 0.5*sum( [torch.mean(param*param) for param in self.model_critic.parameters()])
         weights_decay_loss.backward()
 
-        self.optimizer.step()
+        #clamping :
+        #torch.nn.utils.clip_grad_norm(self.model_critic.parameters(),50)             
+        self.optimizer_critic.step()
+        
+
+        ###################################
+        
+        # Actor :
+        #before optimization :
+        self.optimizer_actor.zero_grad()
+        
+        '''
+        #predict action :
+        pred_action = self.model_actor(state_batch) 
+        var_action = Variable( pred_action.cpu().data, requires_grad=True)
+        if self.use_cuda :
+            var_action = var_action.cuda()
+        pred_qsa = self.model_critic(state_batch, var_action_c)
+        #predict associated qvalues :
+        gradout = torch.ones(pred_qsa.size())
+        if self.use_cuda:
+            gradout = gradout.cuda()
+        pred_qsa.backward( gradout )
+
+        gradcritic = var_action.grad.data
+        pred_action.backward( -gradcritic)
+        '''
+        actor_loss_per_item = -self.model_critic(state_batch, self.model_actor(state_batch) )
+        actor_loss = actor_loss_per_item.mean()
+        actor_loss.backward()
+
+        #weight decay :
+        weights_decay_lambda = 1e-0
+        weights_decay_loss = weights_decay_lambda * 0.5*sum( [torch.mean(param*param) for param in self.model_actor.parameters()])
+        weights_decay_loss.backward()
+
+        #clamping :
+        #torch.nn.utils.clip_grad_norm(self.model_actor.parameters(),50)             
+        self.optimizer_actor.step()
+
+        
+        ###################################
 
         if self.kwargs['use_PER']:
             #UPDATE THE PER :
-            loss_np = loss_per_item.cpu().data.numpy()
+            loss = torch.abs(actor_loss_per_item) + torch.abs(critic_loss_per_item)
+            loss_np = loss.cpu().data.numpy()
             for (idx, new_error) in zip(batch.idx,loss_np) :
                 new_priority = self.replayBuffer.priority(new_error)
                 self.replayBuffer.update(idx,new_priority)
@@ -552,173 +667,34 @@ class DeepQNetworkAlgorithm :
     def train(self, iteration=1):
         for t in range(iteration):
             lossnp = self.optimize_model()
-            soft_update(self.target_model,self.model,self.TAU)
+            self.update_targets()
 
 
 
-class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
-
-    def clone(self) :
-        cloned_kwargs = self.kwargs
-        cloned_model = self.model.clone()
-        self.kwargs['model'] = cloned_model
-        cloned = DoubleDeepQNetworkAlgorithm(kwargs=cloned_kwargs)
-        return cloned
 
 
-    def optimize_model(self) :
-        """
-        1) Estimate the gradients of the loss with respect to the
-        current learner model on a batch of experiences sampled
-        from the Prioritized Experience Replay buffer.
-        2) Backward the loss.
-        3) Update the weights with the optimizer.
-        4) Update the Prioritized Experience Replay buffer with new priorities.
-
-        :returns loss_np: numpy scalar of the estimated loss function.
-        """
-
-        if len(self.replayBuffer) < self.min_capacity :
-            return None
-
-        if self.kwargs['use_PER']:
-            #Create batch with PrioritizedReplayBuffer/PER:
-            prioritysum = self.replayBuffer.total()
-
-            # Random Experience Sampling with priority
-            #randexp = np.random.random(size=self.batch_size)*prioritysum
-
-            # Sampling within each sub-interval :
-            #step = prioritysum / self.batch_size
-            #randexp = np.arange(0.0,prioritysum,step)
-            fraction = 0.0#0.8
-            low = 0.0#fraction*prioritysum
-            step = (prioritysum-low) / self.batch_size
-            try:
-                randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
-            except Exception as e :
-                print( prioritysum, step)
-                raise e
-            # Sampling within each sub-interval with (un)trunc normal priority over the top :
-            #randexp = np.random.normal(loc=0.75,scale=1.0,size=self.batch_size) * prioritysum
-
-
-            batch = list()
-            priorities = np.zeros(self.batch_size)
-            for i in range(self.batch_size):
-                try :
-                    el = self.replayBuffer.get(randexp[i])
-                    priorities[i] = el[1]
-                    batch.append(el)
-                except TypeError as e :
-                    continue
-                    #print('REPLAY BUFFER EXCEPTION...')
-
-            batch = TransitionPR( *zip(*batch) )
-
-            # Importance Sampling Weighting:
-            beta = 1.0
-            priorities = Variable( torch.from_numpy(priorities ), requires_grad=False).float()
-            importanceSamplingWeights = torch.pow( len(self.replayBuffer) * priorities , -beta)
-        else :
-           # Create Batch with replayMemory :
-            transitions = replayBuffer.sample(self.batch_size)
-            batch = Transition(*zip(*transitions) )
-
-        next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
-        state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
-        action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
-        reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
-        done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
-        done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
-
-        if self.use_cuda :
-            if self.kwargs['use_PER']: importanceSamplingWeights = importanceSamplingWeights.cuda()
-            next_state_batch = next_state_batch.cuda()
-            state_batch = state_batch.cuda()
-            action_batch = action_batch.cuda()
-            reward_batch = reward_batch.cuda()
-            done_batch = done_batch.cuda()
-
-        self.optimizer.zero_grad()
-
-        state_action_values = self.model(state_batch)
-        state_action_values_g = state_action_values.gather(dim=1, index=action_batch)
-
-        ############################
-        targetQ_nextS_A_values = self.target_model(next_state_batch)
-        Q_nextS_A_values = self.model(next_state_batch)
-        index_argmaxA_Q_nextS_A_values = Q_nextS_A_values.max(1)[1].view(-1,1)
-        targetQ_nextS_argmaxA_Q_nextS_A_values = targetQ_nextS_A_values.gather( dim=1, index=index_argmaxA_Q_nextS_A_values).detach().view((-1,1))
-        ############################
-
-        # Compute the expected Q values
-        gamma_next = (self.GAMMA * targetQ_nextS_argmaxA_Q_nextS_A_values).type(FloatTensor)
-        expected_state_action_values = reward_batch + done_batch*gamma_next
-
-        # Compute loss:
-        diff = expected_state_action_values - state_action_values_g
-        if self.kwargs['use_PER']:
-            diff_squared = importanceSamplingWeights * diff.pow(2.0)
-        else :
-            diff_squared =diff.pow(2.0)
-        loss_per_item = diff_squared
-        loss = torch.mean( diff_squared)
-        loss.backward()
-
-        # TODO:
-        #
-        # investigate clamping on the learner/worker's model gradients
-        # knowing that they are used as gradient accumulators...
-        #
-        """
-        for param in model.parameters():
-            if param.grad is not None :
-                if param.grad.data is not None :
-                    param.grad.data.clamp_(-1, 1)
-        """
-
-        weights_decay_lambda = 1e-0
-        weights_decay_loss = weights_decay_lambda * 0.5*sum( [torch.mean(param*param) for param in self.model.parameters()])
-        weights_decay_loss.backward()
-
-        self.optimizer.step()
-
-        if self.kwargs['use_PER']:
-            #UPDATE THE PER :
-            loss_np = loss_per_item.cpu().data.numpy()
-            for (idx, new_error) in zip(batch.idx,loss_np) :
-                new_priority = self.replayBuffer.priority(new_error)
-                self.replayBuffer.update(idx,new_priority)
-
-        return loss_np
-
-
-class DeepQNetworkAgent():
+class DDPGAgent():
     def __init__(self, algorithm):
         """
-        :param algorithm: algorithm class to use to optimize the network.
+        :param algorithm: algorithm class to use to optimize the network(s).
         """
 
         self.algorithm = algorithm
         self.training = False
-        self.hashing_function = self.algorithm.kwargs["preprocess"]
+        self.preprocess_function = self.algorithm.kwargs["preprocess"]
 
         self.kwargs = algorithm.kwargs
 
-        self.epsend = self.kwargs['epsend']
-        self.epsstart = self.kwargs['epsstart']
-        self.epsdecay = self.kwargs['epsdecay']
         self.nbr_steps = 0
 
         self.name = self.kwargs['name']
 
     def getModel(self):
-        return self.algorithm.model
+        return [self.algorithm.model_actor, self.algorithm.model_critic]
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        hs = self.hashing_function(s)
-        hsucc = self.hashing_function(succ_s)
+        hs = self.preprocess_function(s)
+        hsucc = self.preprocess_function(succ_s)
         r = torch.ones(1)*r
         a = torch.from_numpy(a)
         experience = EXP(hs, a, hsucc, r, done)
@@ -728,25 +704,25 @@ class DeepQNetworkAgent():
             self.algorithm.train(iteration=self.kwargs['nbrTrainIteration'])
 
     def take_action(self, state):
-        self.nbr_steps += 1
-        self.eps = self.epsend + (self.epsstart-self.epsend) * math.exp(-1.0 * self.nbr_steps / self.epsdecay)
-        action, qsa = self.select_action(model=self.algorithm.model, state=self.hashing_function(state), eps=self.eps)
-        return action
-
+        return self.act(x=self.preprocess_function(state), exploitation=not(self.training), exploration_noise=None)
+        
     def reset_eps(self):
-        self.eps = self.epsstart
+        pass
 
-    def select_action(self,model,state,eps) :
-        sample = random.random()
-        if sample > eps :
-            output = model( Variable(state) ).cpu().data
-            qsa, action = output.max(1)
-            action = action.view(1,1)
-            qsa = output.max(1)[0].view(1,1)[0,0]
-            return action.numpy(), qsa
+    def act(self, state, exploitation=True,exploration_noise=None) :
+        if self.use_cuda :
+            state = state.cuda()
+        action = self.algorithm.model_actor( state).detach()
+        
+        if exploitation :
+            return action.cpu().data.numpy()
         else :
-            random_action = torch.LongTensor( [[random.randrange(self.algorithm.model.nbr_actions) ] ] )
-            return random_action.numpy(), 0.0
+            # exploration :
+            if exploration_noise is not None :
+                self.algorithm.noise.setSigma(exploration_noise)
+            new_action = action.cpu().data.numpy() + self.algorithm.noise.sample()*self.algorithm.model_actor.action_scaler
+            return new_action
+
 
 
     def clone(self, training=None, path=None):
@@ -758,41 +734,22 @@ class DeepQNetworkAgent():
         cloned = AgentHook(self, training=training, path=path)
         return cloned
 
-class PreprocessFunction(object) :
-    def __init__(self, hash_function, state_space_size,use_cuda):
-        self.hash_function = hash_function
-        self.state_space_size = state_space_size
-        self.use_cuda = use_cuda
-    def __call__(self,x) :
-        x = self.hash_function(x)
-        one_hot_encoded_state = np.zeros(self.state_space_size)
-        one_hot_encoded_state[x] = 1.0
-        if self.use_cuda :
-            return torch.from_numpy( one_hot_encoded_state ).unsqueeze(0).type(torch.cuda.FloatTensor)
-        else :
-            return torch.from_numpy( one_hot_encoded_state ).unsqueeze(0).type(torch.FloatTensor)
-
-
-def build_DQN_Agent(state_space_size=32,
+def build_DDPG_Agent(state_space_size=32,
                         action_space_size=3,
-                        hash_function=None,
-                        learning_rate=6.25e-5,
-                        double=False,
-                        dueling=False,
+                        learning_rate=1e-3,
                         num_worker=1,
-                        nbrTrainIteration=32,
-                        use_PER=True,
+                        nbrTrainIteration=1,
+                        action_scaler=1.0,
+                        use_PER=False,
                         alphaPER=0.6,
                         MIN_MEMORY=5e1,
-                        epsstart=0.5,
-                        epsend=0.05,
-                        epsdecay=1e3,
                         use_cuda=False):
     kwargs = dict()
     """
     :param kwargs:
-        "model": model of the agent to use/optimize in this algorithm.
-
+        "model_actor": actor model of the agent to use/optimize in this algorithm.
+        "model_critic": critic model of the agent to use/optimize in this algorithm.
+        
         "path": str specifying where to save the model(s).
         "use_cuda": boolean to specify whether to use CUDA.
 
@@ -813,68 +770,55 @@ def build_DQN_Agent(state_space_size=32,
 
         "nbr_worker": int to specify whether to use the Distributed variant of DQN and how many worker to use [default: nbr_worker=1].
 
-        "epsstart":
-        "epsend":
-        "epsdecay":
-
-        "dueling":
-        "double":
         "nbr_actions":
         "actfn":
-        "useCNN":
+        "useCNN":.
+        
     """
 
     """
     TODO : implement CNN usage for DQN...
     """
-    useCNN = {'use':False,'dim':state_space_size}
+    useCNN = {'use_cnn':use_cnn, 'input_size':state_space_size}
     if useCNN['use']:
-        preprocess_model = T.Compose([T.ToPILImage(),
+        preprocess = T.Compose([T.ToPILImage(),
                     T.Scale(64, interpolation=Image.CUBIC),
                     T.ToTensor() ] )
     else :
-        preprocess_model = T.Compose([
+        preprocess = T.Compose([
                     T.ToTensor() ] )
 
-    if hash_function is not None :
-        kwargs['hash_function'] = hash_function
-        preprocess = PreprocessFunction(hash_function=hash_function, state_space_size=state_space_size,use_cuda=use_cuda)
-    else :
-        """
-        TODO :
-        """
-        preprocess = (lambda x: preprocess_model(x))
-
-    kwargs['nbrTrainIteration'] = nbrTrainIteration
-    kwargs["nbr_actions"] = action_space_size
-    kwargs["actfn"] = LeakyReLU
-    kwargs["useCNN"] = useCNN
-    # Create model architecture:
-    if dueling :
-        model = DuelingDQN(action_space_size,useCNN=useCNN, use_cuda=use_cuda)
-        print("Dueling DQN model initialized: OK")
-    else :
-        model = DQN(action_space_size,useCNN=useCNN, use_cuda=use_cuda)
-        print("DQN model initialized: OK")
-    model.share_memory()
-
-    kwargs["model"] = model
-    kwargs["dueling"] = dueling
-    kwargs["double"] = double
-
-    BATCH_SIZE = 32#256
+    BATCH_SIZE = 128
     GAMMA = 0.99
     TAU = 1e-3
-    lr = 1e-3
-    memoryCapacity = 25e3
-
-    name = "DQN"
+    
+    #HER :
+    k = 2
+    strategy = 'future'
+    singlegoal = False
+    HER = {'k':k, 'strategy':strategy,'use_her':use_HER,'singlegoal':singlegoal}
+    
+    kwargs['nbrTrainIteration'] = nbrTrainIteration
+    kwargs["action_dim"] = action_space_size
+    kwargs["state_dim"] = state_space_size
+    kwargs["action_scaler"] = action_scaler
+    
+    kwargs["actfn"] = LeakyReLU
+    kwargs["useCNN"] = useCNN
+    
+    # Create model architecture:
+    actor = ActorNN(state_dim=state_space_size,action_dim=action_space_size,action_scaler=action_scaler,CNN=CNN,HER=HER['use_her'])
+    actor.share_memory()
+    critic = CriticNN(state_dim=state_space_size,action_dim=action_space_size,dueling=dueling,CNN=CNN,HER=HER['use_her'])
+    critic.share_memory()
+    print("DDPG model initialized: OK")
+    kwargs["model_actor"] = actor
+    kwargs["model_critic"] = critic
+    
+    name = "DDPG"
     if dueling : name = 'Dueling'+name
-    if double : name = 'Double'+name
-    #name += '+GAMMA{}+TAU{}'.format(GAMMA,TAU)+'+PER_alpha'+str(alphaPER)+'_w'+str(num_worker)+'_lr'+str(lr)+'_b'+str(BATCH_SIZE)+'_m'+str(memoryCapacity)
-
     model_path = './'+name
-
+    #model_path += '-MSELoss-w'+str(num_worker)+'-lr'+str(lr)+'-b'+str(BATCH_SIZE)+'-tau'+str(TAU)+'-m'+str(memoryCapacity)+'/'
     path=model_path
 
     kwargs['name'] = name
@@ -888,22 +832,18 @@ def build_DQN_Agent(state_space_size=32,
     kwargs["use_PER"] = use_PER
     kwargs["PER_alpha"] = alphaPER
 
-    kwargs["lr"] = lr
+    kwargs["lr"] = learning_rate
     kwargs["tau"] = TAU
     kwargs["gamma"] = GAMMA
 
     kwargs["preprocess"] = preprocess
     kwargs["nbr_worker"] = num_worker
 
-    kwargs['epsstart'] = epsstart
-    kwargs['epsend'] = epsend
-    kwargs['epsdecay'] = epsdecay
-
     kwargs['replayBuffer'] = None
 
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if dueling else DeepQNetworkAlgorithm(kwargs=kwargs)
+    DeepDeterministicPolicyGradient_algo = DeepDeterministicPolicyGradientAlgorithm(kwargs=kwargs)
 
-    return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)
+    return DDPGAgent(algorithm=DeepDeterministicPolicyGradient_algo)
 
 if __name__ == "__main__":
-    build_DQN_Agent(double=True,dueling=True)
+    build_DDPG_Agent(use_PER=False)

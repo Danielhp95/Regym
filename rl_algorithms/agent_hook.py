@@ -1,10 +1,11 @@
 import torch
 from .deep_q_network import DeepQNetworkAgent, DQN, DuelingDQN, DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
+from .deep_deterministic_policy_gradient import DDPGAgent, ActorNN, CriticNN, DeepDeterministicPolicyGradientAlgorithm
 from .tabular_q_learning import TabularQLearningAgent
 from enum import Enum
 import copy
 
-AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
+AgentType = Enum("AgentType", "DQN TQL DDPG PPO MixedStrategyAgent")
 
 
 class AgentHook():
@@ -39,6 +40,23 @@ class AgentHook():
             elif isinstance(agent, TabularQLearningAgent):
                     self.type = AgentType.TQL
                     self.agent = agent
+            
+            if isinstance(agent, DDPGAgent):
+                    self.path = path
+                    self.type = AgentType.DDPG
+                    self.kwargs = dict()
+                    for name in agent.kwargs:
+                            if 'model' in name:
+                                    continue
+                            else:
+                                    self.kwargs[name] = agent.kwargs[name]
+                    # Saving CPU state_dict and RB:
+                    if self.path is not None:
+                            for index, model in enumerate(agent.getModel()):
+                                torch.save(model.cpu().state_dict(), self.path+str(index))
+                            agent.algorithm.replayBuffer.save(self.path)
+                    else:
+                            self.agent = copy.deepcopy(agent)        
             else:
                     self.type = AgentType.MixedStrategyAgent
                     self.agent = agent
@@ -72,6 +90,33 @@ class AgentHook():
                                     algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
                             # Init Agent
                             agent = DeepQNetworkAgent(algorithm=algorithm)
+                            if training is not None:
+                                    agent.training = training
+                            if agent.training:
+                                    agent.algorithm.replayBuffer.load(self.path)
+                            return agent
+            elif self.type == AgentType.DDPG:
+                    if self.path is None:
+                            return self.agent
+                    else:
+                            if use_cuda is not None:
+                                    self.kwargs['use_cuda'] = use_cuda
+                            # Init Model:
+                            model_actor = ActorNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],action_scaler=self.kwargs['action_scaler'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                            model_critic = CriticNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],action_scaler=self.kwargs['action_scaler'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                            # Loading CPU state_dict:
+                            model_actor.load_state_dict(torch.load(self.path+str(0)))
+                            model_critic.load_state_dict(torch.load(self.path+str(1)))
+                            if self.kwargs['use_cuda']:
+                                    model_actor = model_actor.cuda()
+                                    model_critic = model_critic.cuda()
+                            # Init Algorithm
+                            kwargs = copy.deepcopy(self.kwargs)
+                            kwargs['model_actor'] = model_actor
+                            kwargs['model_critic'] = model_critic
+                            algorithm = DeepDeterministicPolicyGradientAlgorithm(kwargs=kwargs)
+                            # Init Agent
+                            agent = DDDPG(algorithm=algorithm)
                             if training is not None:
                                     agent.training = training
                             if agent.training:
