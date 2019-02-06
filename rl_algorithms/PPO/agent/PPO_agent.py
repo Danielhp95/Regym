@@ -12,19 +12,28 @@ class PPOAgent(BaseAgent):
 
     def __init__(self, config):
         BaseAgent.__init__(self, config)
-        # Create network here (will be changed for Robosymo)
-        # Categorical Neural net, takes input from env
         self.config = config
         self.network = config.network_fn()
         self.opt = config.optimizer_fn(self.network.parameters())
-        self.task = config.task_fn()
-        self.total_steps = 0
+        self.task = config.task_fn()                              # TODO task is only used to take a step on it, 99.9% not needed
+        self.total_steps = 0                                      # TODO figure if this is necessary 99.9% it's not
         self.online_rewards = np.zeros(config.num_workers)
         self.episode_rewards = []
         # self.states = self.task.reset()
         # self.states = config.state_normalizer(self.states)
 
     def handle_experience(self, s, a, r, succ_s, done):
+        '''
+        If done, flush storage and start optimization step? If done on the same process
+        this will slow down the simulator, as it will wait for the optimization step
+        to finish. In future, we can make asyncronous learning by leaving the optimization step
+        to another process.
+        '''
+        # TODO make storage global
+        # self.storage.add({'r': tensor(rewards).unsqueeze(-1),
+        #                   'm': tensor(1 - terminals).unsqueeze(-1), # TODO figure out why there is a substraction
+        #                   's': tensor(states)})
+        # TODO Create condition to start optimization step
         pass
 
     '''
@@ -34,6 +43,7 @@ class PPOAgent(BaseAgent):
     '''
     def take_action(self, state):
         prediction = self.network(state)
+        # self.storage.add(prediction) TODO make storage global
         action = to_np(prediction['a'])
         return action
 
@@ -51,14 +61,14 @@ class PPOAgent(BaseAgent):
         1. The step function interacts with the environment for an _entire_ episode.
         '''
         config = self.config
-        storage = Storage(config.rollout_length) # Make storage global, flush on episode termination?
+        storage = Storage(config.rollout_length) # TODO Make storage global, flush on episode termination?
         states = self.states
         for _ in range(config.rollout_length):
             prediction = self.network(states)
             next_states, rewards, terminals, _ = self.task.step(to_np(prediction['a']))
             self.online_rewards += rewards
             rewards = config.reward_normalizer(rewards)
-            for i, terminal in enumerate(terminals):
+            for i, terminal in enumerate(terminals): # TODO figure out how this loop can be introduced in handle_experience
                 if terminals[i]:
                     self.episode_rewards.append(self.online_rewards[i])
                     self.online_rewards[i] = 0
@@ -136,7 +146,7 @@ def build_PPO_Agent(action_dimensions, state_dimensions, env):
     '''
     config = Config()
     config.discount = 0.99
-    config.use_gae = Tru
+    config.use_gae = True
     config.gae_tau = 0.95
     config.entropy_weight = 0.01
     config.gradient_clip = 5
