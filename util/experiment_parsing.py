@@ -9,6 +9,8 @@ from rl_algorithms import build_PPO_Agent
 from rl_algorithms import rockAgent, paperAgent, scissorsAgent
 from rl_algorithms import AgentHook
 
+from . import gym_utils
+
 
 def initialize_training_schemes(training_schemes_cli):
     def parse_training_scheme(training_scheme):
@@ -30,6 +32,9 @@ def initialize_algorithms(environment, algorithms_cli, base_path):
             return build_PPO_Agent(env)
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
 
+    # TODO use this to initialize the dimensions of the first / last layer of neural nets
+    action_dimensions = gym_utils.get_action_dimensions(environment)
+    state_dimensions  = gym_utils.get_observation_dimensions(environment)
     return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]
 
 
