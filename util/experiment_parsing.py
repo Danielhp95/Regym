@@ -5,7 +5,6 @@ from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, 
 
 from rl_algorithms import build_DQN_Agent
 from rl_algorithms import build_TabularQ_Agent
-from rl_algorithms import build_PPO_Agent
 from rl_algorithms import rockAgent, paperAgent, scissorsAgent
 from rl_algorithms import AgentHook
 
@@ -29,7 +28,7 @@ def initialize_algorithms(environment, algorithms_cli, base_path):
             # TODO Should use_cuda be pased as parameter?
             return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=False, dueling=False, use_cuda=True)
         if algorithm.lower() == 'ppo':
-            return build_PPO_Agent(env)
+            raise NotImplementedError('PPO has not yet been implemented, check develop-ppo-integration branch')
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
 
     # TODO use this to initialize the dimensions of the first / last layer of neural nets
