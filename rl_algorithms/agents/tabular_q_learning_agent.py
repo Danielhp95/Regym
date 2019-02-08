@@ -1,4 +1,6 @@
+import random 
 from ..TQL import TabularQLearningAlgorithm
+
 
 class TabularQLearningAgent(TabularQLearningAlgorithm):
     def __init__(self, state_space_size, action_space_size, hashing_function, learning_rate=0.5, training=True):
@@ -14,7 +16,7 @@ class TabularQLearningAgent(TabularQLearningAlgorithm):
         return random.choice(optimal_moves)
 
     def clone(self, training=None, path=None):
-        from .agent_hook import AgentHook
+        from ..agent_hook import AgentHook
         cloned = AgentHook(self, training=training, path=path)
         return cloned
 

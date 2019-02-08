@@ -42,7 +42,9 @@ class DeepQNetworkAlgorithm :
         self.use_cuda = kwargs["use_cuda"]
 
         self.model = kwargs["model"]
-
+        if self.use_cuda:
+            self.model = self.model.cuda()
+            
         self.target_model = copy.deepcopy(self.model)
         hard_update(self.target_model,self.model)
         if self.use_cuda :

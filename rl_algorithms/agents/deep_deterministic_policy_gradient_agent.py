@@ -61,7 +61,7 @@ class DDPGAgent():
 
 
     def clone(self, training=None, path=None):
-        from .agent_hook import AgentHook
+        from ..agent_hook import AgentHook
         cloned = AgentHook(self, training=training, path=path)
         return cloned
 

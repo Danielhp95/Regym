@@ -38,7 +38,7 @@ import gym
 import gym_rock_paper_scissors
 
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
-USE_CUDA = True
+USE_CUDA = False
 
 
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):

@@ -1,5 +1,5 @@
 import numpy as np
-
+import random 
 import torch
 import torchvision.transforms as T
 
@@ -16,7 +16,7 @@ class DeepQNetworkAgent():
 
         self.algorithm = algorithm
         self.training = False
-        self.hashing_function = self.algorithm.kwargs["preprocess"]
+        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
 
         self.kwargs = algorithm.kwargs
 
@@ -31,8 +31,8 @@ class DeepQNetworkAgent():
         return self.algorithm.model
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        hs = self.hashing_function(s)
-        hsucc = self.hashing_function(succ_s)
+        hs = self.preprocessing_function(s)
+        hsucc = self.preprocessing_function(succ_s)
         r = torch.ones(1)*r
         a = torch.from_numpy(a)
         experience = EXP(hs, a, hsucc, r, done)
@@ -44,7 +44,7 @@ class DeepQNetworkAgent():
     def take_action(self, state):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
-        action, qsa = self.select_action(model=self.algorithm.model, state=self.hashing_function(state), eps=self.eps)
+        action, qsa = self.select_action(model=self.algorithm.model, state=self.preprocessing_function(state), eps=self.eps)
         return action
 
     def reset_eps(self):
@@ -64,7 +64,7 @@ class DeepQNetworkAgent():
 
 
     def clone(self, training=None, path=None):
-        from .agent_hook import AgentHook
+        from ..agent_hook import AgentHook
         cloned = AgentHook(self, training=training, path=path)
         return cloned
 
@@ -148,7 +148,7 @@ def build_DQN_Agent(state_space_size=32,
     else :
         model = DQN(state_space_size, action_space_size, use_cuda=use_cuda)
     model.share_memory()
-
+    
     kwargs["model"] = model
     kwargs["dueling"] = dueling
     kwargs["double"] = double

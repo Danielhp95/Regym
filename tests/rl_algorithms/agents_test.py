@@ -44,6 +44,6 @@ def test_agent_hooking(env=None):
     assert tql == tql2 
     tests = [dqn.kwargs[el] == dqn2.kwargs[el] for el in dqn.kwargs if not('model' in el) ]
     for el in tests : assert(el)
-    tests = [ddpg.kwargs[el] == ddpg2.kwargs[el] for el in ddpg.kwargs if not( 'model' in el or 'process' in el) ]
+    tests = [ddpg.kwargs[el] == ddpg2.kwargs[el] for el in ddpg.kwargs if not('model' in el or 'process' in el) ]
     for el in tests : assert(el)
     
