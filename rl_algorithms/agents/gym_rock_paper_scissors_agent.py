@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class MixedStrategyAgent():
     '''
     Representes a fixed agent which uses a mixed strategy.

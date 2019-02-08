@@ -49,7 +49,7 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
         os.mkdir(menagerie_path)
         os.mkdir(agent_menagerie_path)
 
-    # Loading the model from the AgentHook: TODO maybe rename agentHook
+    # Loading the model from the AgentHook:
     training_agentHook = training_agent
     training_agent = training_agent(training=True)
 

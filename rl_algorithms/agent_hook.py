@@ -1,7 +1,9 @@
 import torch
-from .deep_q_network import DeepQNetworkAgent, DQN, DuelingDQN, DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
-from .deep_deterministic_policy_gradient import DDPGAgent, ActorNN, CriticNN, DeepDeterministicPolicyGradientAlgorithm
-from .tabular_q_learning import TabularQLearningAgent
+from .networks import DQN, DuelingDQN, ActorNN, CriticNN
+from .DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
+from .DDPG import DeepDeterministicPolicyGradientAlgorithm
+from .TQL import TabularQLearningAlgorithm
+from .agents import TabularQLearningAgent, DeepQNetworkAgent, DDPGAgent
 from enum import Enum
 import copy
 
@@ -52,8 +54,9 @@ class AgentHook():
                                     self.kwargs[name] = agent.kwargs[name]
                     # Saving CPU state_dict and RB:
                     if self.path is not None:
-                            for index, model in enumerate(agent.getModel()):
-                                torch.save(model.cpu().state_dict(), self.path+str(index))
+                            model_actor, model_critic = agent.getModel()
+                            torch.save(model_actor.cpu().state_dict(), self.path+'actor')
+                            torch.save(model_critic.cpu().state_dict(), self.path+'critic')
                             agent.algorithm.replayBuffer.save(self.path)
                     else:
                             self.agent = copy.deepcopy(agent)        
@@ -74,9 +77,9 @@ class AgentHook():
                                     self.kwargs['preprocess'].use_cuda = use_cuda
                             # Init Model:
                             if self.kwargs['dueling']:
-                                    model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                                    model = DuelingDQN(state_dim=self.kwargs['state_dim'],nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], use_cuda=False)
                             else:
-                                    model = DQN(nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                                    model = DQN(state_dim=self.kwargs['state_dim'],nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], use_cuda=False)
                             # Loading CPU state_dict:
                             model.load_state_dict(torch.load(self.path))
                             if self.kwargs['use_cuda']:
@@ -102,11 +105,11 @@ class AgentHook():
                             if use_cuda is not None:
                                     self.kwargs['use_cuda'] = use_cuda
                             # Init Model:
-                            model_actor = ActorNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],action_scaler=self.kwargs['action_scaler'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
-                            model_critic = CriticNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],action_scaler=self.kwargs['action_scaler'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                            model_actor = ActorNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],action_scaler=self.kwargs['action_scaler'], actfn=self.kwargs['actfn'], use_cuda=False)
+                            model_critic = CriticNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],HER=self.kwargs['HER']['use_her'], actfn=self.kwargs['actfn'], use_cuda=False)
                             # Loading CPU state_dict:
-                            model_actor.load_state_dict(torch.load(self.path+str(0)))
-                            model_critic.load_state_dict(torch.load(self.path+str(1)))
+                            model_actor.load_state_dict(torch.load(self.path+'actor'))
+                            model_critic.load_state_dict(torch.load(self.path+'critic'))
                             if self.kwargs['use_cuda']:
                                     model_actor = model_actor.cuda()
                                     model_critic = model_critic.cuda()
@@ -116,7 +119,7 @@ class AgentHook():
                             kwargs['model_critic'] = model_critic
                             algorithm = DeepDeterministicPolicyGradientAlgorithm(kwargs=kwargs)
                             # Init Agent
-                            agent = DDDPG(algorithm=algorithm)
+                            agent = DDPGAgent(algorithm=algorithm)
                             if training is not None:
                                     agent.training = training
                             if agent.training:
