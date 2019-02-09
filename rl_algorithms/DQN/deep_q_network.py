@@ -44,7 +44,7 @@ class DeepQNetworkAlgorithm :
         self.model = kwargs["model"]
         if self.use_cuda:
             self.model = self.model.cuda()
-            
+
         self.target_model = copy.deepcopy(self.model)
         hard_update(self.target_model,self.model)
         if self.use_cuda :
@@ -54,7 +54,7 @@ class DeepQNetworkAlgorithm :
             if kwargs["use_PER"] :
                 self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"],alpha=kwargs["PER_alpha"])
             else :
-                self.replayBuffer = ReplayMemory(capacity=kwargs["replay_capacity"])
+                self.replayBuffer = ReplayBuffer(capacity=kwargs["replay_capacity"])
         else :
             self.replayBuffer = self.kwargs['replayBuffer']
 

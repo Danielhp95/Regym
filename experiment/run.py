@@ -7,13 +7,6 @@ import time
 
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 
-from rl_algorithms import build_DQN_Agent
-from rl_algorithms import build_TabularQ_Agent 
-from rl_algorithms import build_DDPG_Agent
-#from rl_algorithms import build_PPO_Agent
-from rl_algorithms import rockAgent, paperAgent, scissorsAgent
-from rl_algorithms import AgentHook
-
 from plot_util import create_plots
 
 from training_process import create_training_processes
@@ -37,8 +30,9 @@ from torch.multiprocessing import Process, Queue
 import gym
 import gym_rock_paper_scissors
 
+import util
+
 TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
-USE_CUDA = False
 
 
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
@@ -62,7 +56,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
     # TODO Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
     benchmark_process_number_workers = 4
-    benchmark_process_pool = None#ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
+    benchmark_process_pool = None #ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
     training_processes = create_training_processes(training_jobs, createNewEnvironment,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
@@ -101,41 +95,7 @@ def run_processes(training_processes, mm_process, cfm_process):
     cfm_process.join()
 
 
-def initialize_training_schemes(training_schemes_cli):
-    def parse_training_scheme(training_scheme):
-        if training_scheme.lower() == 'fullhistoryselfplay': return FullHistorySelfPlay
-        elif training_scheme.lower() == 'halfhistoryselfplay': return HalfHistorySelfPlay
-        elif training_scheme.lower() == 'naiveselfplay': return NaiveSelfPlay
-        else: raise ValueError('Unknown training scheme {}. Try defining it inside this script.'.format(training_scheme))
-    return [parse_training_scheme(t_s) for t_s in training_schemes_cli]
-
-
-def initialize_algorithms(environment, algorithms_cli, base_path):
-    def parse_algorithm(algorithm, env):
-        if algorithm.lower() == 'tabularqlearning':
-            return build_TabularQ_Agent(env.state_space_size, env.action_space_size, env.hash_state)
-        if algorithm.lower() == 'deepqlearning':
-            return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=False, dueling=False, use_cuda=USE_CUDA)
-        if algorithm.lower() == 'ddpg':
-            return build_DDPG_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, use_cuda=USE_CUDA)
-        #if algorithm.lower() == 'ppo':
-        #    return build_PPO_Agent(env)
-        else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
-
-    return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]
-
-
-def initialize_fixed_agents(fixed_agents_cli):
-    def parse_fixed_agent(agent):
-        if agent.lower() == 'rockagent': return AgentHook(rockAgent)
-        elif agent.lower() == 'paperagent': return AgentHook(paperAgent)
-        elif agent.lower() == 'scissorsagent': return AgentHook(scissorsAgent)
-        else: raise ValueError('Unknown fixed agent {}. Try defining it inside this script.'.format(agent))
-    return [parse_fixed_agent(agent) for agent in fixed_agents_cli]
-
-
 def run_experiment(experiment_id, experiment_directory, number_of_runs, options, logger):
-    logger.info(f'Starting run: {run_id}')
     results_path = f'{experiment_directory}/run-{run_id}'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
@@ -147,9 +107,9 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
     checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]
     benchmarking_episodes    = int(options['--benchmarking_episodes'])
 
-    training_schemes = initialize_training_schemes(options['--self_play_training_schemes'].split(','))
-    algorithms, paths       = initialize_algorithms(env, options['--algorithms'].split(','), base_path)
-    fixed_agents     = initialize_fixed_agents(options['--fixed_agents'].split(','))
+    training_schemes  = util.experiment_parsing.initialize_training_schemes(options['--self_play_training_schemes'].split(','))
+    algorithms, paths = util.experiment_parsing.initialize_algorithms(env, options['--algorithms'].split(','), base_path)
+    fixed_agents      = util.experiment_parsing.initialize_fixed_agents(options['--fixed_agents'].split(','))
 
     training_jobs = enumerate_training_jobs(training_schemes, algorithms, paths)
 
@@ -178,17 +138,17 @@ if __name__ == '__main__':
 8888888888888888888888888888888888888888888888888888888888888O888888888888888888
 888888888888888888888888888888888888888888888888888888888888888O8888888888888888
 888OZOO88OND88888888888888888888888888888888888888888888888888888O88D88D88888888
-888888888D..D8OZO8888888 ....... D88888888888888.........:8888888888...O88888888
-8888888888DD888888888D..$OOO8888~ .D888888888D...DD88888D,..88888888O8O888888888
-88888888888888888888Z..O888888888ZZ8OOO888888 .D8888888888D8888888888888OO888888
-8888888888..88888888..8888888888888888888888:.OOO88888888888888888888.88888O8888
-8888888888..8888888$.88888888888888888888888 .88888888888OZO888888888.8888888O88
-8888888888..8888888=.888888888,,,,,,,D888888. 88888888,,,,,,,88888OZO.8888888888
-8888888888..8888888D.?8888888D88888.+8888888..88888888O8888:.O8888888.888888OOOO
-8888888888..88888888..D88888888888. 88888888O.:88888888888D..88888888.8888888888
-8888888888..888888888,..D8888888O .8888888888O..N8888888OD..888888888.8888OO8888
-8888888888..88888888888..,.?8O... 888888888888OO...,OO=...O8888888888.8888888888
-8888888888O8888888888888D88I:=O888888888888888888D88~~O888888888O88888O888888888
+888888888D..D8OZO8888888 ....... D88888888888888.........:8888888888D..DO8888888
+8888888888DD888888888D..$OOO8888~ .D888888888D...DD88888D,..888888888DD888888888
+88888888888888888888Z..O888888888ZZ8OOO888888 .D8888888888D88888888888888OO88888
+8888888888..88888888..8888888888888888888888:.OOO88888888888888888888..88888O888
+8888888888..8888888$.88888888888888888888888 .88888888888OZO888888888..8888888O8
+8888888888..8888888=.888888888,,,,,,,D888888. 88888888,,,,,,,88888OZ8..888888888
+8888888888..8888888D.?8888888D88888.+8888888..88888888O8888:.O8888888..888888OOO
+8888888888..88888888..D88888888888. 88888888O.:88888888888D..88888888..888888888
+8888888888..888888888,..D8888888O .8888888888O..N8888888OD..888888888..8888OO888
+8888888888..88888888888..,.?8O... 888888888888OO...,OO=...O8888888888..888888888
+8888888888O8888888888888D88I:=O888888888888888888D88~~O888888888O8888O8888888888
 88888888888888888888888888888888888888888888888888888888888OO8888888888888888888
 888888888888888888888888888888888888888888888888888888O8888888888888888888888888
 888888888888888888888888888888888888888888888888OO888888888888888888888888888888
@@ -226,6 +186,7 @@ if __name__ == '__main__':
 
     experiment_durations = []
     for run_id in range(number_of_runs):
+        logger.info(f'Starting run: {run_id}')
         start_time = time.time()
         run_experiment(experiment_id, experiment_directory, number_of_runs, options, logger)
         experiment_duration = time.time() - start_time

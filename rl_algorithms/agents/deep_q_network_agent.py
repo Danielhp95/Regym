@@ -126,9 +126,6 @@ def build_DQN_Agent(state_space_size=32,
         "state_dim": number of dimensions in the state space.
     """
 
-    preprocess_model = T.Compose([
-                T.ToTensor() ] )
-
     if hash_function is not None :
         kwargs['hash_function'] = hash_function
         preprocess = PreprocessFunction(hash_function=hash_function, state_space_size=state_space_size,use_cuda=use_cuda)
@@ -137,7 +134,7 @@ def build_DQN_Agent(state_space_size=32,
         TODO :
         """
         preprocess = (lambda x: preprocess_model(x))
-
+    
     kwargs['nbrTrainIteration'] = nbrTrainIteration
     kwargs["nbr_actions"] = action_space_size
     kwargs["actfn"] = LeakyReLU
@@ -148,7 +145,7 @@ def build_DQN_Agent(state_space_size=32,
     else :
         model = DQN(state_space_size, action_space_size, use_cuda=use_cuda)
     model.share_memory()
-    
+
     kwargs["model"] = model
     kwargs["dueling"] = dueling
     kwargs["double"] = double
