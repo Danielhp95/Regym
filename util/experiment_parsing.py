@@ -32,8 +32,8 @@ def initialize_algorithms(environment, algorithms_cli, base_path):
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
 
     # TODO use this to initialize the dimensions of the first / last layer of neural nets
-    action_dimensions = gym_utils.get_action_dimensions(environment)
-    state_dimensions  = gym_utils.get_observation_dimensions(environment)
+    # action_dimensions = gym_utils.get_action_dimensions(environment)
+    # state_dimensions  = gym_utils.get_observation_dimensions(environment)
     return [parse_algorithm(algorithm, environment) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]
 
 
