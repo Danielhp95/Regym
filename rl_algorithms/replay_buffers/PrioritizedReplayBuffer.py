@@ -1,7 +1,5 @@
 import numpy as np
-from collections import namedtuple
-
-EXPPER = namedtuple('EXPPER', ('idx','priority','state','action','next_state', 'reward','done') )
+from .experience import EXP, EXPPER
 
 
 class PrioritizedReplayBuffer :

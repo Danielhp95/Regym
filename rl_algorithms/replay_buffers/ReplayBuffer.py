@@ -1,7 +1,5 @@
 import numpy as np
-from collections import namedtuple
-
-EXP = namedtuple('EXP', ('state','action','next_state', 'reward','done') )
+from .experience import EXP, EXPPER
 
 class ReplayBuffer(object) :
     def __init__(self,capacity) :
