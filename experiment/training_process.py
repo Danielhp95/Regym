@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath('..'))
 
 import time
 import logging
+import logging.handlers
 from torch.multiprocessing import Process
 
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
@@ -23,6 +24,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
     logger.info('Started')
+    logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     process_start_time = time.time()
 
     completed_iterations = 0

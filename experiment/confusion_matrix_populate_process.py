@@ -1,5 +1,6 @@
 import os
 import logging
+import logging.handlers
 
 import numpy as np
 
@@ -20,6 +21,7 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     """
     logger = logging.getLogger('ConfusionMatrixPopulate')
     logger.setLevel(logging.INFO)
+    logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Started')
 
     hashing_dictionary, confusion_matrix_dict = create_confusion_matrix_dictionary(training_jobs, checkpoint_iteration_indices)

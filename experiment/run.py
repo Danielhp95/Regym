@@ -16,13 +16,17 @@ from confusion_matrix_populate_process import confusion_matrix_process
 
 import yaml
 from docopt import docopt
-import logging
 
-# TODO Use an extra queue to receive logging from a queue,
-# or even a socket: https://docs.python.org/3/howto/logging-cookbook.html#sending-and-receiving-logging-events-across-a-network
+import logging
+import logging.handlers
+import logging_server
+
+# TODO Refactor this somewhere nice
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+socketHandler = logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+logger.addHandler(socketHandler)
 
 from collections import namedtuple
 from torch.multiprocessing import Process, Queue
@@ -41,7 +45,6 @@ def enumerate_training_jobs(training_schemes, algorithms, paths=None):
     return [TrainingJob(training_scheme, algorithm.clone(training=True, path=path), '{}-{}'.format(training_scheme.name, algorithm.name)) for training_scheme in training_schemes for algorithm, path in zip(algorithms, paths)]
 
 
-# TODO find better name
 def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     initial_fixed_agents_to_benchmark = [[iteration, EmptySelfPlay, agent]
                                            for agent in existing_fixed_agents
@@ -56,7 +59,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 
     # TODO Set magic number to number of available cores - (training processes - matchmaking - confusion matrix)
     benchmark_process_number_workers = 4
-    benchmark_process_pool = None #ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
+    benchmark_process_pool = None # ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
     training_processes = create_training_processes(training_jobs, createNewEnvironment,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
