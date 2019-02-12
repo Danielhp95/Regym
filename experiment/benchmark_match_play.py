@@ -1,15 +1,17 @@
 import time
 import logging
+import logging.handlers
 import random
 import numpy as np
 from collections import namedtuple
-BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
 
 from torch.multiprocessing import Process
 from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 
 from multiagent_loops.simultaneous_action_rl_loop import run_episode
+
+BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
 
 
 def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_job, process_pool, matrix_queue, name):
@@ -23,11 +25,12 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     """
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Started for {} episodes'.format(num_episodes))
 
     agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
     agent_vector = [agent(training=False, use_cuda=False) for agent in agent_vector]
-    
+
     # TODO Use given pool, but how?
     with ProcessPoolExecutor(max_workers=3) as executor:
         benchmark_start = time.time()
