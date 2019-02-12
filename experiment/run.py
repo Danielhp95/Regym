@@ -131,8 +131,10 @@ if __name__ == '__main__':
 
     # TODO Refactor this somewhere nice
     logger = logging.getLogger(__name__)
+    logger.propagate = False
     logger.setLevel(logging.DEBUG)
     socketHandler = logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+    logger.addHandler(socketHandler)
 
     print('''
 88888888888888888888888888888888888888888888888888888888O88888888888888888888888
@@ -180,14 +182,17 @@ if __name__ == '__main__':
 
     # TODO create directory structure function
     experiment_directory = 'experiment-{}'.format(experiment_id)
+
     if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
     os.mkdir(experiment_directory)
 
+    t = Thread(target=logging_server.serve_logging_server_forever,
+               args=(f'{experiment_directory}/logs',),
+               daemon=True)
+    t.start()
+
     with open('{}/experiment_parameters.yml'.format(experiment_directory), 'w') as outfile:
         yaml.dump(options, outfile, default_flow_style=False)
-
-    t = Thread(target=logging_server.serve_logging_server_forever, args=(f'{experiment_directory}/logs',))
-    t.start()
 
     experiment_durations = []
     for run_id in range(number_of_runs):
@@ -207,4 +212,9 @@ if __name__ == '__main__':
     logger.info('Experiment mean run duration: {}'.format(average_experiment_duration))
     logger.info('Experiment std dev duration:  {}'.format(standard_deviation_experiment_duration))
 
+    logger.info('Started plot creation')
     create_plots(experiment_directory=experiment_directory, number_of_runs=number_of_runs)
+    logger.info('Plots created')
+
+    import signal
+    os.kill(os.getpid(), signal.SIGHUP)
