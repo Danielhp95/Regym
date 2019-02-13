@@ -9,7 +9,6 @@ import os
 import numpy as np
 import torch
 import logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s: %(message)s')
 from .misc import *
 
 def get_logger(tag=None, skip=False, level=logging.INFO):

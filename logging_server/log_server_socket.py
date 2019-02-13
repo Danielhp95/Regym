@@ -67,7 +67,7 @@ class LogRecordSocketReceiver(socketserver.ThreadingTCPServer):
         logger          = logging.getLogger('ServerLogger')
         console_handler = logging.StreamHandler(stream=sys.stdout)
         file_handler    = logging.FileHandler(filename=log_path)
-        log_format      = logging.Formatter(fmt='[%(asctime)s]%(levelname)s:%(name)s: %(message)s', datefmt='%m-%d %H:%M:%S')
+        log_format      = logging.Formatter(fmt='[%(asctime)s]:%(levelname)s:%(name)s: %(message)s', datefmt='%m-%d %H:%M:%S')
 
         console_handler.setFormatter(log_format)
         file_handler.setFormatter(log_format)
