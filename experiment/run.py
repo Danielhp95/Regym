@@ -21,7 +21,6 @@ import experiment
 
 def initialize_logger():
     logger = logging.getLogger(__name__)
-    logger.propagate = False
     logger.setLevel(logging.DEBUG)
     socketHandler = logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT)
     logger.addHandler(socketHandler)
