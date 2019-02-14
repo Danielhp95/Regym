@@ -4,13 +4,18 @@ sys.path.append(os.path.abspath('../../'))
 
 from rl_algorithms.replay_buffers import PrioritizedReplayBuffer, EXP
 import numpy as np
-import pytest
 
 import matplotlib
 import matplotlib.pyplot as plt
 
 
 def test_prioritizedReplayBuffer_instantiation():
+    '''
+    Create histograms of samples per items in the replay buffer.
+    Each histogram is computed with a different value of alpha 
+    (used to compute the priority from the error).
+    From 0.00001 (uniform distribution) to 1.0 (biasing towards high-error items).
+    '''
     num_bins = 1000
     nbr_iterative_sampling = 1000
 
