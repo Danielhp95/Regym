@@ -69,23 +69,19 @@ class DeepQNetworkAgent():
         return cloned
 
 class PreprocessFunction(object) :
-    def __init__(self, hash_function, state_space_size,use_cuda):
-        self.hash_function = hash_function
+    def __init__(self, state_space_size,use_cuda=False):
         self.state_space_size = state_space_size
         self.use_cuda = use_cuda
     def __call__(self,x) :
-        x = self.hash_function(x)
-        one_hot_encoded_state = np.zeros(self.state_space_size)
-        one_hot_encoded_state[x] = 1.0
+        x = np.concatenate(x, axis=None)
         if self.use_cuda :
-            return torch.from_numpy( one_hot_encoded_state ).unsqueeze(0).type(torch.cuda.FloatTensor)
+            return torch.from_numpy( x ).unsqueeze(0).type(torch.cuda.FloatTensor)
         else :
-            return torch.from_numpy( one_hot_encoded_state ).unsqueeze(0).type(torch.FloatTensor)
+            return torch.from_numpy( x ).unsqueeze(0).type(torch.FloatTensor)
 
 
 def build_DQN_Agent(state_space_size=32,
                         action_space_size=3,
-                        hash_function=None,
                         learning_rate=6.25e-5,
                         double=False,
                         dueling=False,
@@ -126,14 +122,7 @@ def build_DQN_Agent(state_space_size=32,
         "state_dim": number of dimensions in the state space.
     """
 
-    if hash_function is not None :
-        kwargs['hash_function'] = hash_function
-        preprocess = PreprocessFunction(hash_function=hash_function, state_space_size=state_space_size,use_cuda=use_cuda)
-    else :
-        """
-        TODO :
-        """
-        preprocess = (lambda x: preprocess_model(x))
+    preprocess = PreprocessFunction( state_space_size=state_space_size,use_cuda=use_cuda)
     
     kwargs['nbrTrainIteration'] = nbrTrainIteration
     kwargs["nbr_actions"] = action_space_size

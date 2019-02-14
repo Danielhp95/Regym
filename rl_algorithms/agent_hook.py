@@ -42,8 +42,7 @@ class AgentHook():
             elif isinstance(agent, TabularQLearningAgent):
                     self.type = AgentType.TQL
                     self.agent = agent
-            
-            if isinstance(agent, DDPGAgent):
+            elif isinstance(agent, DDPGAgent):
                     self.path = path
                     self.type = AgentType.DDPG
                     self.kwargs = dict()

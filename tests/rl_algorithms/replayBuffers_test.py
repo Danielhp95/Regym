@@ -63,8 +63,8 @@ def test_prioritizedReplayBuffer_instantiation():
                 except TypeError as e :
                     continue
 
-        #n, bins, patches = plt.hist(priorities, num_bins, facecolor=color, alpha=0.8)
-        n, bins, patches = plt.hist(importances, num_bins, facecolor=color, alpha=0.8)
+        #n, bins, patches = plt.hist(priorities, num_bins, facecolor=color, alpha=0.3)
+        n, bins, patches = plt.hist(importances, num_bins, facecolor=color, alpha=0.3)
         
     plt.show()
 

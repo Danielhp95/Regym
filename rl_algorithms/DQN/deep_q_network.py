@@ -206,7 +206,7 @@ class DeepQNetworkAlgorithm :
             self.replayBuffer.push(experience)
 
     def train(self, iteration=1):
-        self.update_count += iteration
+        self.target_update_count += iteration
         for t in range(iteration):
             lossnp = self.optimize_model()
         

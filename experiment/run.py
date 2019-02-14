@@ -101,7 +101,7 @@ def run_experiment(experiment_id, experiment_directory, number_of_runs, options,
         os.mkdir(results_path)
     base_path = results_path
 
-    createNewEnvironment  = EnvironmentCreationFunction(options['--environment'])
+    createNewEnvironment = EnvironmentCreationFunction(options['--environment'])
     env = createNewEnvironment()
 
     checkpoint_at_iterations = [int(i) for i in options['--checkpoint_at_iterations'].split(',')]

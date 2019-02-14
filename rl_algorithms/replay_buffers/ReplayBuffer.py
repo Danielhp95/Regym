@@ -1,5 +1,5 @@
 import numpy as np
-from .experience import EXP, EXPPER
+from .experience import EXP
 
 class ReplayBuffer(object) :
     def __init__(self,capacity) :

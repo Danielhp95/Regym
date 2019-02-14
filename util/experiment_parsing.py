@@ -27,7 +27,7 @@ def initialize_algorithms(environment, algorithms_cli, base_path):
             return build_TabularQ_Agent(env.state_space_size, env.action_space_size, env.hash_state)
         if algorithm.lower() == 'deepqlearning':
             # TODO Should use_cuda be pased as parameter?
-            return build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=False, dueling=False, use_cuda=False)
+            return build_DQN_Agent(state_space_size=env.state_space_dim, action_space_size=env.action_space_dim, double=False, dueling=False, use_cuda=True)
         #if algorithm.lower() == 'ppo':
         #    return build_PPO_Agent(env)
         else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
