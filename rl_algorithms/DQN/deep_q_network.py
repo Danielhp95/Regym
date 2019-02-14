@@ -103,10 +103,8 @@ class DeepQNetworkAlgorithm :
         if self.kwargs['use_PER'] :
             #Create batch with PrioritizedReplayBuffer/PER:
             prioritysum = self.replayBuffer.total()
-
             # Random Experience Sampling with priority
-            fraction = 0.0
-            low = fraction*prioritysum
+            low = 0.0
             step = (prioritysum-low) / self.batch_size
             try:
                 randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
@@ -131,10 +129,10 @@ class DeepQNetworkAlgorithm :
             priorities = Variable( torch.from_numpy( np.array(priorities) ), requires_grad=False).float()
             importanceSamplingWeights = torch.pow( len(self.replayBuffer) * priorities , -beta)
         else :
-            # Create Batch with replayMemory :
-            transitions = replayBuffer.sample(self.batch_size)
-            batch = EXP(*zip(*transitions) )
-
+            # Create Batch with replayBuffer :
+            transitions = self.replayBuffer.sample(self.batch_size)
+            batch = EXP( *zip(*transitions) )
+            
         next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
         state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
         action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
@@ -184,8 +182,8 @@ class DeepQNetworkAlgorithm :
 
         self.optimizer.step()
 
+        loss_np = loss_per_item.cpu().data.numpy()
         if self.kwargs['use_PER']:
-            loss_np = loss_per_item.cpu().data.numpy()
             for (idx, new_error) in zip(batch.idx,loss_np) :
                 new_priority = self.replayBuffer.priority(new_error)
                 self.replayBuffer.update(idx,new_priority)
@@ -208,8 +206,11 @@ class DeepQNetworkAlgorithm :
     def train(self, iteration=1):
         self.target_update_count += iteration
         for t in range(iteration):
-            lossnp = self.optimize_model()
-        
+            try:
+                lossnp = self.optimize_model()
+            except Exception as e :
+                print("EXCEPTION : {}".format(e))
+
         if self.target_update_count > self.target_update_interval:
             self.target_update_count = 0
             hard_update(self.target_model,self.model)

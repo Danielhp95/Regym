@@ -124,8 +124,7 @@ class DeepDeterministicPolicyGradientAlgorithm :
         if self.kwargs['use_PER'] :
             #Create batch with PrioritizedReplayBuffer/PER:
             prioritysum = self.replayBuffer.total()
-            fraction = 0.0
-            low = fraction*prioritysum
+            low = 0.0
             step = (prioritysum-low) / self.batch_size
             try:
                 randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
@@ -150,7 +149,7 @@ class DeepDeterministicPolicyGradientAlgorithm :
             priorities = Variable( torch.from_numpy( np.array(priorities) ), requires_grad=False).float()
             importanceSamplingWeights = torch.pow( len(self.replayBuffer) * priorities , -beta)
         else :
-            # Create Batch with replayMemory :
+            # Create Batch with replayBuffer :
             transitions = replayBuffer.sample(self.batch_size)
             batch = EXP(*zip(*transitions) )
 
@@ -226,9 +225,9 @@ class DeepDeterministicPolicyGradientAlgorithm :
         
         ###################################
 
+        loss = torch.abs(actor_loss_per_item) + torch.abs(critic_loss_per_item)
+        loss_np = loss.cpu().data.numpy()
         if self.kwargs['use_PER']:
-            loss = torch.abs(actor_loss_per_item) + torch.abs(critic_loss_per_item)
-            loss_np = loss.cpu().data.numpy()
             for (idx, new_error) in zip(batch.idx,loss_np) :
                 new_priority = self.replayBuffer.priority(new_error)
                 self.replayBuffer.update(idx,new_priority)
