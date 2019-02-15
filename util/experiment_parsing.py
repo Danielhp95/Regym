@@ -26,9 +26,8 @@ def initialize_algorithms(environment, algorithms_cli, base_path):
 
     def parse_algorithm(algorithm, task):
         if algorithm.lower() == 'tabularqlearning':
-            return build_TabularQ_Agent(task.observation_dim, task.action_dim)
+            return build_TabularQ_Agent(task)
         if algorithm.lower() == 'deepqlearning':
-            # TODO Should use_cuda be pased as parameter?
             return build_DQN_Agent(state_space_size=task.observation_dim, action_space_size=task.action_dim, double=False, dueling=False, use_cuda=False)
         # if algorithm.lower() == 'ppo':
         #     return build_PPO_Agent(env)
