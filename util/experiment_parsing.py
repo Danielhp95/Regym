@@ -9,7 +9,7 @@ from rl_algorithms import build_TabularQ_Agent
 from rl_algorithms import rockAgent, paperAgent, scissorsAgent
 from rl_algorithms import AgentHook
 
-from .gym_parser import parse_gym_environment
+import environments
 
 
 def initialize_training_schemes(training_schemes_cli):
@@ -22,7 +22,7 @@ def initialize_training_schemes(training_schemes_cli):
 
 
 def initialize_algorithms(environment, algorithms_cli, base_path):
-    task = parse_gym_environment(environment)
+    task = environments.parse_gym_environment(environment)
 
     def parse_algorithm(algorithm, task):
         if algorithm.lower() == 'tabularqlearning':
