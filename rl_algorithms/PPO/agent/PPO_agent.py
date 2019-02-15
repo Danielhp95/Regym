@@ -8,26 +8,44 @@ from ..network import *
 from ..component import *
 from .BaseAgent import *
 
-
 class PPOAgent(BaseAgent):
 
-    def __init__(self, env, config):
+    def __init__(self, config):
         BaseAgent.__init__(self, config)
         self.config = config
-        self.task = config.task_fn()
         self.network = config.network_fn()
         self.opt = config.optimizer_fn(self.network.parameters())
-        self.total_steps = 0
+        self.task = config.task_fn()                              # TODO task is only used to take a step on it, 99.9% not needed
+        self.total_steps = 0                                      # TODO figure if this is necessary 99.9% it's not
         self.online_rewards = np.zeros(config.num_workers)
         self.episode_rewards = []
-        self.states = self.task.reset()
-        self.states = config.state_normalizer(self.states)
+        # self.states = self.task.reset()
+        # self.states = config.state_normalizer(self.states)
 
     def handle_experience(self, s, a, r, succ_s, done):
+        '''
+        If done, flush storage and start optimization step? If done on the same process
+        this will slow down the simulator, as it will wait for the optimization step
+        to finish. In future, we can make asyncronous learning by leaving the optimization step
+        to another process.
+        '''
+        # TODO make storage global
+        # self.storage.add({'r': tensor(rewards).unsqueeze(-1),
+        #                   'm': tensor(1 - terminals).unsqueeze(-1), # TODO figure out why there is a substraction
+        #                   's': tensor(states)})
+        # TODO Create condition to start optimization step
         pass
 
+    '''
+    TODO potential issues:
+        - Numpy array format
+        - Storing the prediction in the self.Storage
+    '''
     def take_action(self, state):
-        pass
+        prediction = self.network(state)
+        # self.storage.add(prediction) TODO make storage global
+        action = to_np(prediction['a'])
+        return action
 
     def step(self):
         '''
@@ -43,14 +61,14 @@ class PPOAgent(BaseAgent):
         1. The step function interacts with the environment for an _entire_ episode.
         '''
         config = self.config
-        storage = Storage(config.rollout_length)
+        storage = Storage(config.rollout_length) # TODO Make storage global, flush on episode termination?
         states = self.states
         for _ in range(config.rollout_length):
             prediction = self.network(states)
             next_states, rewards, terminals, _ = self.task.step(to_np(prediction['a']))
             self.online_rewards += rewards
             rewards = config.reward_normalizer(rewards)
-            for i, terminal in enumerate(terminals):
+            for i, terminal in enumerate(terminals): # TODO figure out how this loop can be introduced in handle_experience
                 if terminals[i]:
                     self.episode_rewards.append(self.online_rewards[i])
                     self.online_rewards[i] = 0
@@ -120,5 +138,23 @@ class PPOAgent(BaseAgent):
         self.total_steps += steps
 
 
-def build_PPO_Agent(env):
-    return PPOAgent(env, None)
+def build_PPO_Agent(action_dimensions, state_dimensions, env):
+    '''
+    Build a Config (same as DeepRL) codebase.
+    :param env: multiagent environment where agent will be trained.
+    :returns: PPOAgent adapted to be trained on given environment
+    '''
+    config = Config()
+    config.discount = 0.99
+    config.use_gae = True
+    config.gae_tau = 0.95
+    config.entropy_weight = 0.01
+    config.gradient_clip = 5
+    # config.rollout_length = 128 No longer necessary. DeepRL implementation used fixed rollout lenghts
+    config.optimization_epochs = 10
+    config.mini_batch_size = 32 * 5
+    config.ppo_ratio_clip = 0.2
+    config.log_interval = 128 * 5 * 10
+    config.network_fn = lambda: CategoricalActorCriticNet(state_dimensions, action_dimensions, NatureConvBody())
+    config.optimizer_fn = lambda params: torch.optim.Adam(params, lr=3e-4, eps=1e-5)
+    return PPOAgent(config)

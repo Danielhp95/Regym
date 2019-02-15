@@ -1,5 +1,3 @@
-import gym
-import gym_rock_paper_scissors
 from gym_rock_paper_scissors.envs.one_hot_space import OneHotEncoding
 import numpy as np
 from gym.spaces import Box, Discrete, Tuple

@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.append(os.path.abspath('..'))
-from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
+from training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 
 from rl_algorithms import build_DQN_Agent
 from rl_algorithms import build_TabularQ_Agent

@@ -172,7 +172,9 @@ def build_DQN_Agent(state_space_size=32,
 
     kwargs['replayBuffer'] = None
 
+    print("Good")
     DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if dueling else DeepQNetworkAlgorithm(kwargs=kwargs)
+    print("Enough")
 
     return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)
 

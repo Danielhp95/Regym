@@ -1,6 +1,7 @@
 import os
 import signal
 import logging
+import logging.handlers
 
 from collections import namedtuple
 from collections import Counter
@@ -29,6 +30,7 @@ def match_making_process(expected_number_of_agents, benchmarking_episodes, creat
     """
     logger = logging.getLogger('MatchMaking')
     logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Started')
 
     # Initialize variables

@@ -46,8 +46,8 @@ conda env create -f environment.yml
 
 ### Getting started:
 
-This experiment aims at measuring the effect self-play training schemes on X different environments, and Y different algorithms and 
-Z self-play training schemes. The effect is measured by looking at:
+This experiment aims at measuring the effect different self-play training schemes on a set of environments, using various algorithms and.
+The effect is measured by looking at:
 
 + The winrates of every a self-play scheme and algorithm pair against all other pairs after a specific number of episodes
 + The evolution of these winrates over time.
