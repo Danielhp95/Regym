@@ -5,34 +5,22 @@ import torch
 sys.path.append(os.path.abspath('../..'))
 from multiagent_loops import simultaneous_action_rl_loop
 from training_schemes import NaiveSelfPlay
-from rl_algorithms import build_DQN_Agent
+from rl_algorithms import build_DQN_Agent, AgentHook
 import numpy as np
 
 import gym
 import gym_rock_paper_scissors
 from gym_rock_paper_scissors.fixed_agents import rockAgent, paperAgent, scissorsAgent
-
-def test_selfplay():
-	env = gym.make('RockPaperScissors-v0')
-	env.__init__(stacked_observations=2, max_repetitions=1)
-
-	training_policy = build_DQN_Agent(state_space_size=env.state_space_size, action_space_size=env.action_space_size, hash_function=env.hash_state, double=True, dueling=True)
-
-	policy = simultaneous_action_rl_loop.self_play_training(env=env, training_policy=training_policy,
-	                                                        self_play_scheme=NaiveSelfPlay, target_episodes=10, opci=1)
-
-	training_policy.stop_training()
-	#assert np.array_equal(policy.Q_table, training_policy.Q_table)
-	#np.savetxt('policy', policy.Q_table) # To manually inspect the policy
-
+import environments 
+	
 def test_selfplay_DQNvsFixedAgent():
 	target_episodes = 1000
 	env = gym.make('RockPaperScissors-v0')
 	env.__init__(stacked_observations=2, max_repetitions=1)
-
-	training_policy = build_DQN_Agent(state_space_size=env.state_space_size, 
-										action_space_size=env.action_space_size, 
-										hash_function=env.hash_state, 
+	task = environments.parse_gym_environment(env)
+	
+	training_policy = build_DQN_Agent(state_space_size=task.observation_dim, 
+										action_space_size=task.action_dim, 
 										double=True, 
 										dueling=True,
 										num_worker=1,
@@ -46,15 +34,13 @@ def test_selfplay_DQNvsFixedAgent():
 
 	policy = simultaneous_action_rl_loop.self_play_training(env=env,
 															menagerie=[fixedAgent],
-															training_policy=training_policy,
+															training_agent=AgentHook(training_policy),
 	                                                        self_play_scheme=NaiveSelfPlay, 
 	                                                        target_episodes=target_episodes, 
+	                                                        results_path='./test',
 	                                                        opci=1)
 
-	#assert np.array_equal(policy.Q_table, training_policy.Q_table)
-	#np.savetxt('policy', policy.Q_table) # To manually inspect the policy
-
+	
 if __name__ == '__main__':
 	torch.multiprocessing.set_start_method('spawn') 
-	#test_selfplay()
 	test_selfplay_DQNvsFixedAgent()
