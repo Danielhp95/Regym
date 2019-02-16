@@ -1,10 +1,13 @@
 import torch
-from .deep_q_network import DeepQNetworkAgent, DQN, DuelingDQN, DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
-from .tabular_q_learning import TabularQLearningAgent
+from .networks import DQN, DuelingDQN, ActorNN, CriticNN
+from .DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
+from .DDPG import DeepDeterministicPolicyGradientAlgorithm
+from .TQL import TabularQLearningAlgorithm
+from .agents import TabularQLearningAgent, DeepQNetworkAgent, DDPGAgent
 from enum import Enum
 import copy
 
-AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
+AgentType = Enum("AgentType", "DQN TQL DDPG PPO MixedStrategyAgent")
 
 
 class AgentHook():
@@ -39,6 +42,23 @@ class AgentHook():
             elif isinstance(agent, TabularQLearningAgent):
                     self.type = AgentType.TQL
                     self.agent = agent
+            elif isinstance(agent, DDPGAgent):
+                    self.path = path
+                    self.type = AgentType.DDPG
+                    self.kwargs = dict()
+                    for name in agent.kwargs:
+                            if 'model' in name:
+                                    continue
+                            else:
+                                    self.kwargs[name] = agent.kwargs[name]
+                    # Saving CPU state_dict and RB:
+                    if self.path is not None:
+                            model_actor, model_critic = agent.getModel()
+                            torch.save(model_actor.cpu().state_dict(), self.path+'actor')
+                            torch.save(model_critic.cpu().state_dict(), self.path+'critic')
+                            agent.algorithm.replayBuffer.save(self.path)
+                    else:
+                            self.agent = copy.deepcopy(agent)        
             else:
                     self.type = AgentType.MixedStrategyAgent
                     self.agent = agent
@@ -56,9 +76,9 @@ class AgentHook():
                                     self.kwargs['preprocess'].use_cuda = use_cuda
                             # Init Model:
                             if self.kwargs['dueling']:
-                                    model = DuelingDQN(nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                                    model = DuelingDQN(state_dim=self.kwargs['state_dim'],nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], use_cuda=False)
                             else:
-                                    model = DQN(nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], useCNN=self.kwargs['useCNN'], use_cuda=False)
+                                    model = DQN(state_dim=self.kwargs['state_dim'],nbr_actions=self.kwargs['nbr_actions'], actfn=self.kwargs['actfn'], use_cuda=False)
                             # Loading CPU state_dict:
                             model.load_state_dict(torch.load(self.path))
                             if self.kwargs['use_cuda']:
@@ -72,6 +92,33 @@ class AgentHook():
                                     algorithm = DeepQNetworkAlgorithm(kwargs=kwargs)
                             # Init Agent
                             agent = DeepQNetworkAgent(algorithm=algorithm)
+                            if training is not None:
+                                    agent.training = training
+                            if agent.training:
+                                    agent.algorithm.replayBuffer.load(self.path)
+                            return agent
+            elif self.type == AgentType.DDPG:
+                    if self.path is None:
+                            return self.agent
+                    else:
+                            if use_cuda is not None:
+                                    self.kwargs['use_cuda'] = use_cuda
+                            # Init Model:
+                            model_actor = ActorNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],action_scaler=self.kwargs['action_scaler'], actfn=self.kwargs['actfn'], use_cuda=False)
+                            model_critic = CriticNN(state_dim=self.kwargs['state_dim'],action_dim=self.kwargs['action_dim'],HER=self.kwargs['HER']['use_her'], actfn=self.kwargs['actfn'], use_cuda=False)
+                            # Loading CPU state_dict:
+                            model_actor.load_state_dict(torch.load(self.path+'actor'))
+                            model_critic.load_state_dict(torch.load(self.path+'critic'))
+                            if self.kwargs['use_cuda']:
+                                    model_actor = model_actor.cuda()
+                                    model_critic = model_critic.cuda()
+                            # Init Algorithm
+                            kwargs = copy.deepcopy(self.kwargs)
+                            kwargs['model_actor'] = model_actor
+                            kwargs['model_critic'] = model_critic
+                            algorithm = DeepDeterministicPolicyGradientAlgorithm(kwargs=kwargs)
+                            # Init Agent
+                            agent = DDPGAgent(algorithm=algorithm)
                             if training is not None:
                                     agent.training = training
                             if agent.training:

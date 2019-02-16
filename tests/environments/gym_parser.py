@@ -67,7 +67,8 @@ def test_task_creation(RPS_env):
     expected_observation_type = 'Discrete'
     expected_action_dim = 3
     expected_action_type = 'Discrete'
-    rps_task = Task(RPS_env.spec.id, expected_observation_dim, expected_observation_type, expected_action_dim, expected_action_type)
+    expected_hash_function = RPS_env.hash_state
+    rps_task = Task(RPS_env.spec.id, expected_observation_dim, expected_observation_type, expected_action_dim, expected_action_type, expected_hash_function)
     assert rps_task == environments.parse_gym_environment(RPS_env)
 
 
