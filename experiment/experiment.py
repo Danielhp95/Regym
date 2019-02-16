@@ -77,21 +77,22 @@ def run_processes(training_processes, mm_process, cfm_process):
     cfm_process.join()
 
 
-def run_experiment(experiment_id, experiment_directory, run_id, experiment_options):
+def run_experiment(experiment_id, experiment_directory, run_id, experiment_config, agents_config):
     results_path = f'{experiment_directory}/run-{run_id}'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
     base_path = results_path
 
-    createNewEnvironment  = EnvironmentCreationFunction(experiment_options['environment'])
+    createNewEnvironment  = EnvironmentCreationFunction(experiment_config['environment'])
     env = createNewEnvironment()
 
-    checkpoint_at_iterations = [int(i) for i in experiment_options['checkpoint_at_iterations']]
-    benchmarking_episodes    = int(experiment_options['benchmarking_episodes'])
+    checkpoint_at_iterations = [int(i) for i in experiment_config['checkpoint_at_iterations']]
+    benchmarking_episodes    = int(experiment_config['benchmarking_episodes'])
 
-    training_schemes  = util.experiment_parsing.initialize_training_schemes(experiment_options['self_play_training_schemes'])
-    algorithms, paths = util.experiment_parsing.initialize_algorithms(env, experiment_options['algorithms'], base_path)
-    fixed_agents      = util.experiment_parsing.initialize_fixed_agents(experiment_options['fixed_agents'])
+    training_schemes  = util.experiment_parsing.initialize_training_schemes(experiment_config['self_play_training_schemes'])
+    algorithms        = util.experiment_parsing.initialize_algorithms(env, agents_config)
+    paths             = util.experiment_parsing.find_paths(experiment_config['algorithms'], base_path)
+    fixed_agents      = util.experiment_parsing.initialize_fixed_agents(experiment_config['fixed_agents'])
 
     training_jobs = enumerate_training_jobs(training_schemes, algorithms, paths)
 

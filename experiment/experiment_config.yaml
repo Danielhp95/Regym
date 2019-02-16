@@ -1,0 +1,26 @@
+experiment:
+    experiment_id: 'ConfigTest'
+    environment: 'RockPaperScissors-v0'
+    number_of_runs: 1 
+    checkpoint_at_iterations: [10,20]
+    benchmarking_episodes: 10 
+    self_play_training_schemes: ['naiveselfplay']
+    algorithms: ['deepqlearning', 'tabularqlearning'] 
+    fixed_agents: ['rockagent']
+
+agents:
+    deepqlearning:
+        learning_rate: 1.0e-3
+        epsstart: 0.8
+        epsend: 0.05
+        epsdecay: 1.0e3
+        double: False
+        dueling: False
+        use_cuda: False
+        use_PER: False
+        PER_alpha: 0.07
+        min_memory: 5.0e1
+        memoryCapacity: 25.0e3
+        nbrTrainIteration: 32
+    tabularqlearning:
+        learning_rate: 0.5

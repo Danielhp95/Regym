@@ -77,12 +77,12 @@ if __name__ == '__main__':
 
     docopt_options = docopt(_USAGE)
     print(docopt_options)
-    all_options = yaml.load(open(docopt_options['--config']))
-    experiment_options = all_options['experiment']
-    relevant_agent_configuration = filter_relevant_configuration(experiment_options, all_options['agents'])
+    all_configs = yaml.load(open(docopt_options['--config']))
+    experiment_config = all_configs['experiment']
+    relevant_agent_configuration = filter_relevant_configuration(experiment_config, all_configs['agents'])
 
-    experiment_id = experiment_options['experiment_id']
-    number_of_runs = int(experiment_options['number_of_runs'])
+    experiment_id = experiment_config['experiment_id']
+    number_of_runs = int(experiment_config['number_of_runs'])
 
     # TODO create directory structure function
     experiment_directory = 'experiment-{}'.format(experiment_id)
@@ -95,15 +95,15 @@ if __name__ == '__main__':
                daemon=True)
     t.start()
 
+    all_relevant_config = {'experiment': experiment_config, 'agents': relevant_agent_configuration}
     with open('{}/experiment_parameters.yml'.format(experiment_directory), 'w') as outfile:
-        # TODO create dic containing experiments options and relevant_agent_configuration and dump this new dict
-        yaml.dump(all_options, outfile, default_flow_style=False)
+        yaml.dump(all_relevant_config, outfile, default_flow_style=False)
 
     experiment_durations = []
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
         start_time = time.time()
-        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_options, relevant_agent_configuration)
+        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_config, relevant_agent_configuration)
         experiment_duration = time.time() - start_time
         experiment_durations.append(experiment_duration)
         logger.info('Finished run: {}. Duration: {} (seconds)\n'.format(run_id, experiment_duration))
