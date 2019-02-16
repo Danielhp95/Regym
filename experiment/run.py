@@ -61,21 +61,27 @@ if __name__ == '__main__':
       run [options]
 
     Options:
-      --environment STRING                    OpenAI environment used to train agents on
-      --experiment_id STRING                  Experimment id used to identify between different experiments
-      --number_of_runs INTEGER                Number of runs used to calculate standard deviations for various metrics
-      --checkpoint_at_iterations INTEGER...   Iteration numbers at which agents will be benchmarked against one another
-      --benchmarking_episodes INTEGER         Number of head to head matches used to infer winrates between agents
-      --self_play_training_schemes STRING...  Self play training schemes used to choose opponent agent agents during training
-      --algorithms STRING...                  Algorithms used to learn a agent
-      --fixed_agents STRING...                Fixed agents used to benchmark training agents against
+        --config String   Path to Yaml experiment configuration file [default: ./experiment_config.yaml]
     '''
 
-    options = docopt(_USAGE)
-    print(options)
+    # Options:
+    #   --environment STRING                    OpenAI environment used to train agents on
+    #   --experiment_id STRING                  Experimment id used to identify between different experiments
+    #   --number_of_runs INTEGER                Number of runs used to calculate standard deviations for various metrics
+    #   --checkpoint_at_iterations INTEGER...   Iteration numbers at which agents will be benchmarked against one another
+    #   --benchmarking_episodes INTEGER         Number of head to head matches used to infer winrates between agents
+    #   --self_play_training_schemes STRING...  Self play training schemes used to choose opponent agent agents during training
+    #   --algorithms STRING...                  Algorithms used to learn a agent
+    #   --fixed_agents STRING...                Fixed agents used to benchmark training agents against
+    # '''
 
-    experiment_id = options['--experiment_id']
-    number_of_runs = int(options['--number_of_runs'])
+    docopt_options = docopt(_USAGE)
+    print(docopt_options)
+    all_options = yaml.load(open(docopt_options['--config']))
+    experiment_options = all_options['experiment']
+
+    experiment_id = experiment_options['experiment_id']
+    number_of_runs = int(experiment_options['number_of_runs'])
 
     # TODO create directory structure function
     experiment_directory = 'experiment-{}'.format(experiment_id)
@@ -89,13 +95,13 @@ if __name__ == '__main__':
     t.start()
 
     with open('{}/experiment_parameters.yml'.format(experiment_directory), 'w') as outfile:
-        yaml.dump(options, outfile, default_flow_style=False)
+        yaml.dump(all_options, outfile, default_flow_style=False)
 
     experiment_durations = []
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
         start_time = time.time()
-        experiment.run_experiment(experiment_id, experiment_directory, run_id, options)
+        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_options)
         experiment_duration = time.time() - start_time
         experiment_durations.append(experiment_duration)
         logger.info('Finished run: {}. Duration: {} (seconds)\n'.format(run_id, experiment_duration))
