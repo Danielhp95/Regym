@@ -24,7 +24,6 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
     logger.info('Started')
-    print('Daniiiiiiiiii')
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
 
     process_start_time = time.time()
