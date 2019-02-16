@@ -27,6 +27,17 @@ def initialize_logger():
     return logger
 
 
+def filter_relevant_configuration(experiment_config, agents_config):
+    '''
+    The config file allows to have configuration for RL algorithms that will not be used.
+    This allows to keep all configuration in a single file.
+    The configuration that will be used is explicitly captured in :param: experiment_config
+    '''
+    return {agent: config
+            for agent, config in agents_config.items()
+            if agent in experiment_config['algorithms']}
+
+
 if __name__ == '__main__':
     import torch
     torch.multiprocessing.set_start_method('forkserver')
@@ -64,21 +75,11 @@ if __name__ == '__main__':
         --config String   Path to Yaml experiment configuration file [default: ./experiment_config.yaml]
     '''
 
-    # Options:
-    #   --environment STRING                    OpenAI environment used to train agents on
-    #   --experiment_id STRING                  Experimment id used to identify between different experiments
-    #   --number_of_runs INTEGER                Number of runs used to calculate standard deviations for various metrics
-    #   --checkpoint_at_iterations INTEGER...   Iteration numbers at which agents will be benchmarked against one another
-    #   --benchmarking_episodes INTEGER         Number of head to head matches used to infer winrates between agents
-    #   --self_play_training_schemes STRING...  Self play training schemes used to choose opponent agent agents during training
-    #   --algorithms STRING...                  Algorithms used to learn a agent
-    #   --fixed_agents STRING...                Fixed agents used to benchmark training agents against
-    # '''
-
     docopt_options = docopt(_USAGE)
     print(docopt_options)
     all_options = yaml.load(open(docopt_options['--config']))
     experiment_options = all_options['experiment']
+    relevant_agent_configuration = filter_relevant_configuration(experiment_options, all_options['agents'])
 
     experiment_id = experiment_options['experiment_id']
     number_of_runs = int(experiment_options['number_of_runs'])
@@ -95,13 +96,14 @@ if __name__ == '__main__':
     t.start()
 
     with open('{}/experiment_parameters.yml'.format(experiment_directory), 'w') as outfile:
+        # TODO create dic containing experiments options and relevant_agent_configuration and dump this new dict
         yaml.dump(all_options, outfile, default_flow_style=False)
 
     experiment_durations = []
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
         start_time = time.time()
-        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_options)
+        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_options, relevant_agent_configuration)
         experiment_duration = time.time() - start_time
         experiment_durations.append(experiment_duration)
         logger.info('Finished run: {}. Duration: {} (seconds)\n'.format(run_id, experiment_duration))

@@ -13,33 +13,27 @@ import environments
 
 
 def initialize_training_schemes(training_schemes_cli):
-    def parse_training_scheme(training_scheme):
-        if training_scheme.lower() == 'fullhistoryselfplay': return FullHistorySelfPlay
-        elif training_scheme.lower() == 'halfhistoryselfplay': return HalfHistorySelfPlay
-        elif training_scheme.lower() == 'naiveselfplay': return NaiveSelfPlay
-        else: raise ValueError('Unknown training scheme {}. Try defining it inside this script.'.format(training_scheme))
-    return [parse_training_scheme(t_s) for t_s in training_schemes_cli]
+    self_play_training_schemes = {'fullhistoryselfplay': FullHistorySelfPlay, 'halfhistoryselfplay': HalfHistorySelfPlay, 'naiveselfplay': NaiveSelfPlay}
+    return [self_play_training_schemes[t_s.lower()] for t_s in training_schemes_cli]
 
 
-def initialize_algorithms(environment, algorithms_cli, base_path):
+def initialize_algorithms(environment, agent_configurations):
+    '''
+    TODO document
+    '''
+
     task = environments.parse_gym_environment(environment)
+    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent}
+    return [agent_build_functions[agent](task, config) for agent, config in agent_configurations.items()]
 
-    def parse_algorithm(algorithm, task):
-        if algorithm.lower() == 'tabularqlearning':
-            return build_TabularQ_Agent(task)
-        if algorithm.lower() == 'deepqlearning':
-            return build_DQN_Agent(state_space_size=task.observation_dim, action_space_size=task.action_dim, double=False, dueling=False, use_cuda=False)
-        # if algorithm.lower() == 'ppo':
-        #     return build_PPO_Agent(env)
-        else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
 
-    return [parse_algorithm(algorithm, task) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]
+def find_paths(algorithms, base_path):
+    return [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms]
 
 
 def initialize_fixed_agents(fixed_agents_cli):
-    def parse_fixed_agent(agent):
-        if agent.lower() == 'rockagent': return AgentHook(rockAgent)
-        elif agent.lower() == 'paperagent': return AgentHook(paperAgent)
-        elif agent.lower() == 'scissorsagent': return AgentHook(scissorsAgent)
-        else: raise ValueError('Unknown fixed agent {}. Try defining it inside this script.'.format(agent))
-    return [parse_fixed_agent(agent) for agent in fixed_agents_cli]
+    '''
+    TODO test
+    '''
+    fix_agent_build_functions = {'rockagent': rockAgent, 'paperagent': paperAgent, 'scissorsagent': scissorsAgent}
+    return [AgentHook(fix_agent_build_functions[agent.lower()]) for agent in fixed_agents_cli]

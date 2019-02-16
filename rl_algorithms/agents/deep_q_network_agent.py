@@ -1,11 +1,11 @@
 import numpy as np
-import random 
+import random
 import torch
 import torchvision.transforms as T
 
 from ..replay_buffers import EXP, EXPPER
 from ..networks import  LeakyReLU, DQN, DuelingDQN
-from ..DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm 
+from ..DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
 
 
 class DeepQNetworkAgent():
@@ -80,21 +80,7 @@ class PreprocessFunction(object) :
             return torch.from_numpy( x ).unsqueeze(0).type(torch.FloatTensor)
 
 
-def build_DQN_Agent(state_space_size=32,
-                        action_space_size=3,
-                        learning_rate=6.25e-5,
-                        double=False,
-                        dueling=False,
-                        num_worker=1,
-                        nbrTrainIteration=32,
-                        memoryCapacity = 25e3,
-                        use_PER=False,
-                        alphaPER=0.7,
-                        MIN_MEMORY=5e1,
-                        epsstart=0.8,
-                        epsend=0.05,
-                        epsdecay=1e3,
-                        use_cuda=False):
+def build_DQN_Agent(task, config):
     kwargs = dict()
     """
     :param kwargs:
@@ -122,57 +108,55 @@ def build_DQN_Agent(state_space_size=32,
         "state_dim": number of dimensions in the state space.
     """
 
-    preprocess = PreprocessFunction( state_space_size=state_space_size,use_cuda=use_cuda)
-    
-    kwargs['nbrTrainIteration'] = nbrTrainIteration
-    kwargs["nbr_actions"] = action_space_size
+    preprocess = PreprocessFunction(state_space_size=task.observation_dim, use_cuda=config['use_cuda'])
+
+    kwargs['nbrTrainIteration'] = config['nbrTrainIteration']
+    kwargs["nbr_actions"] = task.action_dim
     kwargs["actfn"] = LeakyReLU
-    kwargs["state_dim"] = state_space_size
+    kwargs["state_dim"] = task.observation_dim
     # Create model architecture:
-    if dueling :
-        model = DuelingDQN(state_space_size, action_space_size, use_cuda=use_cuda)
-    else :
-        model = DQN(state_space_size, action_space_size, use_cuda=use_cuda)
+    if config['dueling']:
+        model = DuelingDQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
+    else:
+        model = DQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
     model.share_memory()
 
     kwargs["model"] = model
-    kwargs["dueling"] = dueling
-    kwargs["double"] = double
+    kwargs["dueling"] = config['dueling']
+    kwargs["double"] = config['double']
 
     BATCH_SIZE = 256
     GAMMA = 0.99
     TAU = 1e-2
-    lr = 1e-3
-    
+
     name = "DQN"
-    if dueling : name = 'Dueling'+name
-    if double : name = 'Double'+name
+    if config['dueling']: name = 'Dueling'+name
+    if config['double']: name = 'Double'+name
     model_path = './'+name
-    path=model_path
+    path = model_path
 
     kwargs['name'] = name
     kwargs["path"] = path
-    kwargs["use_cuda"] = use_cuda
+    kwargs["use_cuda"] = config['use_cuda']
 
-    kwargs["replay_capacity"] = memoryCapacity
-    kwargs["min_capacity"] = MIN_MEMORY
+    kwargs["replay_capacity"] = float(config['memoryCapacity'])
+    kwargs["min_capacity"] = float(config['min_memory'])
     kwargs["batch_size"] = BATCH_SIZE
-    kwargs["use_PER"] = use_PER
-    kwargs["PER_alpha"] = alphaPER
+    kwargs["use_PER"] = config['use_PER']
+    kwargs["PER_alpha"] = float(config['PER_alpha'])
 
-    kwargs["lr"] = lr
+    kwargs["lr"] = float(config['learning_rate'])
     kwargs["tau"] = TAU
     kwargs["gamma"] = GAMMA
 
     kwargs["preprocess"] = preprocess
-    
-    kwargs['epsstart'] = epsstart
-    kwargs['epsend'] = epsend
-    kwargs['epsdecay'] = epsdecay
+
+    kwargs['epsstart'] = float(config['epsstart'])
+    kwargs['epsend'] = float(config['epsend'])
+    kwargs['epsdecay'] = float(config['epsdecay'])
 
     kwargs['replayBuffer'] = None
 
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if dueling else DeepQNetworkAlgorithm(kwargs=kwargs)
+    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs)
 
     return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)
-
