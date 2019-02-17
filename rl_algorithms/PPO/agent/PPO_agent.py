@@ -154,7 +154,6 @@ def build_PPO_Agent(action_dimensions, state_dimensions, env):
     config.optimization_epochs = 10
     config.mini_batch_size = 32 * 5
     config.ppo_ratio_clip = 0.2
-    config.log_interval = 128 * 5 * 10
     config.network_fn = lambda: CategoricalActorCriticNet(state_dimensions, action_dimensions, NatureConvBody())
-    config.optimizer_fn = lambda params: torch.optim.Adam(params, lr=3e-4, eps=1e-5)
+    config.optimizer_fn = lambda params: torch.optim.Adam(params, lr=3e-4, eps=1.0e-5)
     return PPOAgent(config)

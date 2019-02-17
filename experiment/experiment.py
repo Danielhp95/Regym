@@ -96,8 +96,7 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
 
     training_jobs = enumerate_training_jobs(training_schemes, algorithms, paths)
 
-    (initial_fixed_agents_to_benchmark,
-     fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
+    (initial_fixed_agents_to_benchmark, fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
     agent_queue, matrix_queue = Queue(), Queue()
 
     list(map(agent_queue.put, initial_fixed_agents_to_benchmark)) # Add initial fixed agents to be benchmarked
