@@ -20,7 +20,8 @@ class TabularQLearningAgent(TabularQLearningAlgorithm):
         return cloned
 
 
-def build_TabularQ_Agent(task):
+def build_TabularQ_Agent(task, config):
     state_space_size, action_space_size = task.state_space_size, task.action_dim
     hash_state = task.hash_function
-    return TabularQLearningAgent(state_space_size, action_space_size, hash_state)
+    return TabularQLearningAgent(state_space_size, action_space_size, hash_state,
+                                 learning_rate=config['learning_rate'])

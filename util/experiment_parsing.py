@@ -12,34 +12,61 @@ from rl_algorithms import AgentHook
 import environments
 
 
-def initialize_training_schemes(training_schemes_cli):
-    def parse_training_scheme(training_scheme):
-        if training_scheme.lower() == 'fullhistoryselfplay': return FullHistorySelfPlay
-        elif training_scheme.lower() == 'halfhistoryselfplay': return HalfHistorySelfPlay
-        elif training_scheme.lower() == 'naiveselfplay': return NaiveSelfPlay
-        else: raise ValueError('Unknown training scheme {}. Try defining it inside this script.'.format(training_scheme))
-    return [parse_training_scheme(t_s) for t_s in training_schemes_cli]
+def check_for_unknown_candidate_input(known, candidates, category_name):
+    '''
+    Error checking. Checks that all :param: candidates have valid :known: functions
+    :param known: valid / implemented string names
+    :param candidates: candidate string names
+    :param category_name: String identifying the category of candidates
+    :raises ValueError: if unknown candidates are found
+    '''
+    unknown_candidates = list(filter(lambda x: x not in known, candidates))
+    if len(unknown_candidates) > 0:
+        raise ValueError('Unknown {}(s): {}. Valid candidates are: {}'.format(category_name, unknown_candidates, known))
 
 
-def initialize_algorithms(environment, algorithms_cli, base_path):
+def initialize_training_schemes(candidate_training_schemes):
+    '''
+    Creates a list containing pointers to the relevant self_play training scheme functions
+    :param candidate_training_schemes: requested training schemes
+    :return: list containing pointers to the corresponding self_play training schemes functions
+    '''
+    self_play_training_schemes = {'fullhistoryselfplay': FullHistorySelfPlay, 'halfhistoryselfplay': HalfHistorySelfPlay, 'naiveselfplay': NaiveSelfPlay}
+    check_for_unknown_candidate_input(self_play_training_schemes.keys(), candidate_training_schemes, 'training schemes')
+    return [self_play_training_schemes[t_s.lower()] for t_s in candidate_training_schemes]
+
+
+def initialize_algorithms(environment, agent_configurations):
+    '''
+    Builds an agent for each agent in :param: agent_configurations
+    suitable to act and process experience from :param: environment
+    :param environment: environment on which the agents will act
+    :param agent_configurations: configuration dictionaries for each requested agent
+    :returns: array of agents built according to their corresponding configuration dictionaries
+    '''
     task = environments.parse_gym_environment(environment)
-
-    def parse_algorithm(algorithm, task):
-        if algorithm.lower() == 'tabularqlearning':
-            return build_TabularQ_Agent(task)
-        if algorithm.lower() == 'deepqlearning':
-            return build_DQN_Agent(state_space_size=task.observation_dim, action_space_size=task.action_dim, double=False, dueling=False, use_cuda=False)
-        # if algorithm.lower() == 'ppo':
-        #     return build_PPO_Agent(env)
-        else: raise ValueError('Unknown algorithm {}. Try defining it inside this script.'.format(algorithm))
-
-    return [parse_algorithm(algorithm, task) for algorithm in algorithms_cli], [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms_cli]
+    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent}
+    check_for_unknown_candidate_input(agent_build_functions.keys(), agent_configurations.keys(), 'agent')
+    return [agent_build_functions[agent](task, config) for agent, config in agent_configurations.items()]
 
 
-def initialize_fixed_agents(fixed_agents_cli):
-    def parse_fixed_agent(agent):
-        if agent.lower() == 'rockagent': return AgentHook(rockAgent)
-        elif agent.lower() == 'paperagent': return AgentHook(paperAgent)
-        elif agent.lower() == 'scissorsagent': return AgentHook(scissorsAgent)
-        else: raise ValueError('Unknown fixed agent {}. Try defining it inside this script.'.format(agent))
-    return [parse_fixed_agent(agent) for agent in fixed_agents_cli]
+def find_paths(algorithms, base_path):
+    '''
+    Creates path based on algorithm names
+    :param algorithms: List of algorithm names
+    :param base_path: string path TODO: figure what it is
+    :returns: list of paths, one for each algorithm
+    '''
+    return [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms]
+
+
+def initialize_fixed_agents(fixed_agents):
+    '''
+    Builds a fixed (stationary) agent for each agent in :param: fixed_agents.
+    ASSUMPTION: Each agent is able to take actions in the environment that will be used for the experiment
+    :param: List of requested fixed agent names to be created
+    :return: array of initialized stationary agents
+    '''
+    fix_agent_build_functions = {'rockagent': rockAgent, 'paperagent': paperAgent, 'scissorsagent': scissorsAgent}
+    check_for_unknown_candidate_input(fix_agent_build_functions.keys(), fixed_agents, 'fixed_agents')
+    return [AgentHook(fix_agent_build_functions[agent.lower()]) for agent in fixed_agents]
