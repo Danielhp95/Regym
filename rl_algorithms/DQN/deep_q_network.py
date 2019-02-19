@@ -3,15 +3,14 @@ import copy
 
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 from ..replay_buffers import ReplayBuffer, PrioritizedReplayBuffer, EXP, EXPPER
-from ..networks import  hard_update, LeakyReLU, DQN, DuelingDQN 
+from ..networks import hard_update
 
 
-class DeepQNetworkAlgorithm :
-    def __init__(self,kwargs) :
+class DeepQNetworkAlgorithm():
+    def __init__(self, kwargs):
         """
         :param kwargs:
             "model": model of the agent to use/optimize in this algorithm.
@@ -37,7 +36,7 @@ class DeepQNetworkAlgorithm :
             "actfn": activation function to use in between each layer of the neural networks.
             "state_dim": number of dimensions in the state space.
         """
-        
+
         self.kwargs = kwargs
         self.use_cuda = kwargs["use_cuda"]
 
@@ -46,16 +45,16 @@ class DeepQNetworkAlgorithm :
             self.model = self.model.cuda()
 
         self.target_model = copy.deepcopy(self.model)
-        hard_update(self.target_model,self.model)
-        if self.use_cuda :
+        hard_update(self.target_model, self.model)
+        if self.use_cuda:
             self.target_model = self.target_model.cuda()
 
-        if self.kwargs['replayBuffer'] is None :
-            if kwargs["use_PER"] :
-                self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"],alpha=kwargs["PER_alpha"])
-            else :
+        if self.kwargs['replayBuffer'] is None:
+            if kwargs["use_PER"]:
+                self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"], alpha=kwargs["PER_alpha"])
+            else:
                 self.replayBuffer = ReplayBuffer(capacity=kwargs["replay_capacity"])
-        else :
+        else:
             self.replayBuffer = self.kwargs['replayBuffer']
 
         self.min_capacity = kwargs["min_capacity"]
@@ -66,7 +65,7 @@ class DeepQNetworkAlgorithm :
         self.target_update_interval = int(1.0/self.TAU)
         self.target_update_count = 0
         self.GAMMA = kwargs["gamma"]
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr )
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
 
         self.preprocess = kwargs["preprocess"]
 
@@ -74,7 +73,7 @@ class DeepQNetworkAlgorithm :
         self.epsstart = kwargs['epsstart']
         self.epsdecay = kwargs['epsdecay']
 
-    def clone(self) :
+    def clone(self):
         cloned_kwargs = self.kwargs
         cloned_model = self.model.clone()
         self.kwargs['model'] = cloned_model
@@ -82,7 +81,7 @@ class DeepQNetworkAlgorithm :
 
         return cloned
 
-    def optimize_model(self,gradient_clamping_value=None) :
+    def optimize_model(self, gradient_clamping_value=None):
         """
         1) Estimate the gradients of the loss with respect to the
         current learner model on a batch of experiences sampled
@@ -90,39 +89,39 @@ class DeepQNetworkAlgorithm :
         2) Backward the loss.
         3) Update the weights with the optimizer.
         4) Optional: Update the Prioritized Experience Replay buffer with new priorities.
-        
-        :param gradient_clamping_value: if None, the gradient is not clamped, 
-                                        otherwise a positive float value is expected as a clamping value 
+
+        :param gradient_clamping_value: if None, the gradient is not clamped,
+                                        otherwise a positive float value is expected as a clamping value
                                         and gradients are clamped.
         :returns loss_np: numpy scalar of the estimated loss function.
         """
 
-        if len(self.replayBuffer) < self.min_capacity :
+        if len(self.replayBuffer) < self.min_capacity:
             return None
 
-        if self.kwargs['use_PER'] :
-            #Create batch with PrioritizedReplayBuffer/PER:
+        if self.kwargs['use_PER']:
+            # Create batch with PrioritizedReplayBuffer/PER:
             prioritysum = self.replayBuffer.total()
             # Random Experience Sampling with priority
             low = 0.0
             step = (prioritysum-low) / self.batch_size
             try:
-                randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
-            except Exception as e :
-                print( prioritysum, step)
+                randexp = np.arange(low, prioritysum, step)+np.random.uniform(low=0.0, high=step, size=(self.batch_size))
+            except Exception as e:
+                print(prioritysum, step)
                 raise e
-            
+
             batch = list()
             priorities = []
             for i in range(self.batch_size):
-                try :
+                try:
                     el = self.replayBuffer.get(randexp[i])
-                    priorities.append( el[1] )
+                    priorities.append(el[1])
                     batch.append(el)
-                except TypeError as e :
+                except TypeError as e:
                     continue
 
-            batch = EXPPER( *zip(*batch) )
+            batch = EXPPER(*zip(*batch))
 
             # Importance Sampling Weighting:
             beta = 1.0
@@ -132,7 +131,7 @@ class DeepQNetworkAlgorithm :
             # Create Batch with replayBuffer :
             transitions = self.replayBuffer.sample(self.batch_size)
             batch = EXP( *zip(*transitions) )
-            
+
         next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
         state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
         action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
@@ -214,4 +213,3 @@ class DeepQNetworkAlgorithm :
         if self.target_update_count > self.target_update_interval:
             self.target_update_count = 0
             hard_update(self.target_model,self.model)
-
