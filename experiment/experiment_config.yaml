@@ -24,6 +24,7 @@ agents:
         nbrTrainIteration: 32
         
     ppo:
+        episode_interval_per_training: 8
         discount: 0.99
         use_gae: True
         gae_tau: 0.95
