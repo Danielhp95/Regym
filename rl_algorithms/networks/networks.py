@@ -1,29 +1,29 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-from torch.autograd import Variable
-import torchvision.transforms as T
 
 
 EPS = 3e-1
+
 
 def init_weights(size):
     v = 1. / np.sqrt(size[0])
     return torch.Tensor(size).uniform_(-v, v)
 
-def hard_update(fromm, to) :
-    for fp, tp in zip( fromm.parameters(), to.parameters() ) :
-        fp.data.copy_( tp.data )
 
-def soft_update(fromm, to, tau) :
-    for fp, tp in zip( fromm.parameters(), to.parameters() ) :
-        fp.data.copy_( (1.0-tau)*fp.data + tau*tp.data )
+def hard_update(fromm, to):
+    for fp, tp in zip(fromm.parameters(), to.parameters()):
+        fp.data.copy_(tp.data)
 
 
-def LeakyReLU(x) :
-    return F.leaky_relu(x,0.1)
+def soft_update(fromm, to, tau):
+    for fp, tp in zip(fromm.parameters(), to.parameters()):
+        fp.data.copy_((1.0-tau)*fp.data + tau*tp.data)
+
+
+def LeakyReLU(x):
+    return F.leaky_relu(x, 0.1)
 
 
 class DQN(nn.Module) :
@@ -35,7 +35,7 @@ class DQN(nn.Module) :
         self.use_cuda = use_cuda
 
         self.actfn = actfn
-        
+
         self.f1 = nn.Linear(self.state_dim, 1024)
         self.f2 = nn.Linear(1024, 256)
         self.f3 = nn.Linear(256,64)
@@ -106,7 +106,7 @@ class DuelingDQN(nn.Module) :
 class ActorNN(nn.Module) :
     def __init__(self,state_dim=3,action_dim=2,action_scaler=1.0,HER=False,actfn=LeakyReLU, use_cuda=False ) :
         super(ActorNN,self).__init__()
-        
+
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.action_scaler = action_scaler
@@ -119,7 +119,7 @@ class ActorNN(nn.Module) :
         #Features :
         self.featx = nn.Linear(self.state_dim,400)
         self.featx.weight.data = init_weights(self.featx.weight.data.size())
-        
+
         # Actor network :
         self.actor1 = nn.Linear(400,300)
         self.actor1.weight.data.uniform_(-EPS,EPS)
@@ -143,7 +143,7 @@ class ActorNN(nn.Module) :
         # batch x 300
         out = self.actor2( fx )
         # batch x self.action_dim
-        
+
         #scale the actions :
         unscaled = F.tanh(xx)
         scaled = unscaled * self.action_scaler
@@ -157,16 +157,16 @@ class ActorNN(nn.Module) :
 class CriticNN(nn.Module) :
     def __init__(self,state_dim=3,action_dim=2,HER=False,actfn=LeakyReLU, use_cuda=False  ) :
         super(CriticNN,self).__init__()
-        
+
         self.state_dim = state_dim
         self.action_dim = action_dim
-        
+
         self.HER = HER
         if self.HER :
             self.state_dim *= 2
 
         self.actfn = actfn
-        
+
         #Features :
         self.featx = nn.Linear(self.state_dim,400)
         self.featx.weight.data = init_weights(self.featx.weight.data.size())
@@ -175,9 +175,9 @@ class CriticNN(nn.Module) :
         ## state value path :
         self.critic1 = nn.Linear(400+self.action_dim,300)
         self.critic1.weight.data = init_weights(self.critic1.weight.data.size())
-        
+
         self.critic2 = nn.Linear(300,1)
-        self.critic2.weight.data.uniform_(-EPS*1e-1,EPS*1e-1) 
+        self.critic2.weight.data.uniform_(-EPS*1e-1,EPS*1e-1)
 
         self.use_cuda = use_cuda
         if self.use_cuda :
@@ -186,7 +186,7 @@ class CriticNN(nn.Module) :
     def features(self,x) :
         fx = self.actfn( self.featx(x) )
         # batch x 400
-    
+
         return fx
 
     def forward(self, x,a) :
@@ -197,7 +197,7 @@ class CriticNN(nn.Module) :
         out = self.actfn( self.critic1( concat ) )
         # batch x 300
         out = self.critic2(out)
-        # batch x 1 
+        # batch x 1
         return out
 
     def clone(self):
