@@ -1,10 +1,10 @@
 import numpy as np
 import random
 import torch
-import torchvision.transforms as T
 
-from ..replay_buffers import EXP, EXPPER
-from ..networks import  LeakyReLU, DQN, DuelingDQN
+from ..replay_buffers import EXP
+from ..networks import LeakyReLU, DQN, DuelingDQN
+from ..networks import PreprocessFunction
 from ..DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
 
 
@@ -50,34 +50,22 @@ class DeepQNetworkAgent():
     def reset_eps(self):
         self.eps = self.epsstart
 
-    def select_action(self,model,state,eps) :
+    def select_action(self, model, state, eps):
         sample = np.random.random()
-        if sample > eps :
-            output = model( state ).cpu().data
+        if sample > eps:
+            output = model(state).cpu().data
             qsa, action = output.max(1)
-            action = action.view(1,1)
-            qsa = output.max(1)[0].view(1,1)[0,0]
+            action = action.view(1, 1)
+            qsa = output.max(1)[0].view(1, 1)[0, 0]
             return action.numpy(), qsa
-        else :
-            random_action = torch.LongTensor( [[random.randrange(self.algorithm.model.nbr_actions) ] ] )
+        else:
+            random_action = torch.LongTensor([[random.randrange(self.algorithm.model.nbr_actions)]])
             return random_action.numpy(), 0.0
-
 
     def clone(self, training=None, path=None):
         from ..agent_hook import AgentHook
         cloned = AgentHook(self, training=training, path=path)
         return cloned
-
-class PreprocessFunction(object) :
-    def __init__(self, state_space_size,use_cuda=False):
-        self.state_space_size = state_space_size
-        self.use_cuda = use_cuda
-    def __call__(self,x) :
-        x = np.concatenate(x, axis=None)
-        if self.use_cuda :
-            return torch.from_numpy( x ).unsqueeze(0).type(torch.cuda.FloatTensor)
-        else :
-            return torch.from_numpy( x ).unsqueeze(0).type(torch.FloatTensor)
 
 
 def build_DQN_Agent(task, config):
