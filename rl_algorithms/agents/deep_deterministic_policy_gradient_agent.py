@@ -39,7 +39,7 @@ class DDPGAgent():
             self.algorithm.train(iteration=self.kwargs['nbrTrainIteration'])
 
     def take_action(self, state):
-        return self.act(x=self.preprocess_function(state), exploitation=not(self.training), exploration_noise=None)
+        return self.act(state=self.preprocess_function(state), exploitation=not(self.training), exploration_noise=None)
         
     def reset_eps(self):
         pass
