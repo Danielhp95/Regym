@@ -4,7 +4,7 @@ from gym.spaces import Box, Discrete, Tuple
 
 from collections import namedtuple
 
-Task = namedtuple('Task', 'name state_space_size observation_dim observation_type action_dim action_type hash_function')
+Task = namedtuple('Task', 'name state_space_size action_space_size observation_dim observation_type action_dim action_type hash_function')
 
 
 def get_observation_dimensions_and_type(env):
@@ -37,5 +37,6 @@ def parse_gym_environment(env):
     action_dims, action_type = get_action_dimensions_and_type(env)
     observation_dims, observation_type = get_observation_dimensions_and_type(env)
     state_space_size = env.state_space_size if hasattr(env, 'state_space_size') else None
+    action_space_size = env.action_space_size if hasattr(env, 'action_space_size') else None
     hash_function = env.hash_state if hasattr(env, 'hash_state') else None
-    return Task(name, state_space_size, observation_dims, observation_type, action_dims, action_type, hash_function)
+    return Task(name, state_space_size, action_space_size, observation_dims, observation_type, action_dims, action_type, hash_function)
