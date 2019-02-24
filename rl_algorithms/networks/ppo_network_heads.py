@@ -7,7 +7,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .ppo_network_utils import BaseNet, layer_init
+from .ppo_network_utils import BaseNet, layer_init, tensor
 from .ppo_network_bodies import DummyBody
 
 
@@ -152,7 +152,6 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
         super(GaussianActorCriticNet, self).__init__()
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
         self.std = nn.Parameter(torch.zeros(action_dim))
-        self.to(Config.DEVICE)
 
     def forward(self, obs, action=None):
         obs = tensor(obs)
@@ -182,7 +181,6 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                  critic_body=None):
         super(CategoricalActorCriticNet, self).__init__()
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
-        self.to(Config.DEVICE)
 
     def forward(self, obs, action=None):
         obs = tensor(obs)
