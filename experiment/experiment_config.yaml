@@ -27,6 +27,7 @@ agents:
         episode_interval_per_training: 8
         discount: 0.99
         use_gae: True
+        use_cuda: False
         gae_tau: 0.95
         entropy_weight: 0.01
         gradient_clip: 5
