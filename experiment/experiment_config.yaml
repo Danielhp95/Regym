@@ -2,10 +2,10 @@ experiment:
     experiment_id: 'ConfigTest'
     environment: 'RockPaperScissors-v0'
     number_of_runs: 1 
-    checkpoint_at_iterations: [10,20]
+    checkpoint_at_iterations: [10,20, 30, 40, 50]
     benchmarking_episodes: 10 
     self_play_training_schemes: ['naiveselfplay']
-    algorithms: ['deepqlearning', 'tabularqlearning'] 
+    algorithms: ['tabularqlearning'] 
     fixed_agents: ['rockagent']
 
 agents:
