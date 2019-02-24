@@ -41,9 +41,6 @@ pipenv install
 conda env create -f environment.yml
 ``` 
 
-(Alex: write requirements.txt)
-(Dani: update gym_rock_paper_scissors gym)
-
 ### Getting started:
 
 This experiment aims at measuring the effect different self-play training schemes on a set of environments, using various algorithms and.
