@@ -24,10 +24,10 @@ class AgentHook():
         self.type = None
 
         if isinstance(agent, DeepQNetworkAgent): self.init_dqn_agent(agent, training, path)
-        if isinstance(agent, TabularQLearningAgent): self.init_tql_agent(agent, training, path)
-        if isinstance(agent, DDPGAgent): self.init_ddpg_agent(agent, training, path)
-        if isinstance(agent, MixedStrategyAgent): self.init_mixedstrategy_agent(agent, training, path)
-        else: raise ValueError('Unknown AgentType {}, valid types are: {}'.format(self.type, [t for t in AgentType]))
+        elif isinstance(agent, TabularQLearningAgent): self.init_tql_agent(agent, training, path)
+        elif isinstance(agent, DDPGAgent): self.init_ddpg_agent(agent, training, path)
+        elif isinstance(agent, MixedStrategyAgent): self.init_mixedstrategy_agent(agent, training, path)
+        else: raise ValueError('Unknown AgentType {}, valid types are: {}'.format(type(agent), [t for t in AgentType]))
 
     def __call__(self, training=None, use_cuda=None):
         if self.type == AgentType.TQL: return copy.deepcopy(self.agent)
