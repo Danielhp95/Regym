@@ -17,16 +17,16 @@ def opponent_sampling_distribution(menagerie, training_agent, delta, distributio
     '''
     subset_of_considered_agents = slice(math.ceil(delta * len(menagerie)), len(menagerie))
     valid_agents = menagerie[subset_of_considered_agents] + [training_agent]
-    return map( lambda AgentHook : AgentHook(training=False, use_cuda=True), [distribution(valid_agents)] )
+    return [sampled_agent(training=False, use_cuda=True) for sampled_agent in [distribution(valid_agents)]]
 
 
 def curator(menagerie, training_agent, episode_trajectory):
     '''
     # TODO : save the agents on disk into MenagireInterface objects.
-    
+
     :param menagerie: archive of agents selected by the curator and the potential opponents
     :param training_agent: AgentHook of the Agent currently being trained
     :returns: menagerie to be used in the next training episode.
     '''
 
-    return menagerie + [traning_agent]
+    return menagerie + [training_agent]
