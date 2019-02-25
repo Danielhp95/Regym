@@ -113,10 +113,6 @@ def build_DQN_Agent(task, config):
     kwargs["dueling"] = config['dueling']
     kwargs["double"] = config['double']
 
-    BATCH_SIZE = 256
-    GAMMA = 0.99
-    TAU = 1e-2
-
     name = "DQN"
     if config['dueling']: name = 'Dueling'+name
     if config['double']: name = 'Double'+name
@@ -129,13 +125,13 @@ def build_DQN_Agent(task, config):
 
     kwargs["replay_capacity"] = float(config['memoryCapacity'])
     kwargs["min_capacity"] = float(config['min_memory'])
-    kwargs["batch_size"] = BATCH_SIZE
+    kwargs["batch_size"] = config['batch_size']
     kwargs["use_PER"] = config['use_PER']
     kwargs["PER_alpha"] = float(config['PER_alpha'])
 
     kwargs["lr"] = float(config['learning_rate'])
-    kwargs["tau"] = TAU
-    kwargs["gamma"] = GAMMA
+    kwargs["tau"] = config['tau']
+    kwargs["gamma"] = config['gamma']
 
     kwargs["preprocess"] = preprocess
 

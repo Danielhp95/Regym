@@ -22,6 +22,9 @@ agents:
         min_memory: 5.0e1
         memoryCapacity: 25.0e3
         nbrTrainIteration: 32
+        batch_size: 256
+        gamma: 0.99
+        tau: 1.0e-2
         
     ppo:
         episode_interval_per_training: 8
