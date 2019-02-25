@@ -11,7 +11,7 @@ from torch.multiprocessing import Process
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
-def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, results_path):
+def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path):
     """
     :param env: Environment where agents will be trained on
     :param training_agent: agent representation + training algorithm which will be trained in this process
@@ -19,7 +19,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     :param checkpoint_at_iterations: array containing the episodes at which the agents will be cloned for benchmarking against one another
     :param agent_queue: queue shared among processes to submit agents that will be benchmarked
     :param process_name: String name identifier
-    :param results_path: Directory where results will be saved
+    :param base_path: Base directory from where subdirectories will be accessed to reach menageries, save episodic rewards and save checkpoints of agents.
     """
     logger = logging.getLogger(process_name)
     logger.setLevel(logging.DEBUG)
@@ -35,25 +35,25 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
 
         training_start = time.time()
         (menagerie, trained_agent,
-         trajectories) = self_play_training(env=env, training_agent=training_agent,
-                                            self_play_scheme=self_play_scheme, target_episodes=next_training_iterations,
-                                            menagerie=menagerie, results_path=results_path, iteration=completed_iterations)
+         trajectories) = self_play_training(env=env, training_agent=training_agent, self_play_scheme=self_play_scheme,
+                                            target_episodes=next_training_iterations, iteration=completed_iterations,
+                                            menagerie=menagerie, menagerie_path=f'{base_path}/menageries')
 
         training_duration = time.time() - training_start
 
         completed_iterations += next_training_iterations
 
-        path = f'{results_path}{process_name}_tp_it{target_iteration}.pt'
-        logger.info('Submitted agent at iteration {} :: saving at {}'.format(target_iteration,path))
+        path = f'{base_path}/{process_name}_tp_it{target_iteration}.pt'
+        logger.info(f'Submitted agent at iteration {target_iteration} :: saving at {path}')
         agent2queue = trained_agent.clone(path=path)
         agent_queue.put([target_iteration, self_play_scheme, agent2queue])
 
-        logger.info('Submitted agent at iteration {} :: OK'.format(target_iteration))
+        logger.info('Submitted agent at iteration {}'.format(target_iteration))
         logger.info('Training duration between iterations [{},{}]: {} (seconds)'.format(target_iteration - next_training_iterations, target_iteration, training_duration))
 
-        file_name = '{}-{}.txt'.format(self_play_scheme.name,training_agent.name)
+        file_name = '{}-{}.txt'.format(self_play_scheme.name, training_agent.name)
         enumerated_trajectories = zip(range(target_iteration - next_training_iterations, target_iteration), trajectories)
-        write_episodic_reward(enumerated_trajectories, target_file_path='{}/{}'.format(results_path,file_name))
+        write_episodic_reward(enumerated_trajectories, target_file_path='{}/episodic_rewards/{}'.format(base_path, file_name))
 
         # Updating:
         training_agent = trained_agent
@@ -64,7 +64,7 @@ def write_episodic_reward(enumerated_trajectories, target_file_path):
     with open(target_file_path, 'a') as f:
         for iteration, trajectory in enumerated_trajectories:
             player_1_average_reward = sum(map(lambda t: t[2][0], trajectory)) / len(trajectory) # TODO find a way of not hardcoding indexes
-            f.write('{}, {}\n'.format(iteration,player_1_average_reward))
+            f.write('{}, {}\n'.format(iteration, player_1_average_reward))
 
 
 def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, agent_queue, results_path):
@@ -75,8 +75,7 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     :param agent_queue: queue shared among processes to submit agents that will be benchmarked
     :returns: array of process handlers, needed to join processes at the end of experiment computation
     """
-    # TODO Create experiment directory tree structure much earlier, and all together
-    episodic_reward_directory = '{}/episodic_rewards'.format(results_path)
+    episodic_reward_directory = f'{results_path}/episodic_rewards'
     if not os.path.exists(episodic_reward_directory):
         os.mkdir(episodic_reward_directory)
 
@@ -87,7 +86,7 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     for job in training_jobs:
         p = Process(target=training_process,
                     args=(createNewEnvironment(), job.algorithm, job.training_scheme,
-                          checkpoint_at_iterations, agent_queue, job.name, episodic_reward_directory))
+                          checkpoint_at_iterations, agent_queue, job.name, results_path))
         ps.append(p)
     logger.info("All training jobs submitted")
     return ps

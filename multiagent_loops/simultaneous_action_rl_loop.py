@@ -26,7 +26,7 @@ def run_episode(env, agent_vector, training):
     return trajectory
 
 
-def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], results_path=None, iteration=None):
+def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], menagerie_path=None, iteration=None):
     '''
     Extension of the multi-agent rl loop. The extension works thus:
     - Opponent sampling distribution
@@ -40,12 +40,11 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     :param curator: Gating function which determines if the current agent will be added to the menagerie at the end of an episode
     :param target_episodes: number of episodes that will be run before training ends.
     :param opci: Opponent policy Change Interval
-    :param results_path: path of the folder where all results relevant to the current run are being stored.
+    :param menageries_path: path to folder where all menageries are stored.
     :returns: Menagerie after target_episodes have elapsed
     :returns: Trained agent. freshly baked!
     :returns: Array of arrays of trajectories for all target_episodes
     '''
-    menagerie_path = '{}/menagerie'.format(results_path)
     agent_menagerie_path = '{}/{}'.format(menagerie_path, training_agent.name)
     if not os.path.exists(menagerie_path):
         os.mkdir(menagerie_path)
