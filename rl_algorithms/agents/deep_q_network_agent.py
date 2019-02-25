@@ -125,13 +125,13 @@ def build_DQN_Agent(task, config):
 
     kwargs["replay_capacity"] = float(config['memoryCapacity'])
     kwargs["min_capacity"] = float(config['min_memory'])
-    kwargs["batch_size"] = config['batch_size']
+    kwargs["batch_size"] = int(config['batch_size'])
     kwargs["use_PER"] = config['use_PER']
     kwargs["PER_alpha"] = float(config['PER_alpha'])
 
     kwargs["lr"] = float(config['learning_rate'])
-    kwargs["tau"] = config['tau']
-    kwargs["gamma"] = config['gamma']
+    kwargs["tau"] = float(config['tau'])
+    kwargs["gamma"] = float(config['gamma'])
 
     kwargs["preprocess"] = preprocess
 
