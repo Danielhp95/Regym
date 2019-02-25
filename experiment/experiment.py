@@ -21,7 +21,9 @@ TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
     if paths is None:
         paths = ['' for algorithm in algorithms]
-    return [TrainingJob(training_scheme, algorithm.clone(training=True, path=path), '{}-{}'.format(training_scheme.name, algorithm.name)) for training_scheme in training_schemes for algorithm, path in zip(algorithms, paths)]
+    return [TrainingJob(training_scheme, algorithm.clone(training=True, path=path), f'{training_scheme.name}-{algorithm.name}')
+            for training_scheme in training_schemes
+            for algorithm, path in zip(algorithms, paths)]
 
 
 def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
