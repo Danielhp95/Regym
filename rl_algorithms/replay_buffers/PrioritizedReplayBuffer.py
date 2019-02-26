@@ -1,38 +1,38 @@
 import numpy as np
-from .experience import EXP, EXPPER
+from .experience import EXP
 
 
-class PrioritizedReplayBuffer :
-    def __init__(self,capacity, alpha=0.2) :
+class PrioritizedReplayBuffer:
+    def __init__(self, capacity, alpha=0.2):
         self.length = 0
         self.counter = 0
         self.alpha = alpha
         self.epsilon = 1e-6
         self.capacity = int(capacity)
         self.tree = np.zeros(2*self.capacity-1)
-        self.data = np.zeros(self.capacity,dtype=object)
+        self.data = np.zeros(self.capacity, dtype=object)
         self.sumPi_alpha = 0.0
 
-    def save(self,path):
+    def save(self, path):
         path += '.prb'
         np.savez(path, tree=self.tree, data=self.data,
-            length=np.asarray(self.length), sumPi=np.asarray(self.sumPi_alpha),
-            counter=np.asarray(self.counter), alpha=np.asarray(self.alpha) )
+                 length=np.asarray(self.length), sumPi=np.asarray(self.sumPi_alpha),
+                 counter=np.asarray(self.counter), alpha=np.asarray(self.alpha))
 
-    def load(self,path):
+    def load(self, path):
         path += '.prb.npz'
-        data= np.load(path)
-        self.tree =data['tree']
+        data = np.load(path)
+        self.tree = data['tree']
         self.data = data['data']
         self.counter = int(data['counter'])
         self.length = int(data['length'])
         self.sumPi_alpha = float(data['sumPi'])
         self.alpha = float(data['alpha'])
 
-    def reset(self) :
-        self.__init__(capacity=self.capacity,alpha=self.alpha)
+    def reset(self):
+        self.__init__(capacity=self.capacity, alpha=self.alpha)
 
-    def add(self, exp, priority) :
+    def add(self, exp, priority):
         if np.isnan(priority) or np.isinf(priority) :
             priority = self.total()/self.capacity
 

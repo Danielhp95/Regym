@@ -1,2 +1,4 @@
-from .ReplayBuffer import EXP, ReplayBuffer
-from .PrioritizedReplayBuffer import EXPPER, PrioritizedReplayBuffer
+from .experience import EXP, EXPPER
+from .ReplayBuffer import ReplayBuffer
+from .PrioritizedReplayBuffer import PrioritizedReplayBuffer
+from .storage import Storage
