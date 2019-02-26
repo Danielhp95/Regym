@@ -40,7 +40,6 @@ class PPOAlgorithm():
         self.storage = Storage(self.kwargs['horizon'])
 
     def train(self):
-        import ipdb; ipdb.set_trace()
         '''
         2. Calculates values to regress towards
         '''
@@ -49,15 +48,15 @@ class PPOAlgorithm():
         self.storage.add(prediction)
         self.storage.placeholder()
 
-        advantages = torch.from_numpy(np.zeros((1, 1))) # TODO explain (used to be number of workers)
+        advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
         returns = prediction['v'].detach()
         for i in reversed(range(self.kwargs['horizon'])):
-            returns = self.storage.r[i] + self.kwargs['discount'] * self.storage.m[i] * returns
+            returns = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * returns
             if not self.kwargs['use_gae']:
                 advantages = returns - self.storage.v[i].detach()
             else:
-                td_error = self.storage.r[i] + self.kwargs['discount'] * self.storage.m[i] * self.storage.v[i + 1] - self.storage.v[i]
-                advantages = advantages * self.kwargs['use_gae'] * self.kwargs['discount'] * self.storage.m[i] + td_error
+                td_error = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * self.storage.v[i + 1] - self.storage.v[i]
+                advantages = advantages * self.kwargs['use_gae'] * self.kwargs['discount'] * self.storage.non_terminal[i] + td_error
             self.storage.adv[i] = advantages.detach()
             self.storage.ret[i] = returns.detach()
 
@@ -83,11 +82,11 @@ class PPOAlgorithm():
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
             # TODO make sure prediction is cuda
-            prediction = self.network(sampled_states, sampled_actions)
+            prediction = self.model(sampled_states, sampled_actions)
             ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
             obj = ratio * sampled_advantages
-            obj_clipped = ratio.clamp(1.0 - self.config.ppo_ratio_clip,
-                                      1.0 + self.config.ppo_ratio_clip) * sampled_advantages
+            obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],
+                                      1.0 + self.kwargs['ppo_ratio_clip']) * sampled_advantages
             policy_loss = -torch.min(obj, obj_clipped).mean() - self.kwargs['entropy_weight'] * prediction['ent'].mean()
 
             value_loss = 0.5 * (sampled_returns - prediction['v']).pow(2).mean()

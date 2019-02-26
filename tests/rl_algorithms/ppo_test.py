@@ -8,7 +8,9 @@ import torch
 
 from rl_algorithms.agents import build_PPO_Agent
 from rl_algorithms.PPO import PPOAlgorithm
+from rl_algorithms import rockAgent
 from environments.gym_parser import parse_gym_environment
+from multiagent_loops import simultaneous_action_rl_loop
 
 from unittest.mock import Mock
 
@@ -29,7 +31,7 @@ def RPSTask(RPSenv):
 def ppo_config_dict():
     config = dict()
     config['discount'] = 0.99
-    config['use_gae'] = True
+    config['use_gae'] = False
     config['use_cuda'] = False
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
@@ -39,7 +41,7 @@ def ppo_config_dict():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['episode_interval_per_training'] = 8
+    config['horizon'] = 1024
     return config
 
 
@@ -64,10 +66,33 @@ def test_ppo_can_take_actions(RPSenv, RPSTask, ppo_config_dict):
     agent = build_PPO_Agent(RPSTask, ppo_config_dict)
     number_of_actions = 30
     for i in range(number_of_actions):
+        # asumming that first observation corresponds to observation space of this agent
         random_observation = RPSenv.observation_space.sample()[0]
         a = agent.take_action(random_observation)
-        print(a)
-        assert RPSenv.action_space.contains((a, a))
+        observation, rewards, done, info = RPSenv.step([a, a])
+        # TODO technical debt
+        # assert RPSenv.observation_space.contains([a, a])
+        # assert RPSenv.action_space.contains([a, a])
+
+
+def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, ppo_config_dict):
+    '''
+    Test used to make sure that agent is 'learning' by learning a best response
+    against an agent that only plays rock in rock paper scissors.
+    i.e from random, learns to play only (or mostly) paper
+    '''
+    training_episodes = 1000
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+
+    agent_vector = [agent, rockAgent]
+    trajectories = list()
+    for e in range(training_episodes):
+        trajectory = simultaneous_action_rl_loop.run_episode(RPSenv, agent_vector, training=True)
+        trajectories.append(trajectory)
+
+    average_rewards = [sum(map(lambda experience: experience[2][0], t)) / len(trajectory) for t in trajectories]
+    print(average_rewards)
+    # TODO what to test
 
 
 # def test_creation_ppo_agent_from_config(RPSTask, ppo_config_dict):

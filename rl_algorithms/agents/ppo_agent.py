@@ -16,6 +16,7 @@ import torch.nn.functional as F
 class PPOAgent():
 
     def __init__(self, algorithm):
+        self.training = True
         self.algorithm = algorithm
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
         self.handled_experiences = 0
