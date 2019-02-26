@@ -4,6 +4,7 @@
 # declaration at the top                                              #
 #######################################################################
 
+import torch
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody
 from ..networks import PreprocessFunction
@@ -16,16 +17,27 @@ class PPOAgent():
 
     def __init__(self, algorithm):
         self.algorithm = algorithm
-        self.training = False
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
+        self.handled_experiences = 0
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        raise NotImplementedError('Not yet implemented')
+        non_terminal = torch.ones(1)*(1 - int(done))
+        state = self.state_preprocessing(s)
+        r = torch.ones(1)*r
+        a = torch.from_numpy(a)
+
+        self.algorithm.storage.add(self.current_prediction)
+        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
+
+        self.handled_experiences += 1
+        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+            self.algorithm.train()
+            self.handled_experiences = 0
 
     def take_action(self, state):
         state = self.state_preprocessing(state)
-        prediction = self.algorithm.model(state)
-        return prediction['a'].cpu().detach().numpy()
+        self.current_prediction = self.algorithm.model(state)
+        return self.current_prediction['a'].cpu().detach().numpy()
 
     def clone(self, training=None, path=None):
         from ..agent_hook import AgentHook
