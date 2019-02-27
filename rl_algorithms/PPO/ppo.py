@@ -12,24 +12,20 @@ class PPOAlgorithm():
 
     def __init__(self, kwargs):
         '''
-        horizon:
-        discount:
-        use_gae:
-        use_cuda:
-        gae_tau:
-        entropy_weight:
-        gradient_clip:
-        optimization_epochs:
-        mini_batch_size:
-        ppo_ratio_clip:
-        learning_rate:
-        adam_eps:
-        model:
-        replay_buffer:
-        state_preprocess:
-        "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
-        "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
-        "use_cuda": boolean to specify whether to use CUDA.
+        Refer to original paper for further explanation: https://arxiv.org/pdf/1707.06347.pdf
+        horizon: (0, infinity) Number of timesteps that will elapse in between optimization calls.
+        discount: (0,1) Reward discount factor
+        use_gae: Flag, wether to use Generalized Advantage Estimation (GAE) (instead of return base estimation)
+        gae_tau: (0,1) GAE hyperparameter.
+        use_cuda: Flag, to specify whether to use CUDA tensors in Pytorch calculations
+        entropy_weight: (0,1) Coefficient for (regularatization) entropy based loss
+        gradient_clip: float, Clips gradients to reduce the chance of destructive updates
+        optimization_epochs: int, Number of epochs per optimization step.
+        mini_batch_size: int, Mini batch size to use to calculate losses (Use power of 2 for efficciency)
+        ppo_ratio_clip: float, clip boundaries (1 - clip, 1 + clip) used in clipping loss function.
+        learning_rate: float, optimizer learning rate.
+        adam_eps: (float), Small Epsilon value used for ADAM optimizar. Prevents numerical inestability when v^{hat} (Second momentum estimator) is near 0.
+        model: (Pytorch nn.Module) Used to represent BOTH policy network and value network
         '''
         self.kwargs = deepcopy(kwargs)
         self.model = self.kwargs['model']
@@ -40,35 +36,37 @@ class PPOAlgorithm():
         self.storage = Storage(self.kwargs['horizon'])
 
     def train(self):
-        '''
-        2. Calculates values to regress towards
-        '''
-        last_visited_state = self.storage.s[-1]
-        prediction = self.model(last_visited_state)
-        self.storage.add(prediction)
         self.storage.placeholder()
 
+        self.compute_advantages_and_returns()
+        states, actions, log_probs_old, returns, advantages = self.retrieve_values_from_storage()
+        for _ in range(self.kwargs['optimization_epochs']):
+            self.optimize_model(states, actions, log_probs_old, returns, advantages)
+
+        self.storage.reset()
+
+    def compute_advantages_and_returns(self):
         advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
-        returns = prediction['v'].detach()
+        returns = self.storage.v[-1].detach()
         for i in reversed(range(self.kwargs['horizon'])):
             returns = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * returns
             if not self.kwargs['use_gae']:
                 advantages = returns - self.storage.v[i].detach()
             else:
                 td_error = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * self.storage.v[i + 1] - self.storage.v[i]
-                advantages = advantages * self.kwargs['use_gae'] * self.kwargs['discount'] * self.storage.non_terminal[i] + td_error
+                advantages = advantages * self.kwargs['gae_tau'] * self.kwargs['discount'] * self.storage.non_terminal[i] + td_error
             self.storage.adv[i] = advantages.detach()
             self.storage.ret[i] = returns.detach()
 
+    def retrieve_values_from_storage(self):
         states, actions, log_probs_old, returns, advantages = self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv'])
         actions = actions.detach()
         log_probs_old = log_probs_old.detach()
-        advantages = (advantages - advantages.mean()) / advantages.std()
+        advantages = self.standardize(advantages)
+        return states, actions, log_probs_old, returns, advantages
 
-        for _ in range(self.kwargs['optimization_epochs']):
-            self.optimize_model(states, actions, log_probs_old, returns, advantages)
-
-        self.storage.reset()
+    def standardize(self, x):
+        return (x - x.mean()) / x.std()
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages):
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
@@ -81,13 +79,12 @@ class PPOAlgorithm():
             sampled_returns = returns[batch_indices].cuda() if self.kwargs['use_cuda'] else returns[batch_indices]
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
-            # TODO make sure prediction is cuda
             prediction = self.model(sampled_states, sampled_actions)
             ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
             obj = ratio * sampled_advantages
             obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],
                                       1.0 + self.kwargs['ppo_ratio_clip']) * sampled_advantages
-            policy_loss = -torch.min(obj, obj_clipped).mean() - self.kwargs['entropy_weight'] * prediction['ent'].mean()
+            policy_loss = -torch.min(obj, obj_clipped).mean() - self.kwargs['entropy_weight'] * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
 
             value_loss = 0.5 * (sampled_returns - prediction['v']).pow(2).mean()
 
