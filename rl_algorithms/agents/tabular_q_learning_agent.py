@@ -5,11 +5,12 @@ from ..TQL import TabularQLearningAlgorithm
 class TabularQLearningAgent():
     def __init__(self, algorithm):
         self.name = 'TabularQLearning'
+        self.training = True
         self.algorithm = algorithm
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        if self.algorithm.training:
-            self.algorithm.update_q_table(self.hashing_function(s), a, r, self.hashing_function(succ_s))
+        if self.training:
+            self.algorithm.update_q_table(s, a, r, succ_s)
 
     def take_action(self, state):
         optimal_moves = self.algorithm.find_optimal_moves(state)
