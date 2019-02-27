@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath('../../'))
 
-from rl_algorithms.TQL import TabularQLearningAlgorithm
+from rl_algorithms import rockAgent
 from rl_algorithms.agents import build_TabularQ_Agent
 from environments.gym_parser import parse_gym_environment
 import pytest
@@ -23,7 +23,7 @@ def RPSTask(RPSenv):
 @pytest.fixture
 def tabular_q_learning_config_dict():
     config = dict()
-    config['learning_rate'] = 0.5
+    config['learning_rate'] = 0.9
     return config
 
 
@@ -46,13 +46,19 @@ def test_tabular_q_learning_can_take_actions(RPSenv, RPSTask, tabular_q_learning
         assert RPSenv.action_space.contains([a, a])
 
 
-def learns_to_beat_rock_in_RPS(RPSenv, RPSTask, tabular_q_learning_config_dict):
+def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, tabular_q_learning_config_dict):
     '''
     Test used to make sure that agent is 'learning' by learning a best response
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
+    from rps_test import learns_against_fixed_opponent_RPS
+
     agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
+    assert agent.training
+    learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
+                                      training_episodes=10000, inference_percentage=0.97,
+                                      reward_threshold=0.1)
 
 
 # def can_be_used_with_agent_hook_test()
