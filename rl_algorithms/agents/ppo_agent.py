@@ -1,3 +1,9 @@
+#######################################################################
+# Copyright (C) 2017 Shangtong Zhang(zhangshangtong.cpp@gmail.com)    #
+# Permission given to modify the code as long as you keep this        #
+# declaration at the top                                              #
+#######################################################################
+
 import torch
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody
@@ -7,13 +13,14 @@ from ..PPO import PPOAlgorithm
 import torch.nn.functional as F
 
 
-class PPOAgent():
+class PPOAgent(object):
 
     def __init__(self, algorithm):
         self.training = True
         self.algorithm = algorithm
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
         self.handled_experiences = 0
+        self.name = 'PPO'
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
