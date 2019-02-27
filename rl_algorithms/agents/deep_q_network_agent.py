@@ -14,18 +14,17 @@ class DeepQNetworkAgent():
         :param algorithm: algorithm class to use to optimize the network.
         """
 
-        self.algorithm = algorithm
-        self.training = False
-        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
-
+        self.training = True
         self.kwargs = algorithm.kwargs
+
+        self.name = self.kwargs['name']
+        self.algorithm = algorithm
+        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
 
         self.epsend = self.kwargs['epsend']
         self.epsstart = self.kwargs['epsstart']
         self.epsdecay = self.kwargs['epsdecay']
         self.nbr_steps = 0
-
-        self.name = self.kwargs['name']
 
     def getModel(self):
         return self.algorithm.model
