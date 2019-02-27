@@ -21,9 +21,9 @@ class DeepQNetworkAlgorithm():
             "batch_size": int, batch size to use [default: batch_size=256].
             "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
             "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
-            "lr": float, learning rate [default: lr=1e-3].
-            "tau": float, target update rate [default: tau=1e-3].
-            "gamma": float, Q-learning gamma rate [default: gamma=0.999].
+            "lr": float, learning rate.
+            "tau": float, target update rate.
+            "gamma": float, Q-learning gamma rate.
             "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
             "nbrTrainIteration": int, number of iteration to train the model at each new experience. [default: nbrTrainIteration=1]
             "epsstart": starting value of the epsilong for the epsilon-greedy policy.
