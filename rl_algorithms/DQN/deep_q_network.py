@@ -136,7 +136,7 @@ class DeepQNetworkAlgorithm():
         ############################
 
         # Compute the expected Q values
-        gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values)#.type(torch.cuda.FloatTensor)
+        gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values)
         expected_state_action_values = reward_batch + done_batch*gamma_next
 
         # Compute loss:
