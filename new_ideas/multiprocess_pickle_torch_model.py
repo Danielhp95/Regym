@@ -61,21 +61,18 @@ def self_play_training_process(queue, end_queue):
     agent = queue.get()
     agent2 = queue.get()
 
-    print('Began')
     run_episode(env, [agent, agent2], training=False)
-    print('Lol')
+    
+    end_queue.put(agent)
+    end_queue.put(agent2)
 
-    end_queue.put(agent.algorithm.model)
-    end_queue.put(agent.algorithm.optimizer)
-    end_queue.put(agent.algorithm)
-    end_queue.put(agent.state_preprocessing)
-    end_queue.put(agent.current_prediction)
-    while True: pass
+    while True:
+        pass 
 
 
 if __name__ == '__main__':
     import torch
-    torch.multiprocessing.set_start_method('forkserver')
+    torch.multiprocessing.set_start_method('forkserver', force=True)
 
     agent  = build_PPO_Agent(RPSTask(RPSenv()), ppo_config_dict())
     agent2  = build_PPO_Agent(RPSTask(RPSenv()), ppo_config_dict())
@@ -88,15 +85,10 @@ if __name__ == '__main__':
     agent_queue.put(agent)
     agent_queue.put(agent2)
     p.start()
+    
     print(end_queue.qsize())
-
-    end_model = end_queue.get()
-    print(end_model)
-    end_optimizer = end_queue.get()
-    print(end_optimizer)
-    algorithm = end_queue.get()
-    print(algorithm)
-    state_pre = end_queue.get()
-    print(state_pre)
-    #agent = end_queue.get()
-    #print(agent)
+    end_agent = end_queue.get()
+    print(end_agent)
+    
+    end_agent2 = end_queue.get()
+    print(end_agent2)

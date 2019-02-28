@@ -138,7 +138,7 @@ class DeepQNetworkAlgorithm():
         reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
         done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
         done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
-
+        
         if self.use_cuda :
             if self.kwargs['use_PER']: importanceSamplingWeights = importanceSamplingWeights.cuda()
             next_state_batch = next_state_batch.cuda()

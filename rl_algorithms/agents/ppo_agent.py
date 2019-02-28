@@ -39,6 +39,8 @@ class PPOAgent(object):
     def take_action(self, state):
         state = self.state_preprocessing(state)
         self.current_prediction = self.algorithm.model(state)
+        for key in self.current_prediction:
+            self.current_prediction[key] = self.current_prediction[key].detach()
         return self.current_prediction['a'].cpu().detach().numpy()
 
     def clone(self, training=None, path=None):
