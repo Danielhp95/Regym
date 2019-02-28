@@ -140,6 +140,6 @@ def build_DQN_Agent(task, config):
 
     kwargs['replayBuffer'] = None
 
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs)
+    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if config['double'] else DeepQNetworkAlgorithm(kwargs=kwargs)
 
     return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)
