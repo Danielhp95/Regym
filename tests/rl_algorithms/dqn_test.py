@@ -75,4 +75,3 @@ def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, dqn_config_dict):
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
                                       training_episodes=200, inference_percentage=0.95,
                                       reward_threshold=0.2)
-    
