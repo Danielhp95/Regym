@@ -8,7 +8,7 @@ AgentType = Enum("AgentType", "DQN TQL DDPG PPO MixedStrategyAgent")
 
 
 class AgentHook():
-    def __init__(self, agent, training=None, path=None, use_cuda=None):
+    def __init__(self, agent, path=None):
         """
         AgentHook is to be used as a saver and loader object for agents prior to or following their transportation from
         a training scheme to a benchmarking scheme etc...
@@ -18,9 +18,7 @@ class AgentHook():
         """
 
         self.name = agent.name
-        self.training = training
         self.path = path
-        self.use_cuda = use_cuda
         self.type = None
 
         if isinstance(agent, DeepQNetworkAgent): self.init_dqn_agent(agent, training)
@@ -29,6 +27,10 @@ class AgentHook():
         elif isinstance(agent, PPOAgent): self.init_ppo_agent(agent, training)
         elif isinstance(agent, MixedStrategyAgent): self.init_mixedstrategy_agent(agent, training)
         else: raise ValueError('Unknown AgentType {}, valid types are: {}'.format(type(agent), [t for t in AgentType]))
+
+    @classmethod
+    def hook(cls, agent, path=None):
+        return cls(agent,path)
 
     def __call__(self, training=None, use_cuda=None):
         if self.type == AgentType.TQL: return copy.deepcopy(self.agent)
@@ -90,14 +92,10 @@ class AgentHook():
             agent = self.agent 
 
         if training is not None :
-            self.training = training
-        agent.training = self.training
+            agent.training = training
 
-        if self.use_cuda is None :
-            self.use_cuda = agent.algorithm.kwargs['use_cuda']
         if use_cuda is not None :
-            self.use_cuda = use_cuda
-        agent.algorithm.kwargs['use_cuda'] = self.use_cuda
+            agent.algorithm.kwargs['use_cuda'] = self.use_cuda
         
         if agent.algorithm.kwargs['use_cuda']:
             agent.algorithm.model = agent.algorithm.model.cuda()
@@ -113,14 +111,10 @@ class AgentHook():
             agent = self.agent 
 
         if training is not None :
-            self.training = training
-        agent.training = self.training
+            agent.training = training
 
-        if self.use_cuda is None :
-            self.use_cuda = agent.algorithm.kwargs['use_cuda']
         if use_cuda is not None :
-            self.use_cuda = use_cuda
-        agent.algorithm.kwargs['use_cuda'] = self.use_cuda
+            agent.algorithm.kwargs['use_cuda'] = self.use_cuda
         
         if agent.algorithm.kwargs['use_cuda']:
             agent.algorithm.model = agent.algorithm.model.cuda()
@@ -138,14 +132,10 @@ class AgentHook():
             agent = self.agent 
 
         if training is not None :
-            self.training = training
-        agent.training = self.training
+            agent.training = training
 
-        if self.use_cuda is None :
-            self.use_cuda = agent.algorithm.kwargs['use_cuda']
         if use_cuda is not None :
-            self.use_cuda = use_cuda
-        agent.algorithm.kwargs['use_cuda'] = self.use_cuda
+            agent.algorithm.kwargs['use_cuda'] = self.use_cuda
         
         if agent.algorithm.kwargs['use_cuda']:
             agent.algorithm.model_actor = agent.algorithm.model_actor.cuda()
@@ -155,8 +145,3 @@ class AgentHook():
             agent.algorithm.model_critic = agent.algorithm.model_critic.cpu()
         
         return agent
-
-    def clone(self, training=None, path=None):
-        cloned = copy.deepcopy(self)
-        cloned.training = training
-        return cloned
