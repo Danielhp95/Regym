@@ -14,8 +14,10 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
     def clone(self) :
         cloned_kwargs = self.kwargs
         cloned_model = self.model.clone()
-        self.kwargs['model'] = cloned_model
-        cloned = DoubleDeepQNetworkAlgorithm(kwargs=cloned_kwargs)
+        cloned_model.share_memory()
+        cloned_target_model = self.target_model.clone()
+        cloned_target_model.share_memory()
+        cloned = DoubleDeepQNetworkAlgorithm(kwargs=cloned_kwargs, model=cloned_model, target_model=cloned_target_model)
         return cloned
 
 

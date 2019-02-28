@@ -10,7 +10,7 @@ from ..networks import random_sample
 
 class PPOAlgorithm():
 
-    def __init__(self, kwargs):
+    def __init__(self, kwargs, model):
         '''
         Refer to original paper for further explanation: https://arxiv.org/pdf/1707.06347.pdf
         horizon: (0, infinity) Number of timesteps that will elapse in between optimization calls.
@@ -28,7 +28,7 @@ class PPOAlgorithm():
         model: (Pytorch nn.Module) Used to represent BOTH policy network and value network
         '''
         self.kwargs = deepcopy(kwargs)
-        self.model = self.kwargs['model']
+        self.model = model
         if self.kwargs['use_cuda']:
             self.model = self.model.cuda()
 

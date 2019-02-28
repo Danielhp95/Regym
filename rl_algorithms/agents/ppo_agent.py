@@ -59,16 +59,17 @@ def build_PPO_Agent(task, config):
     kwargs['state_preprocess'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
 
     if task.action_type is 'Discrete' and task.observation_type is 'Discrete':
-        kwargs['model'] = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
                                                     phi_body=FCBody(task.observation_dim, hidden_units=(64, 64), gate=F.leaky_relu),
                                                     actor_body=None,
                                                     critic_body=None)
     if task.action_type is 'Continuous' and task.observation_type is 'Continuous':
-        kwargs['model'] = GaussianActorCriticNet(task.observation_dim, task.action_dim,
+        model = GaussianActorCriticNet(task.observation_dim, task.action_dim,
                                                  phi_body=FCBody(task.observation_dim, hidden_units=(64, 64), gate=F.leaky_relu),
                                                  actor_body=None,
                                                  critic_body=None)
-    assert kwargs['model'] is not None
 
-    ppo_algorithm = PPOAlgorithm(kwargs)
+    model.share_memory()
+    ppo_algorithm = PPOAlgorithm(kwargs, model)
+    
     return PPOAgent(algorithm=ppo_algorithm)

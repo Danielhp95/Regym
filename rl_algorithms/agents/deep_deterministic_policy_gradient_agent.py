@@ -96,8 +96,6 @@ def build_DDPG_Agent(state_space_size=32,
     kwargs = dict()
     """
     :param kwargs:
-        "model_actor": actor model of the agent to use/optimize in this algorithm.
-        "model_critic": critic model of the agent to use/optimize in this algorithm.
         "path": str specifying where to save the model(s).
         "use_cuda": boolean to specify whether to use CUDA.
         "replay_capacity": int, capacity of the replay buffer to use.
@@ -141,8 +139,6 @@ def build_DDPG_Agent(state_space_size=32,
     actor.share_memory()
     critic = CriticNN(state_dim=state_space_size,action_dim=action_space_size,HER=kwargs['HER']['use_her'],use_cuda=use_cuda)
     critic.share_memory()
-    kwargs["model_actor"] = actor
-    kwargs["model_critic"] = critic
     
     name = "DDPG"
     model_path = './'+name
@@ -166,6 +162,6 @@ def build_DDPG_Agent(state_space_size=32,
     
     kwargs['replayBuffer'] = None
 
-    DeepDeterministicPolicyGradient_algo = DeepDeterministicPolicyGradientAlgorithm(kwargs=kwargs)
+    DeepDeterministicPolicyGradient_algo = DeepDeterministicPolicyGradientAlgorithm(kwargs=kwargs, models={"actor":actor, "critic":critic})
 
     return DDPGAgent(algorithm=DeepDeterministicPolicyGradient_algo)
