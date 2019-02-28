@@ -13,8 +13,6 @@ class ReplayBuffer(object) :
         self.position = (self.position+1) % self.capacity
         self.position = int(self.position)
 
-    #def sample(self,batch_size) :
-    #    return random.sample(self.memory, batch_size)
     def sample(self,batch_size) :
         return np.random.choice(self.memory[:self.position], batch_size)
 

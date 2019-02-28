@@ -102,32 +102,9 @@ class DeepQNetworkAlgorithm :
 
         if self.kwargs['use_PER'] :
             #Create batch with PrioritizedReplayBuffer/PER:
-            prioritysum = self.replayBuffer.total()
-            # Random Experience Sampling with priority
-            low = 0.0
-            step = (prioritysum-low) / self.batch_size
-            try:
-                randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
-            except Exception as e :
-                print( prioritysum, step)
-                raise e
-            
-            batch = list()
-            priorities = []
-            for i in range(self.batch_size):
-                try :
-                    el = self.replayBuffer.get(randexp[i])
-                    priorities.append( el[1] )
-                    batch.append(el)
-                except TypeError as e :
-                    continue
-
-            batch = EXPPER( *zip(*batch) )
-
-            # Importance Sampling Weighting:
-            beta = 1.0
-            priorities = Variable( torch.from_numpy( np.array(priorities) ), requires_grad=False).float()
-            importanceSamplingWeights = torch.pow( len(self.replayBuffer) * priorities , -beta)
+            transitions, importanceSamplingWeights = self.replayBuffer.sample(self.batch_size)
+            batch = EXPPER( *zip(*transitions) )
+            importanceSamplingWeights = torch.from_numpy(importanceSamplingWeights)
         else :
             # Create Batch with replayBuffer :
             transitions = self.replayBuffer.sample(self.batch_size)
@@ -206,11 +183,8 @@ class DeepQNetworkAlgorithm :
     def train(self, iteration=1):
         self.target_update_count += iteration
         for t in range(iteration):
-            try:
-                lossnp = self.optimize_model()
-            except Exception as e :
-                print("EXCEPTION : {}".format(e))
-
+            lossnp = self.optimize_model()
+            
         if self.target_update_count > self.target_update_interval:
             self.target_update_count = 0
             hard_update(self.target_model,self.model)
