@@ -41,7 +41,7 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
             #Create batch with PrioritizedReplayBuffer/PER:
             transitions, importanceSamplingWeights = self.replayBuffer.sample(self.batch_size)
             batch = EXPPER( *zip(*transitions) )
-            importanceSamplingWeights = torch.from_numpy(importanceSamplingWeights)
+            importanceSamplingWeights = torch.from_numpy(importanceSamplingWeights).unsqueeze(1)
         else :
            # Create Batch with replayMemory :
             transitions = replayBuffer.sample(self.batch_size)
@@ -75,7 +75,7 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
         ############################
 
         # Compute the expected Q values
-        gamma_next = (self.GAMMA * targetQ_nextS_argmaxA_Q_nextS_A_values).type(FloatTensor)
+        gamma_next = (self.GAMMA * targetQ_nextS_argmaxA_Q_nextS_A_values)
         expected_state_action_values = reward_batch + done_batch*gamma_next
 
         # Compute loss:
@@ -97,8 +97,8 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
 
         self.optimizer.step()
 
+        loss_np = loss_per_item.cpu().data.numpy()
         if self.kwargs['use_PER']:
-            loss_np = loss_per_item.cpu().data.numpy()
             for (idx, new_error) in zip(batch.idx,loss_np) :
                 new_priority = self.replayBuffer.priority(new_error)
                 self.replayBuffer.update(idx,new_priority)
