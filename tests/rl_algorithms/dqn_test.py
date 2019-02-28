@@ -28,26 +28,19 @@ def dqn_config_dict():
     config['learning_rate'] = 1.0e-3
     config['epsstart'] = 0.8
     config['epsend'] = 0.05
-    config['epsdecay'] = 1.0e3
-    config['double'] = False
-    config['dueling'] = False
+    config['epsdecay'] = 1.0e2
+    config['double'] = True
+    config['dueling'] = True
     config['use_cuda'] = True
     config['use_PER'] = True
     config['PER_alpha'] = 0.07
-    config['min_memory'] = 25.0e1
+    config['min_memory'] = 25.0e2
     config['memoryCapacity'] = 25.0e2
     config['nbrTrainIteration'] = 8
-    config['batch_size'] = 256
+    config['batch_size'] = 512
     config['gamma'] = 0.99
     config['tau'] = 1.0e-3
     return config
-
-
-# TODO
-# def test_build_dqn(RPSTask, dqn_config_dict):
-#     agent = build_DQN_Agent(RPSTask, dqn_config_dict)
-#     assert False
-
 
 def test_dqn_can_take_actions(RPSenv, RPSTask, dqn_config_dict):
     agent = build_DQN_Agent(RPSTask, dqn_config_dict)
@@ -73,5 +66,5 @@ def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, dqn_config_dict):
     agent = build_DQN_Agent(RPSTask, dqn_config_dict)
     agent.training = True
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
-                                      training_episodes=200, inference_percentage=0.95,
+                                      training_episodes=500, inference_percentage=0.95,
                                       reward_threshold=0.2)
