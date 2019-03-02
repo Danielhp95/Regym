@@ -10,7 +10,6 @@ from test_fixtures import ppo_config_dict, RPSenv, RPSTask
 from rl_algorithms.agents import build_PPO_Agent
 from rl_algorithms.PPO import PPOAlgorithm
 from rl_algorithms import rockAgent
-from environments.gym_parser import parse_gym_environment
 from multiagent_loops import simultaneous_action_rl_loop
 
 from unittest.mock import Mock
