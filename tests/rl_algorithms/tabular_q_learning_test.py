@@ -9,12 +9,12 @@ from test_fixtures import tabular_q_learning_config_dict, RPSenv, RPSTask
 
 
 def test_creation_tabular_q_learning_algorithm_from_task_and_config(RPSTask, tabular_q_learning_config_dict):
-    training = False
+    expected_training = True
     agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
     assert agent.algorithm.Q_table.shape == (RPSTask.state_space_size, RPSTask.action_space_size)
     assert agent.algorithm.learning_rate == tabular_q_learning_config_dict['learning_rate']
     assert agent.algorithm.hashing_function == RPSTask.hash_function
-    assert agent.algorithm.training == training
+    assert agent.training == expected_training
 
 
 def test_tabular_q_learning_can_take_actions(RPSenv, RPSTask, tabular_q_learning_config_dict):
@@ -38,5 +38,5 @@ def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, tabular_q_learning_config_d
     agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
     assert agent.training
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
-                                      training_episodes=10000, inference_percentage=0.97,
+                                      training_episodes=1000, inference_percentage=0.97,
                                       reward_threshold=0.1)
