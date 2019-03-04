@@ -4,7 +4,7 @@
 # declaration at the top                                              #
 #######################################################################
 
-from deep_rl import *
+from old_PPO import *
 
 # DQN
 def dqn_cart_pole():
@@ -324,6 +324,8 @@ def ppo_cart_pole():
     config.ppo_ratio_clip = 0.2
     config.log_interval = 128 * 5 * 10
     config.logger = get_logger(ppo_cart_pole.__name__)
+    config.logger.info("Beginning to train on cartpole")
+    config.logger.info(f'State dim: {config.state_dim}\tAction dim: {config.action_dim}')
     run_steps(PPOAgent(config))
 
 def ppo_pixel_atari(name):
@@ -372,6 +374,7 @@ def ppo_continuous(name):
     config.max_steps = 1e6
     config.state_normalizer = MeanStdNormalizer()
     config.logger = get_logger()
+    config.logger.info(f'State dim: {config.state_dim}\tAction dim: {config.action_dim}')
     run_steps(PPOAgent(config))
 
 # DDPG

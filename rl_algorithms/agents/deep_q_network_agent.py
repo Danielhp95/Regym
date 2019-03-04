@@ -71,7 +71,6 @@ def build_DQN_Agent(task, config):
     kwargs = dict()
     """
     :param kwargs:
-        "model": model of the agent to use/optimize in this algorithm.
         "path": str specifying where to save the model(s).
         "use_cuda": boolean to specify whether to use CUDA.
         "replay_capacity": int, capacity of the replay buffer to use.
@@ -108,7 +107,6 @@ def build_DQN_Agent(task, config):
         model = DQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
     model.share_memory()
 
-    kwargs["model"] = model
     kwargs["dueling"] = config['dueling']
     kwargs["double"] = config['double']
 
@@ -140,6 +138,6 @@ def build_DQN_Agent(task, config):
 
     kwargs['replayBuffer'] = None
 
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs)
+    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs, model=model) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
 
     return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)

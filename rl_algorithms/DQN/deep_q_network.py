@@ -10,10 +10,9 @@ from ..networks import hard_update
 
 
 class DeepQNetworkAlgorithm():
-    def __init__(self, kwargs):
+    def __init__(self, kwargs, model, target_model=None):
         """
         :param kwargs:
-            "model": model of the agent to use/optimize in this algorithm.
             "path": str specifying where to save the model(s).
             "use_cuda": boolean to specify whether to use CUDA.
             "replay_capacity": int, capacity of the replay buffer to use.
@@ -35,16 +34,23 @@ class DeepQNetworkAlgorithm():
             "nbr_actions": number of dimensions in the action space.
             "actfn": activation function to use in between each layer of the neural networks.
             "state_dim": number of dimensions in the state space.
+        :param model: model of the agent to use/optimize in this algorithm.
+            
         """
 
         self.kwargs = kwargs
         self.use_cuda = kwargs["use_cuda"]
 
-        self.model = kwargs["model"]
+        self.model = model
         if self.use_cuda:
             self.model = self.model.cuda()
 
-        self.target_model = copy.deepcopy(self.model)
+        if target_model is None:
+            target_model = copy.deepcopy(self.model)
+        
+        self.target_model = target_model
+        self.target_model.share_memory()
+        
         hard_update(self.target_model, self.model)
         if self.use_cuda:
             self.target_model = self.target_model.cuda()
@@ -76,8 +82,10 @@ class DeepQNetworkAlgorithm():
     def clone(self):
         cloned_kwargs = self.kwargs
         cloned_model = self.model.clone()
-        self.kwargs['model'] = cloned_model
-        cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs)
+        cloned_model.share_memory()
+        cloned_target_model = self.target_model.clone()
+        cloned_target_model.share_memory()
+        cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs, model=cloned_model, target_model=cloned_target_model)
 
         return cloned
 
@@ -138,7 +146,7 @@ class DeepQNetworkAlgorithm():
         reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
         done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
         done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
-
+        
         if self.use_cuda :
             if self.kwargs['use_PER']: importanceSamplingWeights = importanceSamplingWeights.cuda()
             next_state_batch = next_state_batch.cuda()
