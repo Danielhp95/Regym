@@ -1,4 +1,6 @@
 import torch
+import copy
+
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody
 from ..networks import PreprocessFunction
@@ -36,10 +38,10 @@ class PPOAgent(object):
         self.current_prediction = {k: v.detach() for k, v in self.current_prediction.items()}
         return self.current_prediction['a'].cpu().detach().numpy()
 
-    def clone(self, training=None, path=None):
-        from ..agent_hook import AgentHook
-        cloned = AgentHook(self, training=training, path=path)
-        return cloned
+    def clone(self, training=None):
+        clone = copy.deepcopy(self)
+        clone.training = training
+        return clone
 
 
 def build_PPO_Agent(task, config):

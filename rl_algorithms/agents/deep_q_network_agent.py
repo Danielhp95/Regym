@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import random
 import torch
@@ -61,10 +62,10 @@ class DeepQNetworkAgent():
             random_action = torch.LongTensor([[random.randrange(self.algorithm.model.nbr_actions)]])
             return random_action.numpy(), 0.0
 
-    def clone(self, training=None, path=None):
-        from ..agent_hook import AgentHook
-        cloned = AgentHook(self, training=training, path=path)
-        return cloned
+    def clone(self, training=None):
+        clone = copy.deepcopy(self)
+        clone.training = training
+        return clone
 
 
 def build_DQN_Agent(task, config):
@@ -138,7 +139,6 @@ def build_DQN_Agent(task, config):
 
     kwargs['replayBuffer'] = None
 
-    # DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs, model=model) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if config['double'] else DeepQNetworkAlgorithm(kwargs=kwargs)
+    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs, model=model) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
 
     return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)

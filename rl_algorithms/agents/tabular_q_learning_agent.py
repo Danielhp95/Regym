@@ -1,3 +1,4 @@
+import copy
 import random
 from ..TQL import TabularQLearningAlgorithm
 
@@ -16,10 +17,10 @@ class TabularQLearningAgent():
         optimal_moves = self.algorithm.find_optimal_moves(state)
         return random.choice(optimal_moves)
 
-    def clone(self, training=None, path=None):
-        from ..agent_hook import AgentHook
-        cloned = AgentHook(self, training=training, path=path)
-        return cloned
+    def clone(self, training=None):
+        clone = copy.deepcopy(self)
+        clone.training = training
+        return clone
 
 
 def build_TabularQ_Agent(task, config):
