@@ -34,7 +34,7 @@ def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, dqn_config_dict):
     from rps_test import learns_against_fixed_opponent_RPS
 
     agent = build_DQN_Agent(RPSTask, dqn_config_dict)
-    assert agent.training
+    agent.training = True
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
                                       training_episodes=200, inference_percentage=0.95,
                                       reward_threshold=0.2)
