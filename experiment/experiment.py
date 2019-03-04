@@ -19,8 +19,7 @@ TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
 
 
 def enumerate_training_jobs(training_schemes, algorithms, paths=None):
-    if paths is None:
-        paths = ['' for algorithm in algorithms]
+    if paths is None: paths = ['' for algorithm in algorithms]
     return [TrainingJob(training_scheme, algorithm.clone(training=True, path=path), f'{training_scheme.name}-{algorithm.name}')
             for training_scheme in training_schemes
             for algorithm, path in zip(algorithms, paths)]
@@ -28,8 +27,8 @@ def enumerate_training_jobs(training_schemes, algorithms, paths=None):
 
 def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     initial_fixed_agents_to_benchmark = [[iteration, EmptySelfPlay, agent]
-                                           for agent in existing_fixed_agents
-                                           for iteration in checkpoint_at_iterations]
+                                         for agent in existing_fixed_agents
+                                         for iteration in checkpoint_at_iterations]
     fixed_agents_for_confusion = enumerate_training_jobs([EmptySelfPlay], existing_fixed_agents) # TODO GET RID OF THIS
     return initial_fixed_agents_to_benchmark, fixed_agents_for_confusion
 
