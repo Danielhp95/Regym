@@ -5,7 +5,7 @@ from training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelf
 
 from rl_algorithms import build_DQN_Agent
 from rl_algorithms import build_TabularQ_Agent
-# from rl_algorithms import build_PPO_Agent
+from rl_algorithms import build_PPO_Agent
 from rl_algorithms import rockAgent, paperAgent, scissorsAgent
 from rl_algorithms import AgentHook
 
@@ -45,7 +45,7 @@ def initialize_algorithms(environment, agent_configurations):
     :returns: array of agents built according to their corresponding configuration dictionaries
     '''
     task = environments.parse_gym_environment(environment)
-    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent}
+    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent, 'ppo': build_PPO_Agent}
     check_for_unknown_candidate_input(agent_build_functions.keys(), agent_configurations.keys(), 'agent')
     return [agent_build_functions[agent](task, config) for agent, config in agent_configurations.items()]
 
