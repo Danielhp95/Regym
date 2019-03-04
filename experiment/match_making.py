@@ -5,9 +5,8 @@ import logging.handlers
 
 from collections import namedtuple
 from collections import Counter
-from torch.multiprocessing import Process
 
-from benchmark_match_play import benchmark_match_play_process
+from benchmark_match_play import create_benchmark_process
 
 RecordedAgent = namedtuple('RecordedAgent', 'iteration training_scheme agent')
 BenchmarkingJob = namedtuple('BenchmarkingJob', 'iteration recorded_agent_vector')
@@ -40,7 +39,7 @@ def match_making_process(expected_number_of_agents, benchmarking_episodes, creat
 
     benchmarking_child_processes = []
     while True:
-        iteration, training_scheme, agent = agent_queue.get() # wait_for_agent(agent_queue)
+        iteration, training_scheme, agent = agent_queue.get()
 
         received_agents += 1
         logger.info('Received ({},{},{}). {}/{} received'.format(iteration, training_scheme.name, agent.name, received_agents, expected_number_of_agents))
@@ -70,7 +69,7 @@ def check_for_termination(received_agents, expected_number_of_agents, child_proc
     """
     if received_agents >= expected_number_of_agents:
         [p.join() for p in child_processes]
-        if pool is not None : pool.shutdown()
+        if pool is not None: pool.shutdown()
         os.kill(os.getpid(), signal.SIGTERM)
 
 
@@ -84,7 +83,8 @@ def calculate_new_benchmarking_jobs(recorded_agents, recorded_benchmarking_jobs,
     :param recorded_benchmarking_jobs: Array of benchmarking_jobs that have kill
     :param iteration filter: Filters recorded agents on iteration because agents can only be benchmarked against those of same iteration
     """
-    filtered_recorded_agents = [RecordedAgent(recorded_agent.iteration, recorded_agent.training_scheme, recorded_agent.agent.clone()) for recorded_agent in recorded_agents if recorded_agent.iteration == iteration_filter]
+    filtered_recorded_agents = [RecordedAgent(recorded_agent.iteration, recorded_agent.training_scheme, recorded_agent.agent.clone())
+                                for recorded_agent in recorded_agents if recorded_agent.iteration == iteration_filter]
     for recorded_agent_1 in filtered_recorded_agents:
         for recorded_agent_2 in filtered_recorded_agents:
             benchmark_name = 'Benchmark:({},{}) vs ({},{}). iteration: {}'.format(recorded_agent_1.training_scheme.name,
@@ -107,22 +107,3 @@ def is_benchmarking_job_already_recorded(job, recorded_benchmarking_jobs):
     """
     job_equality = lambda job1, job2: job1.iteration == job2.iteration and Counter(job1.recorded_agent_vector) == Counter(job2.recorded_agent_vector)
     return any([job_equality(job, recorded_job) for recorded_job in recorded_benchmarking_jobs])
-
-
-def create_benchmark_process(benchmarking_episodes, createNewEnvironment, benchmark_job, pool, matrix_queue, name):
-    """
-    Creates a benchmarking process for the precomputed benchmark_job.
-    The results of the benchmark will be put in the matrix_queue to populate confusion matrix
-
-    :param benchmarking_episodes: Number of episodes that each benchmarking process will run for
-    :param createNewEnvironment: OpenAI gym environment creation function
-    :param benchmark_job: precomputed BenchmarkingJob
-    :param pool: ProcessPoolExecutor shared between benchmarking_jobs to carry out benchmarking matches
-    :param matrix_queue: Queue reference sent to benchmarking process, where it will put the bencharmking result
-    :param name: BenchmarkingJob name identifier
-    """
-    benchmark_process = Process(target=benchmark_match_play_process,
-                                args=(benchmarking_episodes, createNewEnvironment,
-                                      benchmark_job, pool, matrix_queue, name))
-    benchmark_process.start()
-    return benchmark_process
