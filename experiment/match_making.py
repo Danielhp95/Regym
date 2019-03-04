@@ -40,6 +40,7 @@ def match_making_process(expected_number_of_agents, benchmarking_episodes, creat
     benchmarking_child_processes = []
     while True:
         iteration, training_scheme, agent = agent_queue.get()
+        agent_queue.task_done()
 
         received_agents += 1
         logger.info('Received ({},{},{}). {}/{} received'.format(iteration, training_scheme.name, agent.name, received_agents, expected_number_of_agents))
@@ -83,7 +84,7 @@ def calculate_new_benchmarking_jobs(recorded_agents, recorded_benchmarking_jobs,
     :param recorded_benchmarking_jobs: Array of benchmarking_jobs that have kill
     :param iteration filter: Filters recorded agents on iteration because agents can only be benchmarked against those of same iteration
     """
-    filtered_recorded_agents = [RecordedAgent(recorded_agent.iteration, recorded_agent.training_scheme, recorded_agent.agent.clone())
+    filtered_recorded_agents = [RecordedAgent(recorded_agent.iteration, recorded_agent.training_scheme, recorded_agent.agent)
                                 for recorded_agent in recorded_agents if recorded_agent.iteration == iteration_filter]
     for recorded_agent_1 in filtered_recorded_agents:
         for recorded_agent_2 in filtered_recorded_agents:

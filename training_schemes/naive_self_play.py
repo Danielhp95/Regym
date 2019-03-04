@@ -9,10 +9,10 @@ def opponent_sampling_distribution(menagerie, training_agent):
     :param training_agent: AgentHook of the agent that is currently being trained
     :returns: Agent, sampled from the menagerie, to be used as an opponent in the next episode
     '''
-    return [training_agent()]
+    return [training_agent.clone(training=False)]
 
 
-def curator(menagerie, training_agent, episode_trajectory):
+def curator(menagerie, training_agent, episode_trajectory, candidate_save_path):
     '''
     :param menagerie: archive of agents selected by the curator and the potential opponents
     :param training_agent: Agent currently being trained

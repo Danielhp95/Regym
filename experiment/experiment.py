@@ -5,28 +5,29 @@ sys.path.append(os.path.abspath('..'))
 import util
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 
+from rl_algorithms import AgentHook
+
 from training_process import create_training_processes
 from match_making import match_making_process
 from confusion_matrix_populate_process import confusion_matrix_process
 
-from torch.multiprocessing import Process, Queue
+from torch.multiprocessing import Process, JoinableQueue
 
 import gym
 import gym_rock_paper_scissors
 
 from collections import namedtuple
-TrainingJob = namedtuple('TrainingJob', 'training_scheme algorithm name')
+TrainingJob = namedtuple('TrainingJob', 'training_scheme agent name')
 
 
-def enumerate_training_jobs(training_schemes, algorithms, paths=None):
-    if paths is None: paths = ['' for algorithm in algorithms]
-    return [TrainingJob(training_scheme, algorithm.clone(training=True, path=path), f'{training_scheme.name}-{algorithm.name}')
+def enumerate_training_jobs(training_schemes, algorithms):
+    return [TrainingJob(training_scheme, AgentHook(algorithm.clone(training=True)), f'{training_scheme.name}-{algorithm.name}')
             for training_scheme in training_schemes
-            for algorithm, path in zip(algorithms, paths)]
+            for algorithm in algorithms]
 
 
 def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
-    initial_fixed_agents_to_benchmark = [[iteration, EmptySelfPlay, agent]
+    initial_fixed_agents_to_benchmark = [[iteration, EmptySelfPlay, AgentHook(agent)]
                                          for agent in existing_fixed_agents
                                          for iteration in checkpoint_at_iterations]
     fixed_agents_for_confusion = enumerate_training_jobs([EmptySelfPlay], existing_fixed_agents) # TODO GET RID OF THIS
@@ -92,15 +93,14 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
 
     training_schemes  = util.experiment_parsing.initialize_training_schemes(experiment_config['self_play_training_schemes'])
     algorithms        = util.experiment_parsing.initialize_algorithms(env, agents_config)
-    paths             = util.experiment_parsing.find_paths(experiment_config['algorithms'], base_path)
     fixed_agents      = util.experiment_parsing.initialize_fixed_agents(experiment_config['fixed_agents'])
 
-    training_jobs = enumerate_training_jobs(training_schemes, algorithms, paths)
+    training_jobs = enumerate_training_jobs(training_schemes, algorithms)
 
     (initial_fixed_agents_to_benchmark, fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
-    agent_queue, matrix_queue = Queue(), Queue()
+    agent_queue, matrix_queue = JoinableQueue(), JoinableQueue()
 
-    list(map(agent_queue.put, initial_fixed_agents_to_benchmark)) # Add initial fixed agents to be benchmarked
+    for fixed_agent in initial_fixed_agents_to_benchmark: agent_queue.put(fixed_agent)
 
     (training_processes,
      mm_process,

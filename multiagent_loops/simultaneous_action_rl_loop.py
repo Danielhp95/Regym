@@ -45,25 +45,20 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     :returns: Trained agent. freshly baked!
     :returns: Array of arrays of trajectories for all target_episodes
     '''
-    agent_menagerie_path = '{}/{}'.format(menagerie_path, training_agent.name)
+    agent_menagerie_path = '{}/{}-{}'.format(menagerie_path, self_play_scheme.name, training_agent.name)
     if not os.path.exists(menagerie_path):
         os.mkdir(menagerie_path)
     if not os.path.exists(agent_menagerie_path):
         os.mkdir(agent_menagerie_path)
 
-    # Loading the model from the AgentHook: TODO maybe rename agentHook
-    training_agentHook = training_agent
-    training_agent = training_agent(training=True)
-
     menagerie = menagerie
     trajectories = []
     for episode in range(target_episodes):
-        training_agentHook = training_agent.clone(training=False)
         if episode % opci == 0:
-            opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agentHook)
+            opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
         episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
-        menagerie = self_play_scheme.curator(menagerie, training_agentHook, episode_trajectory)
+        candidate_save_path = f'{agent_menagerie_path}/checkpoint_episode_{iteration + episode}.pt'
+        menagerie = self_play_scheme.curator(menagerie, training_agent, episode_trajectory, candidate_save_path=candidate_save_path)
         trajectories.append(episode_trajectory)
 
-    path = os.path.join(agent_menagerie_path, 'checkpoint_episode_{}.pt'.format(iteration))
-    return menagerie, training_agent.clone(training=True, path=path), trajectories
+    return menagerie, training_agent, trajectories
