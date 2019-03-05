@@ -1,10 +1,11 @@
+import copy
 import numpy as np
 import random
 import torch
-import torchvision.transforms as T
 
-from ..replay_buffers import EXP, EXPPER
-from ..networks import  LeakyReLU, DQN, DuelingDQN
+from ..replay_buffers import EXP
+from ..networks import LeakyReLU, DQN, DuelingDQN
+from ..networks import PreprocessFunction
 from ..DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
 
 
@@ -14,18 +15,17 @@ class DeepQNetworkAgent():
         :param algorithm: algorithm class to use to optimize the network.
         """
 
-        self.algorithm = algorithm
-        self.training = False
-        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
-
+        self.training = True
         self.kwargs = algorithm.kwargs
+
+        self.name = self.kwargs['name']
+        self.algorithm = algorithm
+        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
 
         self.epsend = self.kwargs['epsend']
         self.epsstart = self.kwargs['epsstart']
         self.epsdecay = self.kwargs['epsdecay']
         self.nbr_steps = 0
-
-        self.name = self.kwargs['name']
 
     def getModel(self):
         return self.algorithm.model
@@ -50,41 +50,28 @@ class DeepQNetworkAgent():
     def reset_eps(self):
         self.eps = self.epsstart
 
-    def select_action(self,model,state,eps) :
+    def select_action(self, model, state, eps):
         sample = np.random.random()
-        if sample > eps :
-            output = model( state ).cpu().data
+        if sample > eps:
+            output = model(state).cpu().data
             qsa, action = output.max(1)
-            action = action.view(1,1)
-            qsa = output.max(1)[0].view(1,1)[0,0]
+            action = action.view(1, 1)
+            qsa = output.max(1)[0].view(1, 1)[0, 0]
             return action.numpy(), qsa
-        else :
-            random_action = torch.LongTensor( [[random.randrange(self.algorithm.model.nbr_actions) ] ] )
+        else:
+            random_action = torch.LongTensor([[random.randrange(self.algorithm.model.nbr_actions)]])
             return random_action.numpy(), 0.0
 
-
-    def clone(self, training=None, path=None):
-        from ..agent_hook import AgentHook
-        cloned = AgentHook(self, training=training, path=path)
-        return cloned
-
-class PreprocessFunction(object) :
-    def __init__(self, state_space_size,use_cuda=False):
-        self.state_space_size = state_space_size
-        self.use_cuda = use_cuda
-    def __call__(self,x) :
-        x = np.concatenate(x, axis=None)
-        if self.use_cuda :
-            return torch.from_numpy( x ).unsqueeze(0).type(torch.cuda.FloatTensor)
-        else :
-            return torch.from_numpy( x ).unsqueeze(0).type(torch.FloatTensor)
+    def clone(self, training=None):
+        clone = copy.deepcopy(self)
+        clone.training = training
+        return clone
 
 
 def build_DQN_Agent(task, config):
     kwargs = dict()
     """
     :param kwargs:
-        "model": model of the agent to use/optimize in this algorithm.
         "path": str specifying where to save the model(s).
         "use_cuda": boolean to specify whether to use CUDA.
         "replay_capacity": int, capacity of the replay buffer to use.
@@ -93,8 +80,8 @@ def build_DQN_Agent(task, config):
         "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
         "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
         "lr": float, learning rate [default: lr=1e-3].
-        "tau": float, target update rate [default: tau=1e-2].
-        "gamma": float, Q-learning gamma rate [default: gamma=0.999].
+        "tau": float, target network update rate.
+        "gamma": float, Q-learning gamma rate.
         "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
         "nbrTrainIteration": int, number of iteration to train the model at each new experience. [default: nbrTrainIteration=1]
         "epsstart": starting value of the epsilong for the epsilon-greedy policy.
@@ -121,13 +108,8 @@ def build_DQN_Agent(task, config):
         model = DQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
     model.share_memory()
 
-    kwargs["model"] = model
     kwargs["dueling"] = config['dueling']
     kwargs["double"] = config['double']
-
-    BATCH_SIZE = 256
-    GAMMA = 0.99
-    TAU = 1e-2
 
     name = "DQN"
     if config['dueling']: name = 'Dueling'+name
@@ -141,13 +123,13 @@ def build_DQN_Agent(task, config):
 
     kwargs["replay_capacity"] = float(config['memoryCapacity'])
     kwargs["min_capacity"] = float(config['min_memory'])
-    kwargs["batch_size"] = BATCH_SIZE
+    kwargs["batch_size"] = int(config['batch_size'])
     kwargs["use_PER"] = config['use_PER']
     kwargs["PER_alpha"] = float(config['PER_alpha'])
 
     kwargs["lr"] = float(config['learning_rate'])
-    kwargs["tau"] = TAU
-    kwargs["gamma"] = GAMMA
+    kwargs["tau"] = float(config['tau'])
+    kwargs["gamma"] = float(config['gamma'])
 
     kwargs["preprocess"] = preprocess
 
@@ -157,6 +139,6 @@ def build_DQN_Agent(task, config):
 
     kwargs['replayBuffer'] = None
 
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs)
+    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs, model=model) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
 
     return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)

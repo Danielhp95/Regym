@@ -1,38 +1,39 @@
 import numpy as np
-from .experience import EXP, EXPPER
+from .experience import EXP
 
 
 class PrioritizedReplayBuffer :
-    def __init__(self,capacity, alpha=0.2) :
+    def __init__(self,capacity, alpha=0.2, beta=1.0) :
         self.length = 0
         self.counter = 0
         self.alpha = alpha
+        self.beta = beta
         self.epsilon = 1e-6
         self.capacity = int(capacity)
         self.tree = np.zeros(2*self.capacity-1)
-        self.data = np.zeros(self.capacity,dtype=object)
+        self.data = np.zeros(self.capacity, dtype=object)
         self.sumPi_alpha = 0.0
 
-    def save(self,path):
+    def save(self, path):
         path += '.prb'
         np.savez(path, tree=self.tree, data=self.data,
-            length=np.asarray(self.length), sumPi=np.asarray(self.sumPi_alpha),
-            counter=np.asarray(self.counter), alpha=np.asarray(self.alpha) )
+                 length=np.asarray(self.length), sumPi=np.asarray(self.sumPi_alpha),
+                 counter=np.asarray(self.counter), alpha=np.asarray(self.alpha))
 
-    def load(self,path):
+    def load(self, path):
         path += '.prb.npz'
-        data= np.load(path)
-        self.tree =data['tree']
+        data = np.load(path)
+        self.tree = data['tree']
         self.data = data['data']
         self.counter = int(data['counter'])
         self.length = int(data['length'])
         self.sumPi_alpha = float(data['sumPi'])
         self.alpha = float(data['alpha'])
 
-    def reset(self) :
-        self.__init__(capacity=self.capacity,alpha=self.alpha)
+    def reset(self):
+        self.__init__(capacity=self.capacity, alpha=self.alpha)
 
-    def add(self, exp, priority) :
+    def add(self, exp, priority):
         if np.isnan(priority) or np.isinf(priority) :
             priority = self.total()/self.capacity
 
@@ -56,11 +57,7 @@ class PrioritizedReplayBuffer :
             priority = self.total()/self.capacity
 
         change = priority - self.tree[idx]
-        if change > 1e3 :
-            print('BIG CHANGE HERE !!!!')
-            print(change)
-            raise Exception()
-
+        
         previous_priority = self.tree[idx]
         self.sumPi_alpha -= previous_priority
 
@@ -121,3 +118,31 @@ class PrioritizedReplayBuffer :
 
     def __len__(self) :
         return self.length
+
+    def sample(self, batch_size):
+        prioritysum = self.total()
+        # Random Experience Sampling with priority
+        low = 0.0
+        step = (prioritysum-low) / batch_size
+        randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(batch_size))
+        
+        transitions = list()
+        priorities = []
+        for i in range(batch_size):
+            '''
+            Sampling from this replayBuffer requires it to be fully populated.
+            Otherwise, we might end up trying to sample a leaf ot the binary sumtree 
+            that does not contain any data, thus throwing a TypeError.
+            '''
+            try :
+                el = self.get(randexp[i])
+                priorities.append( el[1] )
+                transitions.append(el)
+            except TypeError as e :
+                continue
+        
+        # Importance Sampling Weighting:
+        priorities = np.array(priorities, dtype=np.float32)
+        importanceSamplingWeights = np.power( len(self) * priorities , -self.beta)
+
+        return transitions, importanceSamplingWeights

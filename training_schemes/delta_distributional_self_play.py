@@ -1,4 +1,10 @@
+import os
+import sys
+
+sys.path.append(os.path.abspath('..'))
+
 import math
+from rl_algorithms import AgentHook
 
 '''
 Based on the paper: Emergent Complexity in Multi TODO
@@ -15,18 +21,18 @@ def opponent_sampling_distribution(menagerie, training_agent, delta, distributio
     :param distribution: Distribution to be used over the filtered set of agents.
     :returns: Agent, sampled from the menagerie, to be used as an opponent in the next episode
     '''
+    latest_training_agent_hook = AgentHook(training_agent.clone(training=False))
     subset_of_considered_agents = slice(math.ceil(delta * len(menagerie)), len(menagerie))
-    valid_agents = menagerie[subset_of_considered_agents] + [training_agent]
-    return map( lambda AgentHook : AgentHook(training=False, use_cuda=True), [distribution(valid_agents)] )
+    valid_agents = menagerie[subset_of_considered_agents] + [latest_training_agent_hook]
+    return [AgentHook.unhook(sampled_hook_agent) for sampled_hook_agent in [distribution(valid_agents)]]
 
 
-def curator(menagerie, training_agent, episode_trajectory):
+def curator(menagerie, training_agent, episode_trajectory, candidate_save_path):
     '''
-    # TODO : save the agents on disk into MenagireInterface objects.
-    
+
     :param menagerie: archive of agents selected by the curator and the potential opponents
     :param training_agent: AgentHook of the Agent currently being trained
     :returns: menagerie to be used in the next training episode.
     '''
 
-    return menagerie + [traning_agent]
+    return menagerie + [AgentHook(training_agent.clone(training=False), save_path=candidate_save_path)]

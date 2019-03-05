@@ -4,8 +4,12 @@
 # declaration at the top                                              #
 #######################################################################
 
-from .network_utils import *
-from .network_bodies import *
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from .ppo_network_utils import BaseNet, layer_init, tensor
+from .ppo_network_bodies import DummyBody
+
 
 class VanillaNet(nn.Module, BaseNet):
     def __init__(self, output_dim, body):
@@ -18,6 +22,7 @@ class VanillaNet(nn.Module, BaseNet):
         phi = self.body(tensor(x))
         y = self.fc_head(phi)
         return y
+
 
 class DuelingNet(nn.Module, BaseNet):
     def __init__(self, action_dim, body):
@@ -33,6 +38,7 @@ class DuelingNet(nn.Module, BaseNet):
         advantange = self.fc_advantage(phi)
         q = value.expand_as(advantange) + (advantange - advantange.mean(1, keepdim=True).expand_as(advantange))
         return q
+
 
 class CategoricalNet(nn.Module, BaseNet):
     def __init__(self, action_dim, num_atoms, body):
@@ -50,6 +56,7 @@ class CategoricalNet(nn.Module, BaseNet):
         log_prob = F.log_softmax(pre_prob, dim=-1)
         return prob, log_prob
 
+
 class QuantileNet(nn.Module, BaseNet):
     def __init__(self, action_dim, num_quantiles, body):
         super(QuantileNet, self).__init__()
@@ -64,6 +71,7 @@ class QuantileNet(nn.Module, BaseNet):
         quantiles = self.fc_quantiles(phi)
         quantiles = quantiles.view((-1, self.action_dim, self.num_quantiles))
         return quantiles
+
 
 class OptionCriticNet(nn.Module, BaseNet):
     def __init__(self, body, action_dim, num_options):
@@ -85,6 +93,7 @@ class OptionCriticNet(nn.Module, BaseNet):
         log_pi = F.log_softmax(pi, dim=-1)
         return q, beta, log_pi
 
+
 class ActorCriticNet(nn.Module):
     def __init__(self, state_dim, action_dim, phi_body, actor_body, critic_body):
         super(ActorCriticNet, self).__init__()
@@ -100,6 +109,7 @@ class ActorCriticNet(nn.Module):
         self.actor_params = list(self.actor_body.parameters()) + list(self.fc_action.parameters())
         self.critic_params = list(self.critic_body.parameters()) + list(self.fc_critic.parameters())
         self.phi_params = list(self.phi_body.parameters())
+
 
 class DeterministicActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
@@ -131,6 +141,7 @@ class DeterministicActorCriticNet(nn.Module, BaseNet):
     def critic(self, phi, a):
         return self.network.fc_critic(self.network.critic_body(phi, a))
 
+
 class GaussianActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
                  state_dim,
@@ -141,7 +152,6 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
         super(GaussianActorCriticNet, self).__init__()
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
         self.std = nn.Parameter(torch.zeros(action_dim))
-        self.to(Config.DEVICE)
 
     def forward(self, obs, action=None):
         obs = tensor(obs)
@@ -161,6 +171,7 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
                 'mean': mean,
                 'v': v}
 
+
 class CategoricalActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
                  state_dim,
@@ -170,7 +181,6 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                  critic_body=None):
         super(CategoricalActorCriticNet, self).__init__()
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
-        self.to(Config.DEVICE)
 
     def forward(self, obs, action=None):
         obs = tensor(obs)

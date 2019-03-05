@@ -28,11 +28,9 @@ class OrnsteinUhlenbeckNoise :
 
 
 class DeepDeterministicPolicyGradientAlgorithm :
-    def __init__(self,kwargs) :
+    def __init__(self,kwargs, models) :
         """
         :param kwargs:
-            "model_actor": actor model of the agent to use/optimize in this algorithm.
-            "model_critic": critic model of the agent to use/optimize in this algorithm.
             "path": str specifying where to save the model(s).
             "use_cuda": boolean to specify whether to use CUDA.
             "replay_capacity": int, capacity of the replay buffer to use.
@@ -45,13 +43,17 @@ class DeepDeterministicPolicyGradientAlgorithm :
             "gamma": float, Q-learning gamma rate [default: gamma=0.999].
             "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
             "nbrTrainIteration": int, number of iteration to train the model at each new experience. [default: nbrTrainIteration=1]
+        :param models: dict
+            "actor": actor model of the agent to use/optimize in this algorithm.
+            "critic": critic model of the agent to use/optimize in this algorithm.
+            
         """
 
         self.kwargs = kwargs
         self.use_cuda = kwargs["use_cuda"]
 
-        self.model_actor = kwargs["model_actor"]
-        self.model_critic = kwargs["model_critic"]
+        self.model_actor = models["actor"]
+        self.model_critic = models["critic"]
 
         self.target_actor = copy.deepcopy(self.model_actor)
         self.target_critic = copy.deepcopy(self.model_critic)
@@ -88,9 +90,7 @@ class DeepDeterministicPolicyGradientAlgorithm :
         cloned_kwargs = self.kwargs
         cloned_model_actor = self.model_actor.clone()
         cloned_model_critic = self.model_critic.clone()
-        self.kwargs['model_actor'] = cloned_model_actor
-        self.kwargs['model_actor'] = cloned_model_critic
-        cloned = DeepDeterministicPolicyGradientAlgorithm(kwargs=cloned_kwargs)
+        cloned = DeepDeterministicPolicyGradientAlgorithm(kwargs=cloned_kwargs, models={"actor":cloned_model_actor, "critic":cloned_model_critic})
         return cloned
 
     def evaluate(self, state,action,target=False) :

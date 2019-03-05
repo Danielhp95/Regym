@@ -8,6 +8,8 @@ import logging
 import logging.handlers
 from torch.multiprocessing import Process
 
+from rl_algorithms import AgentHook
+
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
@@ -26,10 +28,15 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     logger.info('Started')
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
 
+    trained_policy_save_directory = f'{base_path}/{process_name}'
+    if not os.path.exists(trained_policy_save_directory):
+        os.mkdir(trained_policy_save_directory)
+
     process_start_time = time.time()
 
     completed_iterations = 0
     menagerie = []
+    training_agent = AgentHook.unhook(training_agent)
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
 
@@ -43,12 +50,11 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
 
         completed_iterations += next_training_iterations
 
-        path = f'{base_path}/{process_name}_tp_it{target_iteration}.pt'
-        logger.info(f'Submitted agent at iteration {target_iteration} :: saving at {path}')
-        agent2queue = trained_agent.clone(path=path)
-        agent_queue.put([target_iteration, self_play_scheme, agent2queue])
+        save_path = f'{trained_policy_save_directory}/{target_iteration}_iterations.pt'
+        logger.info(f'Submitted agent at iteration {target_iteration} :: saving at {save_path}')
+        hooked_agent = AgentHook(trained_agent.clone(training=False), save_path=save_path)
+        agent_queue.put([target_iteration, self_play_scheme, hooked_agent])
 
-        logger.info('Submitted agent at iteration {}'.format(target_iteration))
         logger.info('Training duration between iterations [{},{}]: {} (seconds)'.format(target_iteration - next_training_iterations, target_iteration, training_duration))
 
         file_name = '{}-{}.txt'.format(self_play_scheme.name, training_agent.name)
@@ -58,6 +64,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
         # Updating:
         training_agent = trained_agent
     logger.info('All training completed. Total duration: {} seconds'.format(time.time() - process_start_time))
+    agent_queue.join()
 
 
 def write_episodic_reward(enumerated_trajectories, target_file_path):
@@ -85,7 +92,7 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     ps = []
     for job in training_jobs:
         p = Process(target=training_process,
-                    args=(createNewEnvironment(), job.algorithm, job.training_scheme,
+                    args=(createNewEnvironment(), job.agent, job.training_scheme,
                           checkpoint_at_iterations, agent_queue, job.name, results_path))
         ps.append(p)
     logger.info("All training jobs submitted")

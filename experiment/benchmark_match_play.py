@@ -9,6 +9,7 @@ from torch.multiprocessing import Process
 from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 
+from rl_algorithms import AgentHook
 from multiagent_loops.simultaneous_action_rl_loop import run_episode
 
 BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
@@ -29,7 +30,6 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     logger.info('Started for {} episodes'.format(num_episodes))
 
     agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
-    agent_vector = [agent(training=False, use_cuda=False) for agent in agent_vector]
 
     # TODO Use given pool, but how?
     with ProcessPoolExecutor(max_workers=3) as executor:
@@ -49,11 +49,13 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
                                          benchmark_job.recorded_agent_vector,
                                          winrates))
     logger.info('Benchmarking finished. Duration: {} seconds'.format(benchmark_duration))
+    matrix_queue.join()
 
 
-def single_match(env, agent_vector,):
+def single_match(env, agent_vector):
     # trajectory: [(s,a,r,s')]
-    trajectory = run_episode(env, agent_vector, training=False)
+    unhooked_agents = [AgentHook.unhook(agent) for agent in agent_vector]
+    trajectory = run_episode(env, unhooked_agents, training=False)
     reward_vector = lambda t: t[2]
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
     cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]

@@ -5,9 +5,8 @@ from training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelf
 
 from rl_algorithms import build_DQN_Agent
 from rl_algorithms import build_TabularQ_Agent
-# from rl_algorithms import build_PPO_Agent
+from rl_algorithms import build_PPO_Agent
 from rl_algorithms import rockAgent, paperAgent, scissorsAgent
-from rl_algorithms import AgentHook
 
 import environments
 
@@ -45,19 +44,9 @@ def initialize_algorithms(environment, agent_configurations):
     :returns: array of agents built according to their corresponding configuration dictionaries
     '''
     task = environments.parse_gym_environment(environment)
-    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent}
+    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent, 'ppo': build_PPO_Agent}
     check_for_unknown_candidate_input(agent_build_functions.keys(), agent_configurations.keys(), 'agent')
     return [agent_build_functions[agent](task, config) for agent, config in agent_configurations.items()]
-
-
-def find_paths(algorithms, base_path):
-    '''
-    Creates path based on algorithm names
-    :param algorithms: List of algorithm names
-    :param base_path: string path TODO: figure what it is
-    :returns: list of paths, one for each algorithm
-    '''
-    return [os.path.join(base_path, algorithm.lower())+'.pt' for algorithm in algorithms]
 
 
 def initialize_fixed_agents(fixed_agents):
@@ -69,4 +58,4 @@ def initialize_fixed_agents(fixed_agents):
     '''
     fix_agent_build_functions = {'rockagent': rockAgent, 'paperagent': paperAgent, 'scissorsagent': scissorsAgent}
     check_for_unknown_candidate_input(fix_agent_build_functions.keys(), fixed_agents, 'fixed_agents')
-    return [AgentHook(fix_agent_build_functions[agent.lower()]) for agent in fixed_agents]
+    return [fix_agent_build_functions[agent.lower()] for agent in fixed_agents]

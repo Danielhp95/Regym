@@ -4,7 +4,11 @@
 # declaration at the top                                              #
 #######################################################################
 
-from .network_utils import *
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from .ppo_network_utils import layer_init
+
 
 class NatureConvBody(nn.Module):
     def __init__(self, in_channels=4):
@@ -23,6 +27,7 @@ class NatureConvBody(nn.Module):
         y = F.relu(self.fc4(y))
         return y
 
+
 class DDPGConvBody(nn.Module):
     def __init__(self, in_channels=4):
         super(DDPGConvBody, self).__init__()
@@ -36,6 +41,7 @@ class DDPGConvBody(nn.Module):
         y = y.view(y.size(0), -1)
         return y
 
+
 class FCBody(nn.Module):
     def __init__(self, state_dim, hidden_units=(64, 64), gate=F.relu):
         super(FCBody, self).__init__()
@@ -48,6 +54,7 @@ class FCBody(nn.Module):
         for layer in self.layers:
             x = self.gate(layer(x))
         return x
+
 
 class TwoLayerFCBodyWithAction(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_units=(64, 64), gate=F.relu):
@@ -63,6 +70,7 @@ class TwoLayerFCBodyWithAction(nn.Module):
         phi = self.gate(self.fc2(torch.cat([x, action], dim=1)))
         return phi
 
+
 class OneLayerFCBodyWithAction(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_units, gate=F.relu):
         super(OneLayerFCBodyWithAction, self).__init__()
@@ -75,6 +83,7 @@ class OneLayerFCBodyWithAction(nn.Module):
         phi = self.gate(torch.cat([self.fc_s(x), self.fc_a(action)], dim=1))
         return phi
 
+
 class DummyBody(nn.Module):
     def __init__(self, state_dim):
         super(DummyBody, self).__init__()
@@ -82,8 +91,3 @@ class DummyBody(nn.Module):
 
     def forward(self, x):
         return x
-
-
-
-
-

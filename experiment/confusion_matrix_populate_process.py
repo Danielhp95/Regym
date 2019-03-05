@@ -12,7 +12,6 @@ How to read confusion matrix TODO:
 """
 
 
-# TODO come up with better name
 def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix_queue, results_path):
     """
     :param training_jobs: Array of TrainingJob namedtuple used to calculate size of confusion matrices
@@ -28,8 +27,8 @@ def confusion_matrix_process(training_jobs, checkpoint_iteration_indices, matrix
     while True:
         # poll for new
         benchmark_statistics = matrix_queue.get()
+        matrix_queue.task_done()
 
-        # TODO find a better way of doing this. May need to restructure information that is sent around
         logger.info('Received: it:{} ({},{})-({},{})'.format(benchmark_statistics.iteration,
                                                              benchmark_statistics.recorded_agent_vector[0].training_scheme.name,
                                                              benchmark_statistics.recorded_agent_vector[0].agent.name,
