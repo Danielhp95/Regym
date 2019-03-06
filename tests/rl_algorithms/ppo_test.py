@@ -32,5 +32,5 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     agent = build_PPO_Agent(RPSTask, ppo_config_dict)
     assert agent.training
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
-                                      training_episodes=1000, inference_percentage=0.9,
+                                      total_episodes=1000, training_percentage=0.9,
                                       reward_threshold=0.1)

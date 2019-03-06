@@ -28,20 +28,20 @@ def ppo_config_dict():
 def dqn_config_dict():
     config = dict()
     config['learning_rate'] = 1.0e-3
-    config['epsstart'] = 0.8
-    config['epsend'] = 0.05
-    config['epsdecay'] = 1.0e3
+    config['epsstart'] = 1
+    config['epsend'] = 0.1
+    config['epsdecay'] = 5.0e4
     config['double'] = False
     config['dueling'] = False
     config['use_cuda'] = True
-    config['use_PER'] = True
+    config['use_PER'] = False
     config['PER_alpha'] = 0.07
-    config['min_memory'] = 5.0e1
-    config['memoryCapacity'] = 25.0e3
+    config['min_memory'] = 1.e03
+    config['memoryCapacity'] = 1.e03
     config['nbrTrainIteration'] = 8
-    config['batch_size'] = 128
+    config['batch_size'] = 256
     config['gamma'] = 0.99
-    config['tau'] = 1.0e-3
+    config['tau'] = 1.0e-2
     return config
 
 
@@ -49,6 +49,10 @@ def dqn_config_dict():
 def tabular_q_learning_config_dict():
     config = dict()
     config['learning_rate'] = 0.9
+    config['discount_factor'] = 0.99
+    config['epsilon_greedy'] = 0.1
+    config['use_repeated_update_q_learning'] = False
+    config['temperature'] = 1
     return config
 
 
