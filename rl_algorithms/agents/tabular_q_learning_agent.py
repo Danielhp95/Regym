@@ -1,6 +1,6 @@
 import copy
-import random
 from ..TQL import TabularQLearningAlgorithm
+from ..TQL import RepeatedUpdateQLearningAlgorithm
 
 
 class TabularQLearningAgent():
@@ -14,8 +14,7 @@ class TabularQLearningAgent():
             self.algorithm.update_q_table(s, a, r, succ_s)
 
     def take_action(self, state):
-        optimal_moves = self.algorithm.find_optimal_moves(state)
-        return random.choice(optimal_moves)
+        return self.algorithm.find_moves(state, exploration=self.training)
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
@@ -26,6 +25,14 @@ class TabularQLearningAgent():
 def build_TabularQ_Agent(task, config):
     state_space_size, action_space_size = task.state_space_size, task.action_dim
     hash_state = task.hash_function
-    vanilla_q_learning = TabularQLearningAlgorithm(state_space_size, action_space_size, hash_state,
-                                                   learning_rate=config['learning_rate'])
-    return TabularQLearningAgent(algorithm=vanilla_q_learning)
+    if config['use_repeated_update_q_learning']:
+        algorithm = RepeatedUpdateQLearningAlgorithm(state_space_size, action_space_size, hash_state,
+                                                     discount_factor=config['discount_factor'],
+                                                     learning_rate=config['learning_rate'],
+                                                     temperature=config['temperature'])
+    else:
+        algorithm = TabularQLearningAlgorithm(state_space_size, action_space_size, hash_state,
+                                              discount_factor=config['discount_factor'],
+                                              learning_rate=config['learning_rate'],
+                                              epsilon_greedy=config['epsilon_greedy'])
+    return TabularQLearningAgent(algorithm=algorithm)
