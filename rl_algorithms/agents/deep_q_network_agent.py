@@ -10,7 +10,7 @@ from ..DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
 
 
 class DeepQNetworkAgent():
-    def __init__(self, algorithm):
+    def __init__(self, name, algorithm):
         """
         :param algorithm: algorithm class to use to optimize the network.
         """
@@ -18,7 +18,7 @@ class DeepQNetworkAgent():
         self.training = True
         self.kwargs = algorithm.kwargs
 
-        self.name = self.kwargs['name']
+        self.name = name
         self.algorithm = algorithm
         self.preprocessing_function = self.algorithm.kwargs["preprocess"]
 
