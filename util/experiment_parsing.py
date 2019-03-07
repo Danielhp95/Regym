@@ -43,10 +43,13 @@ def initialize_algorithms(environment, agent_configurations):
     :param agent_configurations: configuration dictionaries for each requested agent
     :returns: array of agents built according to their corresponding configuration dictionaries
     '''
+    def partial_match_build_function(agent_name, task, config):
+        if agent_name.startswith('tabularqlearning'): return build_TabularQ_Agent(task, config, agent_name)
+        if agent_name.startswith('deepqlearning'): return build_DQN_Agent(task, config, agent_name)
+        if agent_name.startswith('ppo'): return build_PPO_Agent(task, config, agent_name)
+        else: raise ValueError('Unkown agent name: {agent_name}'.format(agent_name))
     task = environments.parse_gym_environment(environment)
-    agent_build_functions = {'tabularqlearning': build_TabularQ_Agent, 'deepqlearning': build_DQN_Agent, 'ppo': build_PPO_Agent}
-    check_for_unknown_candidate_input(agent_build_functions.keys(), agent_configurations.keys(), 'agent')
-    return [agent_build_functions[agent](task, config) for agent, config in agent_configurations.items()]
+    return [partial_match_build_function(agent, task, config) for agent, config in agent_configurations.items()]
 
 
 def initialize_fixed_agents(fixed_agents):
@@ -59,3 +62,13 @@ def initialize_fixed_agents(fixed_agents):
     fix_agent_build_functions = {'rockagent': rockAgent, 'paperagent': paperAgent, 'scissorsagent': scissorsAgent}
     check_for_unknown_candidate_input(fix_agent_build_functions.keys(), fixed_agents, 'fixed_agents')
     return [fix_agent_build_functions[agent.lower()] for agent in fixed_agents]
+
+
+def filter_relevant_agent_configurations(experiment_config, agents_config):
+    '''
+    The config file allows to have configuration for RL algorithms that will not be used.
+    This allows to keep all configuration in a single file.
+    The configuration that will be used is explicitly captured in :param: experiment_config
+    '''
+    return {agent: config for agent, config in agents_config.items()
+            if any(map(lambda algorithm: agent.startswith(algorithm), experiment_config['algorithms']))}
