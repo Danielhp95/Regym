@@ -16,6 +16,7 @@ import logging_server
 
 from threading import Thread
 
+from util.experiment_parsing import filter_relevant_agent_configurations
 import experiment
 
 
@@ -25,17 +26,6 @@ def initialize_logger():
     socketHandler = logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT)
     logger.addHandler(socketHandler)
     return logger
-
-
-def filter_relevant_configuration(experiment_config, agents_config):
-    '''
-    The config file allows to have configuration for RL algorithms that will not be used.
-    This allows to keep all configuration in a single file.
-    The configuration that will be used is explicitly captured in :param: experiment_config
-    '''
-    return {agent: config
-            for agent, config in agents_config.items()
-            if agent in experiment_config['algorithms']}
 
 
 if __name__ == '__main__':
@@ -79,7 +69,7 @@ if __name__ == '__main__':
     print(docopt_options)
     all_configs = yaml.load(open(docopt_options['--config']))
     experiment_config = all_configs['experiment']
-    relevant_agent_configuration = filter_relevant_configuration(experiment_config, all_configs['agents'])
+    relevant_agent_configuration = filter_relevant_agent_configurations(experiment_config, all_configs['agents'])
 
     experiment_id = experiment_config['experiment_id']
     number_of_runs = int(experiment_config['number_of_runs'])

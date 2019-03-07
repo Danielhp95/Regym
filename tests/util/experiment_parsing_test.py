@@ -24,8 +24,7 @@ def experiment_config():
     return yaml.load(experiment_config)
 
 
-def test_caca(experiment_config):
-
+def test_can_filter_agent_configuration_based_on_experiment_algorithms(experiment_config):
     filtered_agent_config = experiment_parsing.filter_relevant_agent_configurations(experiment_config['experiment'], experiment_config['agents'])
     assert 'ppo' in filtered_agent_config
     assert 'ppo_dani' in filtered_agent_config

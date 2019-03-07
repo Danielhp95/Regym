@@ -44,9 +44,9 @@ def initialize_algorithms(environment, agent_configurations):
     :returns: array of agents built according to their corresponding configuration dictionaries
     '''
     def partial_match_build_function(agent_name, task, config):
-        if agent_name.startswith('tabularqlearning'): return build_TabularQ_Agent(task, config)
-        if agent_name.startswith('deepqlearning'): return build_DQN_Agent(task, config)
-        if agent_name.startswith('ppo'): return build_PPO_Agent(task, config)
+        if agent_name.startswith('tabularqlearning'): return build_TabularQ_Agent(task, config, agent_name)
+        if agent_name.startswith('deepqlearning'): return build_DQN_Agent(task, config, agent_name)
+        if agent_name.startswith('ppo'): return build_PPO_Agent(task, config, agent_name)
         else: raise ValueError('Unkown agent name: {agent_name}'.format(agent_name))
     task = environments.parse_gym_environment(environment)
     return [partial_match_build_function(agent, task, config) for agent, config in agent_configurations.items()]

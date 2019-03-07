@@ -1,4 +1,3 @@
-import numpy as np
 import copy
 
 import torch
@@ -13,7 +12,6 @@ class DeepQNetworkAlgorithm():
     def __init__(self, kwargs, model, target_model=None):
         """
         :param kwargs:
-            "path": str specifying where to save the model(s).
             "use_cuda": boolean to specify whether to use CUDA.
             "replay_capacity": int, capacity of the replay buffer to use.
             "min_capacity": int, minimal capacity before starting to learn.
@@ -35,7 +33,7 @@ class DeepQNetworkAlgorithm():
             "actfn": activation function to use in between each layer of the neural networks.
             "state_dim": number of dimensions in the state space.
         :param model: model of the agent to use/optimize in this algorithm.
-            
+
         """
 
         self.kwargs = kwargs
@@ -47,10 +45,10 @@ class DeepQNetworkAlgorithm():
 
         if target_model is None:
             target_model = copy.deepcopy(self.model)
-        
+
         self.target_model = target_model
         self.target_model.share_memory()
-        
+
         hard_update(self.target_model, self.model)
         if self.use_cuda:
             self.target_model = self.target_model.cuda()
@@ -190,7 +188,7 @@ class DeepQNetworkAlgorithm():
         self.target_update_count += iteration
         for t in range(iteration):
             lossnp = self.optimize_model()
-            
+
         if self.target_update_count > self.target_update_interval:
             self.target_update_count = 0
             hard_update(self.target_model,self.model)

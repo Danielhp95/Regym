@@ -68,11 +68,10 @@ class DeepQNetworkAgent():
         return clone
 
 
-def build_DQN_Agent(task, config):
+def build_DQN_Agent(task, config, agent_name):
     kwargs = dict()
     """
     :param kwargs:
-        "path": str specifying where to save the model(s).
         "use_cuda": boolean to specify whether to use CUDA.
         "replay_capacity": int, capacity of the replay buffer to use.
         "min_capacity": int, minimal capacity before starting to learn.
@@ -111,14 +110,6 @@ def build_DQN_Agent(task, config):
     kwargs["dueling"] = config['dueling']
     kwargs["double"] = config['double']
 
-    name = "DQN"
-    if config['dueling']: name = 'Dueling'+name
-    if config['double']: name = 'Double'+name
-    model_path = './'+name
-    path = model_path
-
-    kwargs['name'] = name
-    kwargs["path"] = path
     kwargs["use_cuda"] = config['use_cuda']
 
     kwargs["replay_capacity"] = float(config['memoryCapacity'])
@@ -141,4 +132,4 @@ def build_DQN_Agent(task, config):
 
     DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs, model=model) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
 
-    return DeepQNetworkAgent(algorithm=DeepQNetwork_algo)
+    return DeepQNetworkAgent(name=agent_name, algorithm=DeepQNetwork_algo)
