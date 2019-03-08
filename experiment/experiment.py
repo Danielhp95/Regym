@@ -6,7 +6,7 @@ import util
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 
 from rl_algorithms import AgentHook
-from environments import ParallelEnv
+from environments import ParallelEnv, EnvironmentCreationFunction, ParallelEnvironmentCreationFunction
 
 from training_process import create_training_processes
 from match_making import match_making_process
@@ -63,28 +63,6 @@ def create_all_initial_processes(training_jobs, training_environments, benchmark
     return (training_processes, mm_process, cfm_process)
 
 
-class EnvironmentCreationFunction():
-
-    def __init__(self, environment_name_cli):
-        valid_environments = ['RockPaperScissors-v0','RoboschoolSumo-v0','RoboschoolSumoWithRewardShaping-v0']
-        if environment_name_cli not in valid_environments:
-            raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
-        self.environment_name = environment_name_cli
-
-    def __call__(self):
-        return gym.make(self.environment_name)
-
-class ParallelEnvironmentCreationFunction():
-
-    def __init__(self, environment_name_cli, nbr_parallel_env):
-        valid_environments = ['RockPaperScissors-v0','RoboschoolSumo-v0','RoboschoolSumoWithRewardShaping-v0']
-        if environment_name_cli not in valid_environments:
-            raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
-        self.environment_name = environment_name_cli
-        self.nbr_parallel_env = nbr_parallel_env
-
-    def __call__(self):
-        return ParallelEnv(self.environment_name, self.nbr_parallel_env)
 
 def run_processes(training_processes, mm_process, cfm_process):
     [p.start() for p in training_processes]

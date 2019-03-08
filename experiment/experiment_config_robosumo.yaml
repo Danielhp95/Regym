@@ -28,7 +28,7 @@ agents:
         
     ppo:
         horizon: 512
-        nbr_actor: 32
+        nbr_actor: 128
         discount: 0.99
         use_gae: True
         use_cuda: True

@@ -13,9 +13,9 @@ from rl_algorithms import AgentHook
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
-def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path):
+def training_process(envCreationFunction, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path):
     """
-    :param env: ParallelEnv wrapper around an environment where agents will be trained on.
+    :param envCreationFunction: ParallelEnvironmentCreation wrapper around an environment where agents will be trained on.
     :param training_agent: agent representation + training algorithm which will be trained in this process
     :param self_play_scheme: self play scheme used to meta train the param training_agent.
     :param checkpoint_at_iterations: array containing the episodes at which the agents will be cloned for benchmarking against one another
@@ -28,7 +28,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     logger.info('Started')
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
 
-    env = env()
+    env = envCreationFunction()
 
     trained_policy_save_directory = f'{base_path}/{process_name}'
     if not os.path.exists(trained_policy_save_directory):
@@ -65,6 +65,9 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
 
         # Updating:
         training_agent = trained_agent
+
+    env.close()
+
     logger.info('All training completed. Total duration: {} seconds'.format(time.time() - process_start_time))
     agent_queue.join()
 
@@ -76,10 +79,10 @@ def write_episodic_reward(enumerated_trajectories, target_file_path):
             f.write('{}, {}\n'.format(iteration, player_1_average_reward))
 
 
-def create_training_processes(training_jobs, training_environments, checkpoint_at_iterations, agent_queue, results_path):
+def create_training_processes(training_jobs, training_environment_creation_functions, checkpoint_at_iterations, agent_queue, results_path):
     """
     :param training_jobs: Array of TrainingJob namedtuples containing a training-scheme, algorithm and name
-    :param training_environments: PrallelEnvironmentFunction wrapper around an OpenAI gym environment.
+    :param training_environment_creation_functions: ParallelEnvironmentCreationFunction wrapper around an OpenAI gym environment.
     :param checkpoint_at_iterations: array containing the episodes at which the agents will be cloned for benchmarking against one another
     :param agent_queue: queue shared among processes to submit agents that will be benchmarked
     :returns: array of process handlers, needed to join processes at the end of experiment computation
@@ -92,9 +95,9 @@ def create_training_processes(training_jobs, training_environments, checkpoint_a
     logger.setLevel(logging.DEBUG)
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
     ps = []
-    for job, env in zip(training_jobs, training_environments):
+    for job, envCreationFunction in zip(training_jobs, training_environment_creation_functions):
         p = Process(target=training_process,
-                    args=(env, job.agent, job.training_scheme,
+                    args=(envCreationFunction, job.agent, job.training_scheme,
                           checkpoint_at_iterations, agent_queue, job.name, results_path))
         ps.append(p)
     logger.info("All training jobs submitted")

@@ -40,7 +40,7 @@ def ppo_config_dict_ma():
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
     config['nbr_actor'] = 32
-    config['horizon'] = 512
+    config['horizon'] = 2048 #512
     return config
 
 
