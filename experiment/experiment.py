@@ -14,6 +14,7 @@ from confusion_matrix_populate_process import confusion_matrix_process
 
 from torch.multiprocessing import Process, JoinableQueue
 
+import roboschool
 import gym
 import gym_rock_paper_scissors
 
@@ -22,19 +23,20 @@ TrainingJob = namedtuple('TrainingJob', 'training_scheme agent name')
 
 
 def enumerate_training_jobs(training_schemes, algorithms, env_name):
-    return [TrainingJob(training_scheme, AgentHook(algorithm.clone(training=True)), f'{training_scheme.name}-{algorithm.name}')
-            for training_scheme in training_schemes
-            for algorithm in algorithms], 
-            [EnvironmentCreationFunction(env_name) if not('nbr_actor' in algorithm.kwargs) else ParallelEnvironmentCreationFunction(env_name, algorithm.kwargs['nbr_actor'])
-            for training_scheme in training_schemes
-            for algorithm in algorithms],
-            EnvironmentCreationFunction(env_name)
+    a = [TrainingJob(training_scheme, AgentHook(algorithm.clone(training=True)), f'{training_scheme.name}-{algorithm.name}')
+        for training_scheme in training_schemes
+        for algorithm in algorithms]
+    b = [EnvironmentCreationFunction(env_name) if not('nbr_actor' in agent.algorithm.kwargs) else ParallelEnvironmentCreationFunction(env_name, agent.algorithm.kwargs['nbr_actor'])
+        for training_scheme in training_schemes
+        for agent in algorithms]
+    c = EnvironmentCreationFunction(env_name)
+    return a,b,c
 
-def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
+def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations, env_name):
     initial_fixed_agents_to_benchmark = [[iteration, EmptySelfPlay, AgentHook(agent)]
                                          for agent in existing_fixed_agents
                                          for iteration in checkpoint_at_iterations]
-    fixed_agents_for_confusion = enumerate_training_jobs([EmptySelfPlay], existing_fixed_agents) # TODO GET RID OF THIS
+    fixed_agents_for_confusion, _, _ = enumerate_training_jobs([EmptySelfPlay], existing_fixed_agents, env_name) # TODO GET RID OF THIS
     return initial_fixed_agents_to_benchmark, fixed_agents_for_confusion
 
 
@@ -112,14 +114,14 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
 
     training_jobs, training_environments, benchmarking_environment = enumerate_training_jobs(training_schemes, algorithms, experiment_config['environment'])
 
-    (initial_fixed_agents_to_benchmark, fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
+    (initial_fixed_agents_to_benchmark, fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations, experiment_config['environment'])
     agent_queue, matrix_queue = JoinableQueue(), JoinableQueue()
 
     for fixed_agent in initial_fixed_agents_to_benchmark: agent_queue.put(fixed_agent)
 
     (training_processes,
      mm_process,
-     cfm_process) = create_all_initial_processes(training_jobs, trainint_environments, benchmarking_environment, checkpoint_at_iterations,
+     cfm_process) = create_all_initial_processes(training_jobs, training_environments, benchmarking_environment, checkpoint_at_iterations,
                                                  agent_queue, matrix_queue, benchmarking_episodes,
                                                  fixed_agents_for_confusion, results_path)
 
