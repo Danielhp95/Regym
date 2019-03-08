@@ -63,6 +63,7 @@ if __name__ == '__main__':
 
     Options:
         --config String   Path to Yaml experiment configuration file [default: ./experiment_config.yaml]
+        --dest String     Path where experiment output will be stored [default: ./]
     '''
 
     docopt_options = docopt(_USAGE)
@@ -71,14 +72,15 @@ if __name__ == '__main__':
     experiment_config = all_configs['experiment']
     relevant_agent_configuration = filter_relevant_agent_configurations(experiment_config, all_configs['agents'])
 
-    experiment_id = experiment_config['experiment_id']
-    number_of_runs = int(experiment_config['number_of_runs'])
+    experiment_path = docopt_options['--dest']
+    experiment_id   = experiment_config['experiment_id']
+    number_of_runs  = int(experiment_config['number_of_runs'])
 
     # TODO create directory structure function
-    experiment_directory = 'experiment-{}'.format(experiment_id)
+    experiment_directory = f'{experiment_path}/experiment-{experiment_id}'
 
     if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
-    os.mkdir(experiment_directory)
+    os.makedirs(experiment_directory, exist_ok=True)
 
     t = Thread(target=logging_server.serve_logging_server_forever,
                args=(f'{experiment_directory}/logs',),
