@@ -12,12 +12,12 @@ import torch.nn.functional as F
 
 class PPOAgent(object):
 
-    def __init__(self, algorithm):
+    def __init__(self, name, algorithm):
         self.training = True
         self.algorithm = algorithm
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
         self.handled_experiences = 0
-        self.name = 'PPO'
+        self.name = name
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
@@ -58,7 +58,7 @@ class PPOAgent(object):
         return clone
 
 
-def build_PPO_Agent(task, config):
+def build_PPO_Agent(task, config, agent_name):
     '''
     :param task: Environment specific configuration
     :param config: Dict containing configuration for ppo agent
@@ -81,4 +81,4 @@ def build_PPO_Agent(task, config):
     model.share_memory()
     ppo_algorithm = PPOAlgorithm(kwargs, model)
 
-    return PPOAgent(algorithm=ppo_algorithm)
+    return PPOAgent(name=agent_name, algorithm=ppo_algorithm)

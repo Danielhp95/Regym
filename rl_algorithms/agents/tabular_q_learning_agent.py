@@ -4,8 +4,8 @@ from ..TQL import RepeatedUpdateQLearningAlgorithm
 
 
 class TabularQLearningAgent():
-    def __init__(self, algorithm):
-        self.name = 'TabularQLearning'
+    def __init__(self, name, algorithm):
+        self.name = name
         self.training = True
         self.algorithm = algorithm
 
@@ -22,7 +22,7 @@ class TabularQLearningAgent():
         return clone
 
 
-def build_TabularQ_Agent(task, config):
+def build_TabularQ_Agent(task, config, agent_name):
     state_space_size, action_space_size = task.state_space_size, task.action_dim
     hash_state = task.hash_function
     if config['use_repeated_update_q_learning']:
@@ -35,4 +35,4 @@ def build_TabularQ_Agent(task, config):
                                               discount_factor=config['discount_factor'],
                                               learning_rate=config['learning_rate'],
                                               epsilon_greedy=config['epsilon_greedy'])
-    return TabularQLearningAgent(algorithm=algorithm)
+    return TabularQLearningAgent(name=agent_name, algorithm=algorithm)

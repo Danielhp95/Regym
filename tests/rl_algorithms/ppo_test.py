@@ -9,7 +9,7 @@ from rl_algorithms import rockAgent
 
 
 def test_ppo_can_take_actions(RPSenv, RPSTask, ppo_config_dict):
-    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     number_of_actions = 30
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
@@ -29,7 +29,7 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     '''
     from rps_test import learns_against_fixed_opponent_RPS
 
-    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     assert agent.training
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
                                       total_episodes=1000, training_percentage=0.9,

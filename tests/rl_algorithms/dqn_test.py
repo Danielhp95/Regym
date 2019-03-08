@@ -13,7 +13,7 @@ from test_fixtures import RPSenv, RPSTask, dqn_config_dict
 
 
 def test_dqn_can_take_actions(RPSenv, RPSTask, dqn_config_dict):
-    agent = build_DQN_Agent(RPSTask, dqn_config_dict)
+    agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     number_of_actions = 30
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
@@ -33,7 +33,7 @@ def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, dqn_config_dict):
     '''
     from rps_test import learns_against_fixed_opponent_RPS
 
-    agent = build_DQN_Agent(RPSTask, dqn_config_dict)
+    agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     agent.training = True
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
                                       total_episodes=5000, training_percentage=0.95,

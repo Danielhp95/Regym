@@ -93,6 +93,7 @@ def create_training_processes(training_jobs, training_environment_creation_funct
 
     logger = logging.getLogger('CreateTrainingProcesses')
     logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
     ps = []
     for job, envCreationFunction in zip(training_jobs, training_environment_creation_functions):
