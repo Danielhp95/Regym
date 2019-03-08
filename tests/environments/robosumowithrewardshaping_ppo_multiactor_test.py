@@ -37,14 +37,14 @@ def test_learns_to_beat_rock_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
     if load_agent:
         agent = AgentHook.load(load_path='/tmp/test_ppo_roboschoolsumo_multiactor-1.agent')
     else:
-        agent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma)
+        agent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_agent')
     agent.training = True
     assert agent.training
     
     if load_opponent:
         opponent = AgentHook.load(load_path='/tmp/test_ppo_roboschoolsumo_multiactor-1.agent')
     else:
-        opponent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma)
+        opponent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_opp')
     opponent.training = False
 
     envname = 'RoboschoolSumoWithRewardShaping-v0'

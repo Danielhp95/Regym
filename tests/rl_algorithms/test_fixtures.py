@@ -24,6 +24,25 @@ def ppo_config_dict():
     return config
 
 
+
+@pytest.fixture
+def ppo_config_dict_ma():
+    config = dict()
+    config['discount'] = 0.99
+    config['use_gae'] = True
+    config['use_cuda'] = True
+    config['gae_tau'] = 0.95
+    config['entropy_weight'] = 0.01
+    config['gradient_clip'] = 5
+    config['optimization_epochs'] = 15
+    config['mini_batch_size'] = 256#4096
+    config['ppo_ratio_clip'] = 0.2
+    config['learning_rate'] = 3.0e-4
+    config['adam_eps'] = 1.0e-5
+    config['nbr_actor'] = 2#32
+    config['horizon'] = 512
+    return config
+
 @pytest.fixture
 def dqn_config_dict():
     config = dict()

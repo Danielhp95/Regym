@@ -35,12 +35,12 @@ def ppo_config_dict_ma():
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
     config['optimization_epochs'] = 15
-    config['mini_batch_size'] = 4096
+    config['mini_batch_size'] = 256#4096
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 32
-    config['horizon'] = 2048 #512
+    config['nbr_actor'] = 2#32
+    config['horizon'] = 512
     return config
 
 

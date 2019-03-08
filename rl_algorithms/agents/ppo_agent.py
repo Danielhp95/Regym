@@ -62,6 +62,7 @@ def build_PPO_Agent(task, config, agent_name):
     '''
     :param task: Environment specific configuration
     :param config: Dict containing configuration for ppo agent
+    :param agent_name: name of the agent
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()

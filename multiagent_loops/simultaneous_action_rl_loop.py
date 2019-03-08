@@ -3,6 +3,7 @@ import copy
 import gym
 from OpenGL import GL
 from tqdm import tqdm
+from environments import ParallelEnv
 
 episode_n = 0
 
@@ -125,16 +126,18 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
 
     menagerie = menagerie
     trajectories = []
-    #progress_bar = tqdm(range(target_episodes) )
-    #for episode in progress_bar:
-    for episode in range(target_episodes):
+    progress_bar = tqdm(range(target_episodes) )
+    for episode in progress_bar:
+    #for episode in range(target_episodes):
         if episode % opci == 0:
             opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
-        #episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
-        episode_trajectory = run_episode_parallel(env, [training_agent]+opponent_agent_vector_e, training=True)
+        if isinstance(env, ParallelEnv):
+            episode_trajectory = run_episode_parallel(env, [training_agent]+opponent_agent_vector_e, training=True)
+        else:
+            episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
         candidate_save_path = f'{agent_menagerie_path}/checkpoint_episode_{iteration + episode}.pt'
         menagerie = self_play_scheme.curator(menagerie, training_agent, episode_trajectory, candidate_save_path=candidate_save_path)
         trajectories.append(episode_trajectory)
-        #progress_bar.set_description(f"Training process {self_play_scheme.name} :: {training_agent.name} :: episode : {episode}/{target_episodes}")
+        progress_bar.set_description(f"Training process {self_play_scheme.name} :: {training_agent.name} :: episode : {episode}/{target_episodes}")
     
     return menagerie, training_agent, trajectories

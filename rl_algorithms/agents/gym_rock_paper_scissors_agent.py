@@ -25,7 +25,8 @@ class MixedStrategyAgent():
         Samples an action based on the probabilities presented by the agent's support vector
         :param state: Ignored for fixed agents
         '''
-        return np.random.choice([0, 1, 2], p=self.support_vector)
+        batch_size = state.shape[0]
+        return [np.random.choice([0, 1, 2], p=self.support_vector) for _ in range(batch_size)]
 
     def handle_experience(self, *args):
         pass
