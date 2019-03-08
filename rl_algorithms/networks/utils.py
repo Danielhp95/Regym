@@ -15,6 +15,17 @@ class PreprocessFunction():
         else:
             return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
+class PreprocessFunctionToTorch():
+
+    def __init__(self, state_space_size, use_cuda=False):
+        self.state_space_size = state_space_size
+        self.use_cuda = use_cuda
+
+    def __call__(self, x):
+        if self.use_cuda:
+            return torch.from_numpy(x).type(torch.cuda.FloatTensor)
+        else:
+            return torch.from_numpy(x).type(torch.FloatTensor)
 
 def random_sample(indices, batch_size):
     indices = np.asarray(np.random.permutation(indices))

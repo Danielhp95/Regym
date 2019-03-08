@@ -45,3 +45,11 @@ class AgentHook():
         if 'use_cuda' in agent_hook.agent.algorithm.kwargs and agent_hook.agent.algorithm.kwargs['use_cuda']:
             for name, model in agent_hook.model_list: setattr(agent_hook.agent.algorithm, name, model.cuda())
         return agent_hook.agent
+
+    @staticmethod
+    def load(load_path):
+        agent = torch.load(load_path)
+        hook = AgentHook(agent)
+        if 'use_cuda' in agent.algorithm.kwargs and agent.algorithm.kwargs['use_cuda']:
+            for name, model in hook.model_list: setattr(agent.algorithm, name, model.cuda())
+        return agent

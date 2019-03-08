@@ -1,7 +1,12 @@
 import os
+import copy
+import gym
+from OpenGL import GL
+from tqdm import tqdm
 
+episode_n = 0
 
-def run_episode(env, agent_vector, training):
+def run_episode(env, agent_vector, training, video=False):
     '''
     Runs a single multi-agent rl loop until termination.
     The observations vector is of length n, where n is the number of agents
@@ -11,6 +16,11 @@ def run_episode(env, agent_vector, training):
     :param training: (boolean) Whether the agents will learn from the experience they recieve
     :returns: Trajectory (o,a,r,o')
     '''
+    if video: 
+        global episode_n
+        episode_n +=1
+        video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env=env, base_path=("/tmp/episode-%i" % episode_n), enabled=True)
+    
     observations = env.reset()
     done = False
     trajectory = []
@@ -22,8 +32,70 @@ def run_episode(env, agent_vector, training):
         if training:
             for i, agent in enumerate(agent_vector):
                 agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
-
+        if video: 
+            video_recorder.capture_frame()
+    
+    if video: 
+        video_recorder.close()
+        print("Video recorded :: episode {}".format(episode_n))
+        
     return trajectory
+
+def run_episode_parallel(env, agent_vector, training, self_play=True):
+    '''
+    Runs a single multi-agent rl loop until termination.
+    The observations vector is of length n, where n is the number of agents
+    observations[i] corresponds to the oberservation of agent i.
+    :param env: ParallelEnv wrapper around an OpenAI gym environment
+    :param agent_vector: Vector containing the agent for each agent in the environment
+    :param training: (boolean) Whether the agents will learn from the experience they recieve
+    :param self_play: boolean specifying the mode in which to operate and, thus, what to return
+    :returns: Trajectory (o,a,r,o') of actor 0, if self_play, trajectories for all the actor otherwise.
+    '''
+    observations = env.reset()
+    nbr_actors = env.get_nbr_envs()
+    done = [False]*nbr_actors
+    previous_done = copy.deepcopy(done)
+    
+    per_actor_trajectories = {i:list() for i in range(nbr_actors)}
+    trajectory = []
+    while not all(done):
+        action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
+        succ_observations, reward_vector, done, info = env.step(action_vector)
+        
+
+        batch_index = -1
+        for actor_index in per_actor_trajectories.keys():
+            if done[actor_index] and previous_done[actor_index]: 
+                continue
+            batch_index +=1
+            
+            pa_obs = [ observations[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
+            pa_a = [ action_vector[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
+            pa_r = [ reward_vector[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
+            pa_succ_obs = [ succ_observations[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
+            pa_done = [ done[actor_index] for idx_agent, agent in enumerate(agent_vector) ]
+            per_actor_trajectories[actor_index].append( (pa_obs, pa_a, pa_r, pa_succ_obs, pa_done) )
+
+            if actor_index == 0 :
+                trajectory.append( (pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]) )
+        
+        observations = succ_observations
+        previous_done = copy.deepcopy(done)
+
+    if training:
+        for actor_index in per_actor_trajectories.keys():
+            #progress_bar = tqdm(range(len(per_actor_trajectories[actor_index] ) ) )
+            for pa_obs, pa_a, pa_r, pa_succ_obs, pa_done in per_actor_trajectories[actor_index]:
+                for i, agent in enumerate(agent_vector):
+                    agent.handle_experience( pa_obs[i], pa_a[i], pa_r[i], pa_succ_obs[i], pa_done[i])
+                #progress_bar.set_description(f' actor_index: {actor_index}')
+    
+    
+    if self_play:
+        return trajectory
+
+    return per_actor_trajectories
 
 
 def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], menagerie_path=None, iteration=None):
@@ -33,8 +105,8 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     - MARL loop
     - Curator
 
-    :param env: OpenAI gym environment
-    :param training_scheme
+    :param env: ParallelEnv wrapper around an OpenAI gym environment
+    :param self_play_scheme: Self-play scheme used to train the agent
     :param training_agent: AgentHook of the agent being trained, together with training algorithm
     :param opponent_sampling_distribution: Probability distribution that
     :param curator: Gating function which determines if the current agent will be added to the menagerie at the end of an episode
@@ -56,7 +128,8 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     for episode in range(target_episodes):
         if episode % opci == 0:
             opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
-        episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
+        #episode_trajectory = run_episode(env, [training_agent]+opponent_agent_vector_e, training=True)
+        episode_trajectory = run_episode_parallel(env, [training_agent]+opponent_agent_vector_e, training=True)
         candidate_save_path = f'{agent_menagerie_path}/checkpoint_episode_{iteration + episode}.pt'
         menagerie = self_play_scheme.curator(menagerie, training_agent, episode_trajectory, candidate_save_path=candidate_save_path)
         trajectories.append(episode_trajectory)
