@@ -27,16 +27,16 @@ agents:
         tau: 1.0e-2
         
     ppo:
-        horizon: 8000
-        nbr_actor: 8
-        discount: 0.995
+        horizon: 512
+        nbr_actor: 32
+        discount: 0.99
         use_gae: True
         use_cuda: True
         gae_tau: 0.95
         entropy_weight: 0.01
         gradient_clip: 5
-        optimization_epochs: 20
-        mini_batch_size: 1000
+        optimization_epochs: 15
+        mini_batch_size: 4096
         ppo_ratio_clip: 0.2
         learning_rate: 3.0e-4
         adam_eps: 1.0e-5

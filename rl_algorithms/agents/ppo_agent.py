@@ -38,7 +38,7 @@ class PPOAgent(object):
         self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
         self.handled_experiences += 1
-        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+        if self.training and self.handled_experiences >= self.algorithm.storage_capacity:
             next_state = self.state_preprocessing(succ_s)
             next_prediction = self.algorithm.model(next_state)
             next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
