@@ -136,7 +136,7 @@ class DeterministicActorCriticNet(nn.Module, BaseNet):
         return self.network.phi_body(obs)
 
     def actor(self, phi):
-        return F.tanh(self.network.fc_action(self.network.actor_body(phi)))
+        return torch.tanh(self.network.fc_action(self.network.actor_body(phi)))
 
     def critic(self, phi, a):
         return self.network.fc_critic(self.network.critic_body(phi, a))
@@ -158,7 +158,7 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
         phi = self.network.phi_body(obs)
         phi_a = self.network.actor_body(phi)
         phi_v = self.network.critic_body(phi)
-        mean = F.tanh(self.network.fc_action(phi_a))
+        mean = torch.tanh(self.network.fc_action(phi_a))
         v = self.network.fc_critic(phi_v)
         dist = torch.distributions.Normal(mean, F.softplus(self.std))
         if action is None:

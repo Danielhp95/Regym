@@ -145,7 +145,7 @@ class ActorNN(nn.Module) :
         # batch x self.action_dim
 
         #scale the actions :
-        unscaled = F.tanh(xx)
+        unscaled = torch.tanh(xx)
         scaled = unscaled * self.action_scaler
         return scaled
 

@@ -43,6 +43,6 @@ class ParallelEnv():
             infos.append(info)
         
         per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1,-1) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]
-        per_env_reward = [ np.concatenate( [ np.array(r[idx_agent]).reshape(1,-1) for r in rewards], axis=0) for idx_agent in range(len(rewards[0]) ) ]
+        per_env_reward = [ np.concatenate( [ np.array(r[idx_agent]).reshape((-1)) for r in rewards], axis=0) for idx_agent in range(len(rewards[0]) ) ]
 
         return per_env_obs, per_env_reward, self.dones, infos

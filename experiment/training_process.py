@@ -28,6 +28,8 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     logger.info('Started')
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
 
+    env = env()
+
     trained_policy_save_directory = f'{base_path}/{process_name}'
     if not os.path.exists(trained_policy_save_directory):
         os.mkdir(trained_policy_save_directory)
@@ -92,7 +94,7 @@ def create_training_processes(training_jobs, training_environments, checkpoint_a
     ps = []
     for job, env in zip(training_jobs, training_environments):
         p = Process(target=training_process,
-                    args=(env(), job.agent, job.training_scheme,
+                    args=(env, job.agent, job.training_scheme,
                           checkpoint_at_iterations, agent_queue, job.name, results_path))
         ps.append(p)
     logger.info("All training jobs submitted")

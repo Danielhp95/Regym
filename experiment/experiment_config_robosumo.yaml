@@ -1,9 +1,9 @@
 experiment:
     experiment_id: 'RoboschoolSumoTest'
     environment: 'RoboschoolSumo-v0'
-    number_of_runs: 1
-    checkpoint_at_iterations: [10,20,30,40,50,100]
-    benchmarking_episodes: 10 
+    number_of_runs: 2
+    checkpoint_at_iterations: [100,200,300,400,500,600,700,800,900,1000]
+    benchmarking_episodes: 100
     self_play_training_schemes: ['fullhistoryselfplay','naiveselfplay']
     algorithms: ['ppo']
     fixed_agents: []
@@ -27,8 +27,8 @@ agents:
         tau: 1.0e-2
         
     ppo:
-        horizon: 4000
-        nbr_actor: 2
+        horizon: 8000
+        nbr_actor: 8
         discount: 0.995
         use_gae: True
         use_cuda: True
@@ -36,7 +36,7 @@ agents:
         entropy_weight: 0.01
         gradient_clip: 5
         optimization_epochs: 20
-        mini_batch_size: 256
+        mini_batch_size: 1000
         ppo_ratio_clip: 0.2
         learning_rate: 3.0e-4
         adam_eps: 1.0e-5

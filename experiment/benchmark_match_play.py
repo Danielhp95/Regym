@@ -34,7 +34,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     # TODO Use given pool, but how?
     with ProcessPoolExecutor(max_workers=3) as executor:
         benchmark_start = time.time()
-        futures = [executor.submit(single_match, *[createNewEnvironment(), agent_vector])
+        futures = [executor.submit(single_match, *[createNewEnvironment, agent_vector])
                    for _ in range(num_episodes)]
 
         wins_vector = [0 for _ in range(len(agent_vector))]
@@ -52,10 +52,10 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     matrix_queue.join()
 
 
-def single_match(env, agent_vector):
+def single_match(createNewEnvironment, agent_vector):
     # trajectory: [(s,a,r,s')]
     unhooked_agents = [AgentHook.unhook(agent) for agent in agent_vector]
-    trajectory = run_episode(env, unhooked_agents, training=False)
+    trajectory = run_episode(createNewEnvironment(), unhooked_agents, training=False)
     reward_vector = lambda t: t[2]
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
     cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]
