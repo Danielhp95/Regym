@@ -1,6 +1,6 @@
 import os
 import sys
-
+#1000, 2000, 3000, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 16]
 sys.path.append(os.path.abspath('..'))
 
 import time
@@ -15,7 +15,7 @@ from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path):
     """
-    :param env: Environment where agents will be trained on
+    :param env: ParallelEnv wrapper around an environment where agents will be trained on.
     :param training_agent: agent representation + training algorithm which will be trained in this process
     :param self_play_scheme: self play scheme used to meta train the param training_agent.
     :param checkpoint_at_iterations: array containing the episodes at which the agents will be cloned for benchmarking against one another
@@ -74,10 +74,10 @@ def write_episodic_reward(enumerated_trajectories, target_file_path):
             f.write('{}, {}\n'.format(iteration, player_1_average_reward))
 
 
-def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, agent_queue, results_path):
+def create_training_processes(training_jobs, training_environments, checkpoint_at_iterations, agent_queue, results_path):
     """
     :param training_jobs: Array of TrainingJob namedtuples containing a training-scheme, algorithm and name
-    :param createNewEnvironment: OpenAI gym environment creation function
+    :param training_environments: PrallelEnvironmentFunction wrapper around an OpenAI gym environment.
     :param checkpoint_at_iterations: array containing the episodes at which the agents will be cloned for benchmarking against one another
     :param agent_queue: queue shared among processes to submit agents that will be benchmarked
     :returns: array of process handlers, needed to join processes at the end of experiment computation
@@ -90,9 +90,9 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     logger.setLevel(logging.DEBUG)
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
     ps = []
-    for job in training_jobs:
+    for job, env in zip(training_jobs, training_environments):
         p = Process(target=training_process,
-                    args=(createNewEnvironment(), job.agent, job.training_scheme,
+                    args=(env(), job.agent, job.training_scheme,
                           checkpoint_at_iterations, agent_queue, job.name, results_path))
         ps.append(p)
     logger.info("All training jobs submitted")

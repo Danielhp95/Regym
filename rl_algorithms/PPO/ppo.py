@@ -1,4 +1,5 @@
 from copy import deepcopy
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -40,9 +41,12 @@ class PPOAlgorithm():
 
         self.compute_advantages_and_returns()
         states, actions, log_probs_old, returns, advantages = self.retrieve_values_from_storage()
-        for _ in range(self.kwargs['optimization_epochs']):
+        #progress_bar = tqdm(range(self.kwargs['optimization_epochs']) )
+        #for epoch in progress_bar:
+        for epoch in range(self.kwargs['optimization_epochs']):
             self.optimize_model(states, actions, log_probs_old, returns, advantages)
-
+            #progress_bar.set_description(f"Training epoch : {epoch}/{self.kwargs['optimization_epochs']}")
+    
         self.storage.reset()
 
     def compute_advantages_and_returns(self):
@@ -70,6 +74,9 @@ class PPOAlgorithm():
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages):
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
+        #nbr_batch = states.size(0)//self.kwargs['mini_batch_size']
+        #progress_bar = tqdm(range(nbr_batch) )
+        #for it,batch_indices in zip(progress_bar,sampler):
         for batch_indices in sampler:
             batch_indices = torch.from_numpy(batch_indices).long()
 
@@ -92,3 +99,5 @@ class PPOAlgorithm():
             (policy_loss + value_loss).backward()
             nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
+            #progress_bar.set_description(f"Epoch: training iteration : {it}/{nbr_batch}")
+

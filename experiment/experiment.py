@@ -6,6 +6,7 @@ import util
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
 
 from rl_algorithms import AgentHook
+from environments import ParallelEnv
 
 from training_process import create_training_processes
 from match_making import match_making_process
@@ -20,11 +21,14 @@ from collections import namedtuple
 TrainingJob = namedtuple('TrainingJob', 'training_scheme agent name')
 
 
-def enumerate_training_jobs(training_schemes, algorithms):
+def enumerate_training_jobs(training_schemes, algorithms, env_name):
     return [TrainingJob(training_scheme, AgentHook(algorithm.clone(training=True)), f'{training_scheme.name}-{algorithm.name}')
             for training_scheme in training_schemes
-            for algorithm in algorithms]
-
+            for algorithm in algorithms], 
+            [EnvironmentCreationFunction(env_name) if not('nbr_actor' in algorithm.kwargs) else ParallelEnvironmentCreationFunction(env_name, algorithm.kwargs['nbr_actor'])
+            for training_scheme in training_schemes
+            for algorithm in algorithms],
+            EnvironmentCreationFunction(env_name)
 
 def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     initial_fixed_agents_to_benchmark = [[iteration, EmptySelfPlay, AgentHook(agent)]
@@ -34,7 +38,7 @@ def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
     return initial_fixed_agents_to_benchmark, fixed_agents_for_confusion
 
 
-def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
+def create_all_initial_processes(training_jobs, training_environments, benchmarking_environment, checkpoint_at_iterations,
                                  agent_queue, matrix_queue, benchmarking_episodes,
                                  fixed_agents_for_confusion, results_path):
 
@@ -42,13 +46,13 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
     benchmark_process_number_workers = 4
     benchmark_process_pool = None # ProcessPoolExecutor(max_workers=benchmark_process_number_workers)
 
-    training_processes = create_training_processes(training_jobs, createNewEnvironment,
+    training_processes = create_training_processes(training_jobs, training_environments,
                                                    checkpoint_at_iterations=checkpoint_at_iterations,
                                                    agent_queue=agent_queue, results_path=results_path)
 
     expected_number_of_agents = (len(training_jobs) + len(fixed_agents_for_confusion)) * len(checkpoint_at_iterations)
     mm_process = Process(target=match_making_process,
-                         args=(expected_number_of_agents, benchmarking_episodes, createNewEnvironment,
+                         args=(expected_number_of_agents, benchmarking_episodes, benchmarking_environment,
                                agent_queue, matrix_queue, benchmark_process_pool))
 
     cfm_process = Process(target=confusion_matrix_process,
@@ -60,7 +64,7 @@ def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint
 class EnvironmentCreationFunction():
 
     def __init__(self, environment_name_cli):
-        valid_environments = ['RockPaperScissors-v0']
+        valid_environments = ['RockPaperScissors-v0','RoboschoolSumo-v0','RoboschoolSumoWithRewardShaping-v0']
         if environment_name_cli not in valid_environments:
             raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
         self.environment_name = environment_name_cli
@@ -68,6 +72,17 @@ class EnvironmentCreationFunction():
     def __call__(self):
         return gym.make(self.environment_name)
 
+class ParallelEnvironmentCreationFunction():
+
+    def __init__(self, environment_name_cli, nbr_parallel_env):
+        valid_environments = ['RockPaperScissors-v0','RoboschoolSumo-v0','RoboschoolSumoWithRewardShaping-v0']
+        if environment_name_cli not in valid_environments:
+            raise ValueError("Unknown environment {}\t valid environments: {}".format(environment_name_cli, valid_environments))
+        self.environment_name = environment_name_cli
+        self.nbr_parallel_env = nbr_parallel_env
+
+    def __call__(self):
+        return ParallelEnv(self.environment_name, self.nbr_parallel_env)
 
 def run_processes(training_processes, mm_process, cfm_process):
     [p.start() for p in training_processes]
@@ -95,7 +110,7 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
     algorithms        = util.experiment_parsing.initialize_algorithms(env, agents_config)
     fixed_agents      = util.experiment_parsing.initialize_fixed_agents(experiment_config['fixed_agents'])
 
-    training_jobs = enumerate_training_jobs(training_schemes, algorithms)
+    training_jobs, training_environments, benchmarking_environment = enumerate_training_jobs(training_schemes, algorithms, experiment_config['environment'])
 
     (initial_fixed_agents_to_benchmark, fixed_agents_for_confusion) = preprocess_fixed_agents(fixed_agents, checkpoint_at_iterations)
     agent_queue, matrix_queue = JoinableQueue(), JoinableQueue()
@@ -104,7 +119,7 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
 
     (training_processes,
      mm_process,
-     cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
+     cfm_process) = create_all_initial_processes(training_jobs, trainint_environments, benchmarking_environment, checkpoint_at_iterations,
                                                  agent_queue, matrix_queue, benchmarking_episodes,
                                                  fixed_agents_for_confusion, results_path)
 

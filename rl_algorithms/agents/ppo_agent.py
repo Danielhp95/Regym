@@ -1,9 +1,10 @@
 import torch
+import numpy as np
 import copy
 
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody
-from ..networks import PreprocessFunction
+from ..networks import PreprocessFunctionToTorch
 from ..PPO import PPOAlgorithm
 
 import torch.nn.functional as F
@@ -21,22 +22,35 @@ class PPOAgent(object):
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
         state = self.state_preprocessing(s)
-        r = torch.ones(1)*r
-        a = torch.from_numpy(a)
+        if isinstance(r, np.ndarray): 
+            r = torch.from_numpy(r).float().view((1))
+        else :
+            r = torch.ones(1)*r
+        r = r.cpu()
+        a = torch.from_numpy(a).cpu().view((1,-1))
 
-        self.algorithm.storage.add(self.current_prediction)
+        current_prediction = self.algorithm.model(state)
+        current_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in current_prediction.items()}
+        current_prediction['a'] = a 
+
+        state = state.cpu().view((1,-1))
+        self.algorithm.storage.add(current_prediction)
         self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
         self.handled_experiences += 1
         if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+            next_state = self.state_preprocessing(succ_s)
+            next_prediction = self.algorithm.model(next_state)
+            next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            self.algorithm.storage.add(next_prediction)            
+            
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def take_action(self, state):
-        state = self.state_preprocessing(state)
-        self.current_prediction = self.algorithm.model(state)
-        self.current_prediction = {k: v.detach() for k, v in self.current_prediction.items()}
-        return self.current_prediction['a'].cpu().detach().numpy()
+    def take_action(self, s):
+        state = self.state_preprocessing(s)
+        current_prediction = self.algorithm.model(state)
+        return current_prediction['a'].cpu().detach().numpy()
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
@@ -51,7 +65,7 @@ def build_PPO_Agent(task, config):
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
-    kwargs['state_preprocess'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
+    kwargs['state_preprocess'] = PreprocessFunctionToTorch(task.observation_dim, kwargs['use_cuda'])
 
     if task.action_type is 'Discrete' and task.observation_type is 'Discrete':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
