@@ -42,3 +42,14 @@ agents:
 
     tabularqlearning:
         learning_rate: 0.5
+        discount_factor: 0.99
+        epsilon_greedy: 0.1
+        use_repeated_update_q_learning: False
+        temperature: 1
+
+    tabularqlearning_ruql:
+        learning_rate: 0.5
+        discount_factor: 0.99
+        epsilon_greedy: 0.1
+        use_repeated_update_q_learning: True
+        temperature: 1

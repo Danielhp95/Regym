@@ -21,4 +21,7 @@ FullHistorySelfPlay = SelfPlayTrainingScheme(partial(delta_dis.opponent_sampling
 HalfHistorySelfPlay = SelfPlayTrainingScheme(partial(delta_dis.opponent_sampling_distribution, delta=0.5, distribution=random.choice),
                                              delta_dis.curator, 'HalfHistorySP')
 
+LastQuarterHistorySelfPlay = SelfPlayTrainingScheme(partial(delta_dis.opponent_sampling_distribution, delta=0.75, distribution=random.choice),
+                                                    delta_dis.curator, 'LastQuarterHistorySelfPlay')
+
 EmptySelfPlay = SelfPlayTrainingScheme(opponent_sampling_distribution=None, curator=None, name='EmptySelfPlay')
