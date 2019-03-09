@@ -202,3 +202,19 @@ def get_file_name_from_full_path(filename):
 def read_labels_from_file(path):
     with open(path, 'r') as f:
         return [line.split(', ')[0] for line in f] # format: 'name, index'
+
+
+if __name__ == '__main__':
+    from docopt import docopt
+    _USAGE = '''
+    Usage:
+      run [options]
+
+    Options:
+        --source String   Path to Yaml experiment configuration file
+    '''
+
+    docopt_options = docopt(_USAGE)
+    source_dir = docopt_options['--source']
+    number_of_runs = len([f for f in os.listdir('./' + source_dir) if f.startswith('run')])
+    create_plots(experiment_directory=source_dir,  number_of_runs=number_of_runs)
