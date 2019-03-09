@@ -1,6 +1,7 @@
 import os
 from os import listdir
 from os.path import isfile, join
+import shutil
 
 import numpy as np
 
@@ -10,11 +11,11 @@ from matplotlib import pyplot as plt
 
 
 def create_plots(experiment_directory, number_of_runs):
-    os.mkdir('{}/plots'.format(experiment_directory))
+    force_create_directory('{}/plots'.format(experiment_directory))
 
     aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict = {}, {}
     for run_id in range(number_of_runs):
-        os.mkdir('{}/run-{}/plots'.format(experiment_directory,run_id))
+        force_create_directory('{}/run-{}/plots'.format(experiment_directory,run_id))
         new_episodic_reward_dict, \
         new_winrate_dict = plot_single_run(run_id=run_id,
                                            source_dir='{}/run-{}'.format(experiment_directory,run_id))
@@ -202,6 +203,12 @@ def get_file_name_from_full_path(filename):
 def read_labels_from_file(path):
     with open(path, 'r') as f:
         return [line.split(', ')[0] for line in f] # format: 'name, index'
+
+
+def force_create_directory(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory)
+    os.makedirs(directory)
 
 
 if __name__ == '__main__':
