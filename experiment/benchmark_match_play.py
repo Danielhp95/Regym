@@ -32,7 +32,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
     agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
 
     # TODO Use given pool, but how?
-    with ProcessPoolExecutor(max_workers=3) as executor:
+    with ProcessPoolExecutor(max_workers=2) as executor:
         benchmark_start = time.time()
         futures = [executor.submit(single_match, *[createNewEnvironment, agent_vector])
                    for _ in range(num_episodes)]
@@ -54,7 +54,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
 
 def single_match(createNewEnvironment, agent_vector):
     # trajectory: [(s,a,r,s')]
-    unhooked_agents = [AgentHook.unhook(agent) for agent in agent_vector]
+    unhooked_agents = [AgentHook.unhook(agent, use_cuda=False) for agent in agent_vector]
     trajectory = run_episode(createNewEnvironment(), unhooked_agents, training=False)
     reward_vector = lambda t: t[2]
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
@@ -84,4 +84,5 @@ def create_benchmark_process(benchmarking_episodes, createNewEnvironment, benchm
                                 args=(benchmarking_episodes, createNewEnvironment,
                                       benchmark_job, pool, matrix_queue, name))
     benchmark_process.start()
+    time.sleep(10*60)
     return benchmark_process

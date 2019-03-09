@@ -1,1 +1,1 @@
-python run.py --config experiment_config_robosumo.yaml
+python run.py --config experiment_config_robosumo.yaml --dest ./
