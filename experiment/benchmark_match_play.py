@@ -84,5 +84,4 @@ def create_benchmark_process(benchmarking_episodes, createNewEnvironment, benchm
                                 args=(benchmarking_episodes, createNewEnvironment,
                                       benchmark_job, pool, matrix_queue, name))
     benchmark_process.start()
-    time.sleep(10*60)
     return benchmark_process
