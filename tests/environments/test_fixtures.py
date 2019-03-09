@@ -30,7 +30,7 @@ def ppo_config_dict_ma():
     config = dict()
     config['discount'] = 0.99
     config['use_gae'] = True
-    config['use_cuda'] = True
+    config['use_cuda'] = False
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5

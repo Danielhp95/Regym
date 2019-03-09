@@ -30,7 +30,7 @@ def initialize_logger():
 
 if __name__ == '__main__':
     import torch
-    torch.multiprocessing.set_start_method('forkserver')
+    torch.multiprocessing.set_start_method('forkserver', force=True)
 
     logger = initialize_logger()
 
