@@ -1,0 +1,3 @@
+HalfHistorySP-ppo_h1024, 0
+LastQuarterHistorySelfPlay-ppo_h1024, 1
+NaiveSP-ppo_h1024, 2

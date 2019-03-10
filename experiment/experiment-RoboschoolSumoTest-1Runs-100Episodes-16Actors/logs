@@ -1,0 +1,313 @@
+[03-10 12:09:27]:INFO:__main__: Starting run: 0
+[03-10 12:09:29]:INFO:CreateTrainingProcesses: Training 3 jobs: [HalfHistorySP-ppo_h1024, LastQuarterHistorySelfPlay-ppo_h1024, NaiveSP-ppo_h1024]. 
+[03-10 12:09:29]:INFO:CreateTrainingProcesses: All training jobs submitted
+[03-10 12:09:30]:INFO:MatchMaking: Started
+[03-10 12:09:30]:INFO:ConfusionMatrixPopulate: Started
+[03-10 12:09:58]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 1 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/1_iterations.pt
+[03-10 12:09:58]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 1 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/1_iterations.pt
+[03-10 12:10:00]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 1 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/1_iterations.pt
+[03-10 12:10:02]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [0,1]: 25.687467575073242 (seconds)
+[03-10 12:10:02]:INFO:MatchMaking: Received (1,NaiveSP,ppo_h1024). 1/33 received
+[03-10 12:10:02]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [0,1]: 26.24710202217102 (seconds)
+[03-10 12:10:03]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [0,1]: 27.390254735946655 (seconds)
+[03-10 12:10:03]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 1: Started for 20 episodes
+[03-10 12:10:52]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 1: Benchmarking finished. Duration: 48.62457323074341 seconds
+[03-10 12:10:52]:INFO:ConfusionMatrixPopulate: Received: it:1 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:10:52]:INFO:MatchMaking: Received (1,LastQuarterHistorySelfPlay,ppo_h1024). 2/33 received
+[03-10 12:10:53]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 1: Started for 20 episodes
+[03-10 12:11:39]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 1: Benchmarking finished. Duration: 45.51004385948181 seconds
+[03-10 12:11:39]:INFO:ConfusionMatrixPopulate: Received: it:1 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:11:40]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 1: Started for 20 episodes
+[03-10 12:12:23]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 1: Benchmarking finished. Duration: 42.285125732421875 seconds
+[03-10 12:12:23]:INFO:ConfusionMatrixPopulate: Received: it:1 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:12:23]:INFO:MatchMaking: Received (1,HalfHistorySP,ppo_h1024). 3/33 received
+[03-10 12:12:24]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 1: Started for 20 episodes
+[03-10 12:13:11]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 1: Benchmarking finished. Duration: 47.136496782302856 seconds
+[03-10 12:13:11]:INFO:ConfusionMatrixPopulate: Received: it:1 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:13:11]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 10 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/10_iterations.pt
+[03-10 12:13:12]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 1: Started for 20 episodes
+[03-10 12:13:17]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [1,10]: 189.4867856502533 (seconds)
+[03-10 12:13:57]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 1: Benchmarking finished. Duration: 44.34033989906311 seconds
+[03-10 12:13:57]:INFO:ConfusionMatrixPopulate: Received: it:1 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:13:58]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 1: Started for 20 episodes
+[03-10 12:14:43]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 1: Benchmarking finished. Duration: 45.011534214019775 seconds
+[03-10 12:14:43]:INFO:ConfusionMatrixPopulate: Received: it:1 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:14:43]:INFO:MatchMaking: Received (10,NaiveSP,ppo_h1024). 4/33 received
+[03-10 12:14:44]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 10: Started for 20 episodes
+[03-10 12:15:26]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 10 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/10_iterations.pt
+[03-10 12:15:28]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 10 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/10_iterations.pt
+[03-10 12:15:29]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [1,10]: 324.0407865047455 (seconds)
+[03-10 12:15:33]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [1,10]: 324.5194442272186 (seconds)
+[03-10 12:15:49]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 10: Benchmarking finished. Duration: 64.68774676322937 seconds
+[03-10 12:15:49]:INFO:ConfusionMatrixPopulate: Received: it:10 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:15:49]:INFO:MatchMaking: Received (10,LastQuarterHistorySelfPlay,ppo_h1024). 5/33 received
+[03-10 12:15:50]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 10: Started for 20 episodes
+[03-10 12:16:46]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 10: Benchmarking finished. Duration: 56.43399167060852 seconds
+[03-10 12:16:46]:INFO:ConfusionMatrixPopulate: Received: it:10 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:16:48]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 10: Started for 20 episodes
+[03-10 12:17:27]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 20 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/20_iterations.pt
+[03-10 12:17:34]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 10: Benchmarking finished. Duration: 46.280353307724 seconds
+[03-10 12:17:34]:INFO:ConfusionMatrixPopulate: Received: it:10 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:17:34]:INFO:MatchMaking: Received (10,HalfHistorySP,ppo_h1024). 6/33 received
+[03-10 12:17:34]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [10,20]: 250.01758360862732 (seconds)
+[03-10 12:17:35]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 10: Started for 20 episodes
+[03-10 12:18:44]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 10: Benchmarking finished. Duration: 68.22389054298401 seconds
+[03-10 12:18:44]:INFO:ConfusionMatrixPopulate: Received: it:10 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:18:45]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 10: Started for 20 episodes
+[03-10 12:19:44]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 10: Benchmarking finished. Duration: 58.55606198310852 seconds
+[03-10 12:19:44]:INFO:ConfusionMatrixPopulate: Received: it:10 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:19:45]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 10: Started for 20 episodes
+[03-10 12:20:54]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 10: Benchmarking finished. Duration: 68.49748659133911 seconds
+[03-10 12:20:54]:INFO:ConfusionMatrixPopulate: Received: it:10 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:20:54]:INFO:MatchMaking: Received (20,NaiveSP,ppo_h1024). 7/33 received
+[03-10 12:20:55]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 20: Started for 20 episodes
+[03-10 12:21:36]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 20 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/20_iterations.pt
+[03-10 12:21:39]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [10,20]: 367.1206068992615 (seconds)
+[03-10 12:22:12]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 20: Benchmarking finished. Duration: 77.73913097381592 seconds
+[03-10 12:22:12]:INFO:ConfusionMatrixPopulate: Received: it:20 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:22:12]:INFO:MatchMaking: Received (20,LastQuarterHistorySelfPlay,ppo_h1024). 8/33 received
+[03-10 12:22:14]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 20: Started for 20 episodes
+[03-10 12:22:14]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 20 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/20_iterations.pt
+[03-10 12:22:18]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [10,20]: 400.1831512451172 (seconds)
+[03-10 12:22:35]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 30 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/30_iterations.pt
+[03-10 12:22:40]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [20,30]: 300.7568037509918 (seconds)
+[03-10 12:23:11]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 20: Benchmarking finished. Duration: 57.520122051239014 seconds
+[03-10 12:23:11]:INFO:ConfusionMatrixPopulate: Received: it:20 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:23:13]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 20: Started for 20 episodes
+[03-10 12:23:52]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 20: Benchmarking finished. Duration: 38.62207365036011 seconds
+[03-10 12:23:52]:INFO:ConfusionMatrixPopulate: Received: it:20 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:23:52]:INFO:MatchMaking: Received (20,HalfHistorySP,ppo_h1024). 9/33 received
+[03-10 12:23:53]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 20: Started for 20 episodes
+[03-10 12:25:01]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 20: Benchmarking finished. Duration: 67.51995325088501 seconds
+[03-10 12:25:01]:INFO:ConfusionMatrixPopulate: Received: it:20 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:25:02]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 20: Started for 20 episodes
+[03-10 12:25:48]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 20: Benchmarking finished. Duration: 46.48746919631958 seconds
+[03-10 12:25:48]:INFO:ConfusionMatrixPopulate: Received: it:20 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:25:50]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 20: Started for 20 episodes
+[03-10 12:26:49]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 20: Benchmarking finished. Duration: 59.04708671569824 seconds
+[03-10 12:26:49]:INFO:ConfusionMatrixPopulate: Received: it:20 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:26:49]:INFO:MatchMaking: Received (30,NaiveSP,ppo_h1024). 10/33 received
+[03-10 12:26:50]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 30: Started for 20 episodes
+[03-10 12:27:35]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 30 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/30_iterations.pt
+[03-10 12:27:35]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [20,30]: 356.1476809978485 (seconds)
+[03-10 12:27:43]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 40 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/40_iterations.pt
+[03-10 12:27:46]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [30,40]: 303.10263657569885 (seconds)
+[03-10 12:27:59]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 30: Benchmarking finished. Duration: 68.96825075149536 seconds
+[03-10 12:27:59]:INFO:ConfusionMatrixPopulate: Received: it:30 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:27:59]:INFO:MatchMaking: Received (30,LastQuarterHistorySelfPlay,ppo_h1024). 11/33 received
+[03-10 12:28:00]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 30: Started for 20 episodes
+[03-10 12:28:46]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 30: Benchmarking finished. Duration: 45.21823763847351 seconds
+[03-10 12:28:46]:INFO:ConfusionMatrixPopulate: Received: it:30 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:28:47]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 30: Started for 20 episodes
+[03-10 12:29:01]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 30 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/30_iterations.pt
+[03-10 12:29:05]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [20,30]: 403.7371952533722 (seconds)
+[03-10 12:29:13]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 30: Benchmarking finished. Duration: 26.539113759994507 seconds
+[03-10 12:29:13]:INFO:ConfusionMatrixPopulate: Received: it:30 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:29:13]:INFO:MatchMaking: Received (40,NaiveSP,ppo_h1024). 12/33 received
+[03-10 12:29:15]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 40: Started for 20 episodes
+[03-10 12:30:03]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 40: Benchmarking finished. Duration: 48.43165397644043 seconds
+[03-10 12:30:03]:INFO:ConfusionMatrixPopulate: Received: it:40 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:30:03]:INFO:MatchMaking: Received (30,HalfHistorySP,ppo_h1024). 13/33 received
+[03-10 12:30:04]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 30: Started for 20 episodes
+[03-10 12:30:59]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 30: Benchmarking finished. Duration: 54.353580474853516 seconds
+[03-10 12:30:59]:INFO:ConfusionMatrixPopulate: Received: it:30 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:31:00]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 30: Started for 20 episodes
+[03-10 12:31:36]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 30: Benchmarking finished. Duration: 35.78612160682678 seconds
+[03-10 12:31:36]:INFO:ConfusionMatrixPopulate: Received: it:30 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:31:37]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 30: Started for 20 episodes
+[03-10 12:32:24]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 30: Benchmarking finished. Duration: 46.1418890953064 seconds
+[03-10 12:32:24]:INFO:ConfusionMatrixPopulate: Received: it:30 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:32:41]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 50 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/50_iterations.pt
+[03-10 12:32:42]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [40,50]: 294.4373388290405 (seconds)
+[03-10 12:32:42]:INFO:MatchMaking: Received (50,NaiveSP,ppo_h1024). 14/33 received
+[03-10 12:32:43]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 50: Started for 20 episodes
+[03-10 12:33:18]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 50: Benchmarking finished. Duration: 35.34828519821167 seconds
+[03-10 12:33:18]:INFO:ConfusionMatrixPopulate: Received: it:50 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:34:09]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 40 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/40_iterations.pt
+[03-10 12:34:17]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [30,40]: 393.84741282463074 (seconds)
+[03-10 12:34:17]:INFO:MatchMaking: Received (40,LastQuarterHistorySelfPlay,ppo_h1024). 15/33 received
+[03-10 12:34:18]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 40: Started for 20 episodes
+[03-10 12:34:57]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 40 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/40_iterations.pt
+[03-10 12:34:58]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [30,40]: 351.46342635154724 (seconds)
+[03-10 12:35:38]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 40: Benchmarking finished. Duration: 80.23056221008301 seconds
+[03-10 12:35:38]:INFO:ConfusionMatrixPopulate: Received: it:40 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:35:40]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 40: Started for 20 episodes
+[03-10 12:37:16]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 60 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/60_iterations.pt
+[03-10 12:37:29]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [50,60]: 274.2711145877838 (seconds)
+[03-10 12:37:33]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 40: Benchmarking finished. Duration: 112.72678637504578 seconds
+[03-10 12:37:33]:INFO:ConfusionMatrixPopulate: Received: it:40 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:37:33]:INFO:MatchMaking: Received (40,HalfHistorySP,ppo_h1024). 16/33 received
+[03-10 12:37:34]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 40: Started for 20 episodes
+[03-10 12:38:14]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 40: Benchmarking finished. Duration: 40.53289723396301 seconds
+[03-10 12:38:14]:INFO:ConfusionMatrixPopulate: Received: it:40 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:38:16]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 40: Started for 20 episodes
+[03-10 12:39:28]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 40: Benchmarking finished. Duration: 71.98685073852539 seconds
+[03-10 12:39:28]:INFO:ConfusionMatrixPopulate: Received: it:40 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:39:29]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 40: Started for 20 episodes
+[03-10 12:40:03]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 40: Benchmarking finished. Duration: 34.18711519241333 seconds
+[03-10 12:40:03]:INFO:ConfusionMatrixPopulate: Received: it:40 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:40:03]:INFO:MatchMaking: Received (60,NaiveSP,ppo_h1024). 17/33 received
+[03-10 12:40:05]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 60: Started for 20 episodes
+[03-10 12:41:07]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 50 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/50_iterations.pt
+[03-10 12:41:13]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 50 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/50_iterations.pt
+[03-10 12:41:16]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [40,50]: 409.62552309036255 (seconds)
+[03-10 12:41:28]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [40,50]: 375.08398842811584 (seconds)
+[03-10 12:42:01]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 60: Benchmarking finished. Duration: 115.90439629554749 seconds
+[03-10 12:42:01]:INFO:ConfusionMatrixPopulate: Received: it:60 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:42:01]:INFO:MatchMaking: Received (50,LastQuarterHistorySelfPlay,ppo_h1024). 18/33 received
+[03-10 12:42:02]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 50: Started for 20 episodes
+[03-10 12:42:12]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 70 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/70_iterations.pt
+[03-10 12:42:21]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [60,70]: 282.85143876075745 (seconds)
+[03-10 12:43:08]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 50: Benchmarking finished. Duration: 66.29082918167114 seconds
+[03-10 12:43:09]:INFO:ConfusionMatrixPopulate: Received: it:50 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:43:10]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 50: Started for 20 episodes
+[03-10 12:44:49]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 50: Benchmarking finished. Duration: 99.72742533683777 seconds
+[03-10 12:44:49]:INFO:ConfusionMatrixPopulate: Received: it:50 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:44:50]:INFO:MatchMaking: Received (50,HalfHistorySP,ppo_h1024). 19/33 received
+[03-10 12:44:51]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 50: Started for 20 episodes
+[03-10 12:46:07]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 50: Benchmarking finished. Duration: 76.35575580596924 seconds
+[03-10 12:46:07]:INFO:ConfusionMatrixPopulate: Received: it:50 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:46:10]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 50: Started for 20 episodes
+[03-10 12:47:11]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 80 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/80_iterations.pt
+[03-10 12:47:18]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [70,80]: 290.59558749198914 (seconds)
+[03-10 12:47:37]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 60 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/60_iterations.pt
+[03-10 12:47:47]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [50,60]: 380.51708364486694 (seconds)
+[03-10 12:47:58]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 50: Benchmarking finished. Duration: 108.23789954185486 seconds
+[03-10 12:47:58]:INFO:ConfusionMatrixPopulate: Received: it:50 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:48:00]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 50: Started for 20 episodes
+[03-10 12:48:26]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 60 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/60_iterations.pt
+[03-10 12:48:36]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [50,60]: 417.7353446483612 (seconds)
+[03-10 12:49:56]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 50: Benchmarking finished. Duration: 115.92847299575806 seconds
+[03-10 12:49:56]:INFO:ConfusionMatrixPopulate: Received: it:50 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:49:56]:INFO:MatchMaking: Received (70,NaiveSP,ppo_h1024). 20/33 received
+[03-10 12:50:03]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 70: Started for 20 episodes
+[03-10 12:51:31]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 70: Benchmarking finished. Duration: 86.97052025794983 seconds
+[03-10 12:51:31]:INFO:ConfusionMatrixPopulate: Received: it:70 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:51:31]:INFO:MatchMaking: Received (80,NaiveSP,ppo_h1024). 21/33 received
+[03-10 12:51:37]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 80: Started for 20 episodes
+[03-10 12:52:12]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 90 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/90_iterations.pt
+[03-10 12:52:17]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [80,90]: 293.77854657173157 (seconds)
+[03-10 12:52:51]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 80: Benchmarking finished. Duration: 74.20788764953613 seconds
+[03-10 12:52:51]:INFO:ConfusionMatrixPopulate: Received: it:80 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 12:52:51]:INFO:MatchMaking: Received (60,LastQuarterHistorySelfPlay,ppo_h1024). 22/33 received
+[03-10 12:53:00]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 60: Started for 20 episodes
+[03-10 12:53:53]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 70 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/70_iterations.pt
+[03-10 12:54:00]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [60,70]: 365.96482276916504 (seconds)
+[03-10 12:54:42]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 60: Benchmarking finished. Duration: 101.33894300460815 seconds
+[03-10 12:54:42]:INFO:ConfusionMatrixPopulate: Received: it:60 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:54:56]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 60: Started for 20 episodes
+[03-10 12:55:16]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 70 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/70_iterations.pt
+[03-10 12:55:25]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [60,70]: 399.75232434272766 (seconds)
+[03-10 12:56:31]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 60: Benchmarking finished. Duration: 94.23909091949463 seconds
+[03-10 12:56:31]:INFO:ConfusionMatrixPopulate: Received: it:60 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 12:56:31]:INFO:MatchMaking: Received (60,HalfHistorySP,ppo_h1024). 23/33 received
+[03-10 12:56:45]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 60: Started for 20 episodes
+[03-10 12:57:12]:INFO:NaiveSP-ppo_h1024: Submitted agent at iteration 100 :: saving at .//experiment-RoboschoolSumoTest/run-0/NaiveSP-ppo_h1024/100_iterations.pt
+[03-10 12:57:16]:INFO:NaiveSP-ppo_h1024: Training duration between iterations [90,100]: 294.477046251297 (seconds)
+[03-10 12:57:16]:INFO:NaiveSP-ppo_h1024: All training completed. Total duration: 2865.5962297916412 seconds
+[03-10 12:58:37]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 60: Benchmarking finished. Duration: 111.84236025810242 seconds
+[03-10 12:58:37]:INFO:ConfusionMatrixPopulate: Received: it:60 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 12:58:49]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 60: Started for 20 episodes
+[03-10 12:59:59]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 80 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/80_iterations.pt
+[03-10 13:00:03]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [70,80]: 358.4049746990204 (seconds)
+[03-10 13:00:15]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 60: Benchmarking finished. Duration: 85.69432520866394 seconds
+[03-10 13:00:15]:INFO:ConfusionMatrixPopulate: Received: it:60 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:00:18]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 60: Started for 20 episodes
+[03-10 13:00:49]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 80 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/80_iterations.pt
+[03-10 13:00:54]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [70,80]: 324.2785053253174 (seconds)
+[03-10 13:01:42]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 60: Benchmarking finished. Duration: 83.85570478439331 seconds
+[03-10 13:01:42]:INFO:ConfusionMatrixPopulate: Received: it:60 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:01:42]:INFO:MatchMaking: Received (90,NaiveSP,ppo_h1024). 24/33 received
+[03-10 13:01:52]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 90: Started for 20 episodes
+[03-10 13:02:47]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 90: Benchmarking finished. Duration: 55.14828109741211 seconds
+[03-10 13:02:47]:INFO:ConfusionMatrixPopulate: Received: it:90 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 13:02:47]:INFO:MatchMaking: Received (70,LastQuarterHistorySelfPlay,ppo_h1024). 25/33 received
+[03-10 13:02:50]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 70: Started for 20 episodes
+[03-10 13:03:57]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 70: Benchmarking finished. Duration: 66.43439793586731 seconds
+[03-10 13:03:57]:INFO:ConfusionMatrixPopulate: Received: it:70 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:04:09]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 70: Started for 20 episodes
+[03-10 13:05:17]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 90 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/90_iterations.pt
+[03-10 13:05:17]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 70: Benchmarking finished. Duration: 67.78587770462036 seconds
+[03-10 13:05:17]:INFO:ConfusionMatrixPopulate: Received: it:70 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:05:17]:INFO:MatchMaking: Received (70,HalfHistorySP,ppo_h1024). 26/33 received
+[03-10 13:05:18]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [80,90]: 313.79955863952637 (seconds)
+[03-10 13:05:32]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 70: Started for 20 episodes
+[03-10 13:05:46]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 90 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/90_iterations.pt
+[03-10 13:05:46]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [80,90]: 291.6414988040924 (seconds)
+[03-10 13:07:09]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 70: Benchmarking finished. Duration: 97.1157283782959 seconds
+[03-10 13:07:09]:INFO:ConfusionMatrixPopulate: Received: it:70 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:07:23]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 70: Started for 20 episodes
+[03-10 13:08:39]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 70: Benchmarking finished. Duration: 75.85056471824646 seconds
+[03-10 13:08:39]:INFO:ConfusionMatrixPopulate: Received: it:70 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:08:54]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 70: Started for 20 episodes
+[03-10 13:10:11]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 70: Benchmarking finished. Duration: 77.1660270690918 seconds
+[03-10 13:10:11]:INFO:ConfusionMatrixPopulate: Received: it:70 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:10:12]:INFO:MatchMaking: Received (100,NaiveSP,ppo_h1024). 27/33 received
+[03-10 13:10:21]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Submitted agent at iteration 100 :: saving at .//experiment-RoboschoolSumoTest/run-0/LastQuarterHistorySelfPlay-ppo_h1024/100_iterations.pt
+[03-10 13:10:21]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: Training duration between iterations [90,100]: 302.02488255500793 (seconds)
+[03-10 13:10:22]:INFO:LastQuarterHistorySelfPlay-ppo_h1024: All training completed. Total duration: 3651.535504579544 seconds
+[03-10 13:10:26]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 100: Started for 20 episodes
+[03-10 13:10:55]:INFO:HalfHistorySP-ppo_h1024: Submitted agent at iteration 100 :: saving at .//experiment-RoboschoolSumoTest/run-0/HalfHistorySP-ppo_h1024/100_iterations.pt
+[03-10 13:11:00]:INFO:HalfHistorySP-ppo_h1024: Training duration between iterations [90,100]: 308.7347695827484 (seconds)
+[03-10 13:11:01]:INFO:HalfHistorySP-ppo_h1024: All training completed. Total duration: 3690.892291545868 seconds
+[03-10 13:11:07]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (NaiveSP,ppo_h1024). iteration: 100: Benchmarking finished. Duration: 40.25924730300903 seconds
+[03-10 13:11:07]:INFO:ConfusionMatrixPopulate: Received: it:100 (NaiveSP,ppo_h1024)-(NaiveSP,ppo_h1024)
+[03-10 13:11:07]:INFO:MatchMaking: Received (80,LastQuarterHistorySelfPlay,ppo_h1024). 28/33 received
+[03-10 13:11:07]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 80: Started for 20 episodes
+[03-10 13:11:45]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 80: Benchmarking finished. Duration: 37.61956214904785 seconds
+[03-10 13:11:45]:INFO:ConfusionMatrixPopulate: Received: it:80 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:11:46]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 80: Started for 20 episodes
+[03-10 13:12:19]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 80: Benchmarking finished. Duration: 33.36549258232117 seconds
+[03-10 13:12:19]:INFO:ConfusionMatrixPopulate: Received: it:80 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:12:20]:INFO:MatchMaking: Received (80,HalfHistorySP,ppo_h1024). 29/33 received
+[03-10 13:12:20]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 80: Started for 20 episodes
+[03-10 13:13:00]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 80: Benchmarking finished. Duration: 39.76169800758362 seconds
+[03-10 13:13:00]:INFO:ConfusionMatrixPopulate: Received: it:80 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:13:01]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 80: Started for 20 episodes
+[03-10 13:13:36]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 80: Benchmarking finished. Duration: 35.03656625747681 seconds
+[03-10 13:13:36]:INFO:ConfusionMatrixPopulate: Received: it:80 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:13:37]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 80: Started for 20 episodes
+[03-10 13:14:14]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 80: Benchmarking finished. Duration: 37.3110716342926 seconds
+[03-10 13:14:14]:INFO:ConfusionMatrixPopulate: Received: it:80 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:14:14]:INFO:MatchMaking: Received (90,LastQuarterHistorySelfPlay,ppo_h1024). 30/33 received
+[03-10 13:14:15]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 90: Started for 20 episodes
+[03-10 13:14:44]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 90: Benchmarking finished. Duration: 29.00663661956787 seconds
+[03-10 13:14:44]:INFO:ConfusionMatrixPopulate: Received: it:90 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:14:45]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 90: Started for 20 episodes
+[03-10 13:15:07]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 90: Benchmarking finished. Duration: 22.361281156539917 seconds
+[03-10 13:15:07]:INFO:ConfusionMatrixPopulate: Received: it:90 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:15:07]:INFO:MatchMaking: Received (90,HalfHistorySP,ppo_h1024). 31/33 received
+[03-10 13:15:08]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 90: Started for 20 episodes
+[03-10 13:15:33]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 90: Benchmarking finished. Duration: 24.757649898529053 seconds
+[03-10 13:15:33]:INFO:ConfusionMatrixPopulate: Received: it:90 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:15:33]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 90: Started for 20 episodes
+[03-10 13:15:52]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 90: Benchmarking finished. Duration: 18.85099983215332 seconds
+[03-10 13:15:52]:INFO:ConfusionMatrixPopulate: Received: it:90 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:15:53]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 90: Started for 20 episodes
+[03-10 13:16:08]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 90: Benchmarking finished. Duration: 14.621434450149536 seconds
+[03-10 13:16:08]:INFO:ConfusionMatrixPopulate: Received: it:90 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:16:08]:INFO:MatchMaking: Received (100,LastQuarterHistorySelfPlay,ppo_h1024). 32/33 received
+[03-10 13:16:08]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 100: Started for 20 episodes
+[03-10 13:16:29]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 100: Benchmarking finished. Duration: 20.75253987312317 seconds
+[03-10 13:16:29]:INFO:ConfusionMatrixPopulate: Received: it:100 (NaiveSP,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:16:30]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 100: Started for 20 episodes
+[03-10 13:16:43]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (LastQuarterHistorySelfPlay,ppo_h1024). iteration: 100: Benchmarking finished. Duration: 13.201647758483887 seconds
+[03-10 13:16:43]:INFO:ConfusionMatrixPopulate: Received: it:100 (LastQuarterHistorySelfPlay,ppo_h1024)-(LastQuarterHistorySelfPlay,ppo_h1024)
+[03-10 13:16:43]:INFO:MatchMaking: Received (100,HalfHistorySP,ppo_h1024). 33/33 received
+[03-10 13:16:44]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 100: Started for 20 episodes
+[03-10 13:17:26]:INFO:Benchmark:(NaiveSP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 100: Benchmarking finished. Duration: 41.64868450164795 seconds
+[03-10 13:17:26]:INFO:ConfusionMatrixPopulate: Received: it:100 (NaiveSP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:17:27]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 100: Started for 20 episodes
+[03-10 13:17:54]:INFO:Benchmark:(LastQuarterHistorySelfPlay,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 100: Benchmarking finished. Duration: 27.050578594207764 seconds
+[03-10 13:17:54]:INFO:ConfusionMatrixPopulate: Received: it:100 (LastQuarterHistorySelfPlay,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:17:54]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 100: Started for 20 episodes
+[03-10 13:18:35]:INFO:Benchmark:(HalfHistorySP,ppo_h1024) vs (HalfHistorySP,ppo_h1024). iteration: 100: Benchmarking finished. Duration: 40.74377703666687 seconds
+[03-10 13:18:35]:INFO:ConfusionMatrixPopulate: Received: it:100 (HalfHistorySP,ppo_h1024)-(HalfHistorySP,ppo_h1024)
+[03-10 13:18:35]:INFO:ConfusionMatrixPopulate: All confusion matrices completed. Writing to memory
+[03-10 13:18:36]:INFO:ConfusionMatrixPopulate: Writing completed
+[03-10 13:18:37]:INFO:__main__: Finished run: 0. Duration: 4149.8801209926605 (seconds)
+
+[03-10 13:18:38]:INFO:__main__: Total experiment duration: 4149.8801209926605
+[03-10 13:18:38]:INFO:__main__: Experiment mean run duration: 4149.8801209926605
+[03-10 13:18:38]:INFO:__main__: Experiment std dev duration:  0.0
+[03-10 13:18:38]:INFO:__main__: Started plot creation

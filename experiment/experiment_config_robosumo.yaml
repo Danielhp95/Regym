@@ -1,10 +1,10 @@
 experiment:
-    experiment_id: 'RoboschoolSumoTest'
+    experiment_id: 'RoboschoolSumoTest-2Runs-200Episodes-32Actors'
     environment: 'RoboschoolSumo-v0'
-    number_of_runs: 3
-    checkpoint_at_iterations: [10, 100,200,300,400,500,600,700,800,900,1000]
+    number_of_runs: 2
+    checkpoint_at_iterations: [1,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200]
     benchmarking_episodes: 20
-    self_play_training_schemes: ['fullhistoryselfplay', 'halfhistoryselfplay', 'lastquarterhistoryselfplay', 'naiveselfplay']
+    self_play_training_schemes: ['halfhistoryselfplay', 'lastquarterhistoryselfplay', 'naiveselfplay']
     algorithms: ['ppo']
     fixed_agents: []
 
@@ -28,7 +28,7 @@ agents:
         
     ppo_h1024:
         horizon: 1024
-        nbr_actor: 8
+        nbr_actor: 32
         discount: 0.99
         use_gae: True
         use_cuda: True
