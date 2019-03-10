@@ -65,7 +65,7 @@ def create_aggregated_individual_episodic_reward_plots(episodic_reward_dict, tar
         plt.ylabel('Average episodic reward')
         plt.title('Average episodic reward \nfor policy: {}'.format(name))
 
-        plt.savefig('{}/episodic_reward-{}.svg'.format(target_dir,name), format='svg')
+        plt.savefig('{}/episodic_reward-{}.eps'.format(target_dir,name), format='eps')
         plt.tight_layout()
         plt.close()
 
@@ -91,7 +91,7 @@ def create_aggregated_benchmark_winrate_plot(winrate_dict, target_dir):
     plt.xlabel('Training iteration')
     plt.title('Average winrate against all opponents')
     plt.tight_layout()
-    plt.savefig('{}/benchmark_winrates.svg'.format(target_dir), format='svg')
+    plt.savefig('{}/benchmark_winrates.eps'.format(target_dir), format='eps')
     plt.close()
 
 
@@ -141,7 +141,7 @@ def create_single_heatmap(source, target_dir, axis_labels):
     plt.title('Head to head winrates after training iteration {}'.format(iteration))
     plt.tight_layout()
 
-    fig.savefig('{}/heatmap-{}.svg'.format(target_dir,file_name), format='svg')
+    fig.savefig('{}/heatmap-{}.eps'.format(target_dir, file_name), format='eps')
 
 
 def create_average_winrate_graph(source_dir, target_dir):
@@ -164,7 +164,7 @@ def create_average_winrate_graph(source_dir, target_dir):
     plt.ylabel('Average Winrate')
     plt.xlabel('Training iteration')
     plt.title('Average winrate against all opponents')
-    plt.savefig('{}/benchmark_winrates.svg'.format(target_dir), format='svg')
+    plt.savefig('{}/benchmark_winrates.eps'.format(target_dir), format='eps')
 
     return benchmark_winrate_dict
 
@@ -186,7 +186,7 @@ def create_individual_episodic_reward_graph(source_dir, target_dir):
         plt.plot(iterations, avg_reward)
 
         plt.title('Average episodic reward during training\nfor policy: {}'.format(file_name))
-        plt.savefig('{}/episodic_reward-{}.svg'.format(target_dir,file_name), format='svg')
+        plt.savefig('{}/episodic_reward-{}.eps'.format(target_dir, file_name), format='eps')
         plt.close()
     return episodic_reward_dict
 
