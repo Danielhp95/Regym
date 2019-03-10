@@ -2,6 +2,7 @@ import os
 from os import listdir
 from os.path import isfile, join
 import shutil
+from tqdm import tqdm
 
 import numpy as np
 
@@ -14,17 +15,17 @@ def create_plots(experiment_directory, number_of_runs):
     force_create_directory('{}/plots'.format(experiment_directory))
 
     aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict = {}, {}
-    for run_id in range(number_of_runs):
-        force_create_directory('{}/run-{}/plots'.format(experiment_directory,run_id))
+    for run_id in tqdm(range(number_of_runs)):
+        force_create_directory('{}/run-{}/plots'.format(experiment_directory, run_id))
         new_episodic_reward_dict, \
         new_winrate_dict = plot_single_run(run_id=run_id,
-                                           source_dir='{}/run-{}'.format(experiment_directory,run_id))
+                                           source_dir='{}/run-{}'.format(experiment_directory, run_id))
         update_aggregated_statistics(aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict,
                                      new_episodic_reward_dict, new_winrate_dict)
 
     create_aggregated_plots(aggregated_episodic_reward_dict,
                             aggregated_benchmark_winrate_dict,
-                            target_dir='{}/plots'.format(experiment_directory) )
+                            target_dir='{}/plots'.format(experiment_directory))
 
 
 def update_aggregated_statistics(aggregated_episodic_reward_dict, aggregated_benchmark_winrate_dict,
@@ -65,7 +66,7 @@ def create_aggregated_individual_episodic_reward_plots(episodic_reward_dict, tar
         plt.ylabel('Average episodic reward')
         plt.title('Average episodic reward \nfor policy: {}'.format(name))
 
-        plt.savefig('{}/episodic_reward-{}.eps'.format(target_dir,name), format='eps')
+        plt.savefig('{}/episodic_reward-{}.eps'.format(target_dir, name), format='eps')
         plt.tight_layout()
         plt.close()
 
