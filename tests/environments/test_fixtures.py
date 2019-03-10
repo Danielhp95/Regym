@@ -44,6 +44,27 @@ def ppo_config_dict_ma():
     return config
 
 
+#@pytest.fixture
+def ddpg_config_dict_ma():
+    config = dict()
+    config['discount'] = 0.99
+    config['tau'] = 1e-3
+    config['use_cuda'] = True
+    config['nbrTrainIteration'] = 1 
+    config['action_scaler'] = 1.0 
+    config['use_HER'] = False
+    config['HER_k'] = 2
+    config['HER_strategy'] = 'future'
+    config['HER_use_singlegoal'] = False 
+    config['use_PER'] = True 
+    config['PER_alpha'] = 0.7 
+    config['replay_capacity'] = 25e3
+    config['min_capacity'] = 5e3 
+    config['batch_size'] = 32#128
+    config['learning_rate'] = 3.0e-4
+    config['nbr_actor'] = 4#32
+    return config
+
 @pytest.fixture
 def dqn_config_dict():
     config = dict()
@@ -76,13 +97,13 @@ def tabular_q_learning_config_dict():
     return config
 
 
-@pytest.fixture
+#@pytest.fixture
 def RoboSumoenv():
     import roboschool
     import gym
     return gym.make('RoboschoolSumo-v0')
 
 
-@pytest.fixture
+#@pytest.fixture
 def RoboSumoTask(RoboSumoenv):
     return parse_gym_environment(RoboSumoenv)

@@ -141,11 +141,11 @@ class ActorNN(nn.Module) :
         # batch x 400
         out = self.actfn( self.actor1( fx ) )
         # batch x 300
-        out = self.actor2( fx )
+        out = self.actor2( out )
         # batch x self.action_dim
 
         #scale the actions :
-        unscaled = torch.tanh(xx)
+        unscaled = torch.tanh(out)
         scaled = unscaled * self.action_scaler
         return scaled
 

@@ -31,17 +31,16 @@ class DeepDeterministicPolicyGradientAlgorithm :
     def __init__(self,kwargs, models) :
         """
         :param kwargs:
-            "path": str specifying where to save the model(s).
             "use_cuda": boolean to specify whether to use CUDA.
             "replay_capacity": int, capacity of the replay buffer to use.
             "min_capacity": int, minimal capacity before starting to learn.
             "batch_size": int, batch size to use [default: batch_size=256].
             "use_PER": boolean to specify whether to use a Prioritized Experience Replay buffer.
             "PER_alpha": float, alpha value for the Prioritized Experience Replay buffer.
-            "lr": float, learning rate [default: lr=1e-3].
+            "learning_rate": float, learning rate [default: learning_rate=1e-3].
             "tau": float, soft-update rate [default: tau=1e-3].
-            "gamma": float, Q-learning gamma rate [default: gamma=0.999].
-            "preprocess": preprocessing function/transformation to apply to observations [default: preprocess=T.ToTensor()]
+            "discount": float, Q-learning gamma rate [default: gamma=0.999].
+            "state_preprocess": preprocessing function/transformation to apply to observations [default: state_preprocess=T.ToTensor()]
             "nbrTrainIteration": int, number of iteration to train the model at each new experience. [default: nbrTrainIteration=1]
         :param models: dict
             "actor": actor model of the agent to use/optimize in this algorithm.
@@ -75,14 +74,14 @@ class DeepDeterministicPolicyGradientAlgorithm :
         self.min_capacity = kwargs["min_capacity"]
         self.batch_size = kwargs["batch_size"]
 
-        self.lr = kwargs["lr"]
-        self.TAU = kwargs["tau"]
-        self.GAMMA = kwargs["gamma"]
+        self.lr = kwargs["learning_rate"]
+        self.tau = kwargs["tau"]
+        self.gamma = kwargs["discount"]
         
         self.optimizer_actor = optim.Adam(self.model_actor.parameters(), lr=self.lr*1e-1 )
         self.optimizer_critic = optim.Adam(self.model_critic.parameters(), lr=self.lr )
 
-        self.preprocess = kwargs["preprocess"]
+        self.state_preprocessing = kwargs["state_preprocessing"]
 
         self.noise = OrnsteinUhlenbeckNoise(self.model_actor.action_dim)
     
@@ -104,14 +103,12 @@ class DeepDeterministicPolicyGradientAlgorithm :
         return qsa.cpu().data.numpy()
 
     def update_targets(self):
-        soft_update(self.target_critic, self.critic, self.tau)
-        soft_update(self.target_actor, self.actor, self.tau)
+        soft_update(self.target_critic, self.model_critic, self.tau)
+        soft_update(self.target_actor, self.model_actor, self.tau)
         
     def optimize_model(self, gradient_clamping_value=None) :
         """
-        
         Optional: at the end, update the Prioritized Experience Replay buffer with new priorities.
-        
         :param gradient_clamping_value: if None, the gradient is not clamped, 
                                         otherwise a positive float value is expected as a clamping value 
                                         and gradients are clamped.
@@ -122,40 +119,18 @@ class DeepDeterministicPolicyGradientAlgorithm :
             return None
         
         if self.kwargs['use_PER'] :
-            #Create batch with PrioritizedReplayBuffer/PER:
-            prioritysum = self.replayBuffer.total()
-            low = 0.0
-            step = (prioritysum-low) / self.batch_size
-            try:
-                randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(self.batch_size))
-            except Exception as e :
-                print( prioritysum, step)
-                raise e
-            
-            batch = list()
-            priorities = []
-            for i in range(self.batch_size):
-                try :
-                    el = self.replayBuffer.get(randexp[i])
-                    priorities.append( el[1] )
-                    batch.append(el)
-                except TypeError as e :
-                    continue
-            
-            batch = EXPPER( *zip(*batch) )
-
-            # Importance Sampling Weighting:
-            beta = 1.0
-            priorities = Variable( torch.from_numpy( np.array(priorities) ), requires_grad=False).float()
-            importanceSamplingWeights = torch.pow( len(self.replayBuffer) * priorities , -beta)
+            # Create batch with PrioritizedReplayBuffer/PER:
+            transitions, importanceSamplingWeights = self.replayBuffer.sample(self.batch_size)
+            batch = EXPPER(*zip(*transitions))
+            importanceSamplingWeights = torch.from_numpy(importanceSamplingWeights)
         else :
             # Create Batch with replayBuffer :
             transitions = replayBuffer.sample(self.batch_size)
             batch = EXP(*zip(*transitions) )
 
-        next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False)
-        state_batch = Variable( torch.cat( batch.state) , requires_grad=False)
-        action_batch = Variable( torch.cat( batch.action) , requires_grad=False)
+        next_state_batch = Variable(torch.cat( batch.next_state), requires_grad=False).float()
+        state_batch = Variable( torch.cat( batch.state) , requires_grad=False).float()
+        action_batch = Variable( torch.cat( batch.action) , requires_grad=False).float()
         reward_batch = Variable( torch.cat( batch.reward ), requires_grad=False ).view((-1,1))
         done_batch = [ 0.0 if batch.done[i] else 1.0 for i in range(len(batch.done)) ]
         done_batch = Variable( torch.FloatTensor(done_batch), requires_grad=False ).view((-1,1))
@@ -175,12 +150,12 @@ class DeepDeterministicPolicyGradientAlgorithm :
         # sample action from next_state, without gradient repercusion :
         next_taction = self.target_actor(next_state_batch).detach()
         # evaluate the next state action over the target, without repercusion :
-        next_tqsa = torch.squeeze( self.target_critic( next_state_batch, next_taction).detach() ).view((-1))
+        next_tqsa = torch.squeeze( self.target_critic( next_state_batch, next_taction).detach() ).view((-1,1))
         # Critic loss :
         ## y_true :
         y_true = reward_batch + (1.0-done_batch)*self.gamma*next_tqsa
         ## y_pred :
-        y_pred = torch.squeeze( self.critic(state_batch,action_batch) )
+        y_pred = torch.squeeze( self.model_critic(state_batch,action_batch) ). view((-1,1))
         
         # Compute loss:
         diff = y_true - y_pred
@@ -224,7 +199,6 @@ class DeepDeterministicPolicyGradientAlgorithm :
 
         
         ###################################
-
         loss = torch.abs(actor_loss_per_item) + torch.abs(critic_loss_per_item)
         loss_np = loss.cpu().data.numpy()
         if self.kwargs['use_PER']:

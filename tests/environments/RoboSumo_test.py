@@ -21,7 +21,7 @@ def learns_against_fixed_opponent_RoboSumo(agent, fixed_opponent, total_episodes
     
     agent.training = False
     if save:
-        agent_hook = AgentHook(agent.clone(), save_path='/tmp/test_ppo_{}.agent'.format(envname))
+        agent_hook = AgentHook(agent.clone(), save_path='/tmp/test_ddpg_{}.agent'.format(envname))
 
     inference_trajectories = simulate(env, agent, fixed_opponent, episodes=inference_episodes, training=False)
 
@@ -58,7 +58,7 @@ def learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent, total
     
     agent.training = False
     if save:
-        agent_hook = AgentHook(agent.clone(), save_path='/tmp/test_ppo_{}.agent'.format(envname))
+        agent_hook = AgentHook(agent.clone(), save_path='/tmp/test_ddpg_{}.agent'.format(envname))
 
     env = gym.make(envname)
     inference_trajectories = simulate(env, agent, fixed_opponent, episodes=inference_episodes, training=False)

@@ -27,7 +27,7 @@ class AgentHook():
         elif isinstance(agent, DeepQNetworkAgent):
             agent_type, model_list = AgentType.DQN, [('model', agent.algorithm.model), ('target_model', agent.algorithm.target_model)]
         elif isinstance(agent, DDPGAgent):
-            agent_type, model_list = AgentType.DDPG, [('model_actor', agent.algorithm.model_actor), ('model_critic', agent.algorithm.model_critic)]
+            agent_type, model_list = AgentType.DDPG, [('model_actor', agent.algorithm.model_actor), ('model_critic', agent.algorithm.model_critic), ('target_actor', agent.algorithm.target_actor), ('target_critic', agent.algorithm.target_critic)]
         elif isinstance(agent, PPOAgent):
             agent_type, model_list = AgentType.PPO, [('model', agent.algorithm.model)]
         self.hook_agent(agent, agent_type, model_list)
