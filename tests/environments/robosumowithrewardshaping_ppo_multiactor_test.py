@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append(os.path.abspath('../../'))
+import torch
 
 from test_fixtures import ppo_config_dict_ma, RoboSumoenv, RoboSumoTask
 
@@ -33,22 +34,22 @@ def test_learns_to_beat_rock_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
     '''
     load_agent = False
     load_opponent = False
-    
-    if load_agent:
-        agent = AgentHook.load(load_path='/tmp/test_ppo_roboschoolsumo_multiactor-1.agent')
-    else:
-        agent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_agent')
-    agent.training = True
-    assert agent.training
-    
-    if load_opponent:
-        opponent = AgentHook.load(load_path='/tmp/test_ppo_roboschoolsumo_multiactor-1.agent')
-    else:
-        opponent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_opp')
-    opponent.training = False
+    with torch.cuda.device(7):
+        if load_agent:
+            agent = AgentHook.load(load_path='/tmp/test_ppo_roboschoolsumo_multiactor-1.agent')
+        else:
+            agent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_agent')
+        agent.training = True
+        assert agent.training
+        
+        if load_opponent:
+            opponent = AgentHook.load(load_path='/tmp/test_ppo_roboschoolsumo_multiactor-1.agent')
+        else:
+            opponent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_opp')
+        opponent.training = False
 
-    envname = 'RoboschoolSumoWithRewardShaping-v0'
-    learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent=opponent,
-                                      total_episodes=1000, training_percentage=0.9,
-                                      reward_threshold_percentage=0.25, envname=envname, nbr_parallel_env=ppo_config_dict_ma['nbr_actor'], save=True)
-    
+        envname = 'RoboschoolSumoWithRewardShaping-v0'
+        learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent=opponent,
+                                          total_episodes=1000, training_percentage=0.9,
+                                          reward_threshold_percentage=0.25, envname=envname, nbr_parallel_env=ppo_config_dict_ma['nbr_actor'], save=True)
+        
