@@ -26,7 +26,8 @@ class DeepQNetworkAgent():
         self.epsstart = self.kwargs['epsstart']
         self.epsdecay = self.kwargs['epsdecay']
         self.nbr_steps = 0
-
+        self.nbr_actor = self.algorithm.kwargs['nbr_actor']
+        
     def getModel(self):
         return self.algorithm.model
 
