@@ -4,7 +4,7 @@ sys.path.append(os.path.abspath('..'))
 
 from math import factorial
 import util
-from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
+from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, HalfHistoryLimitSelfPlay
 
 from rl_algorithms import AgentHook
 
