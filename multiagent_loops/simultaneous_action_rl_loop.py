@@ -7,7 +7,7 @@ from environments import ParallelEnv
 
 episode_n = 0
 
-def run_episode(env, agent_vector, training, video=False):
+def run_episode(env, agent_vector, training, record=False):
     '''
     Runs a single multi-agent rl loop until termination.
     The observations vector is of length n, where n is the number of agents
@@ -17,10 +17,10 @@ def run_episode(env, agent_vector, training, video=False):
     :param training: (boolean) Whether the agents will learn from the experience they recieve
     :returns: Trajectory (o,a,r,o')
     '''
-    if video: 
+    if record: 
         global episode_n
         episode_n +=1
-        video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env=env, base_path=("/tmp/episode-%i" % episode_n), enabled=True)
+        video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env=env, base_path=("/tmp/{}-episode-{}".format(record, episode_n)), enabled=True)
     
     observations = env.reset()
     done = False
@@ -33,10 +33,10 @@ def run_episode(env, agent_vector, training, video=False):
         if training:
             for i, agent in enumerate(agent_vector):
                 agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
-        if video: 
+        if record: 
             video_recorder.capture_frame()
     
-    if video: 
+    if record: 
         video_recorder.close()
         print("Video recorded :: episode {}".format(episode_n))
         

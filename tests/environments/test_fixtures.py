@@ -62,7 +62,7 @@ def ddpg_config_dict_ma():
     config['min_capacity'] = 5e3 
     config['batch_size'] = 32#128
     config['learning_rate'] = 3.0e-4
-    config['nbr_actor'] = 4#32
+    config['nbr_actor'] = 1#32
     return config
 
 @pytest.fixture
