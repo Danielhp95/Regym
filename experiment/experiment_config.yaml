@@ -1,12 +1,12 @@
 experiment:
     experiment_id: 'ConfigTest'
     environment: 'RockPaperScissors-v0'
-    number_of_runs: 3 
+    number_of_runs: 3
     checkpoint_at_iterations: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
     benchmarking_episodes: 10 
-    self_play_training_schemes: ['fullhistoryselfplay']
-    algorithms: ['ppo', 'tabularqlearning']
-    fixed_agents: ['rockagent']
+    self_play_training_schemes: ['fullhistorylimitselfplay','halfhistorylimitselfplay','lastquarterhistorylimitselfplay']
+    algorithms: ['ppo']
+    fixed_agents: []
 
 agents:
     deepqlearning:
@@ -27,15 +27,16 @@ agents:
         tau: 1.0e-2
         
     ppo:
-        horizon: 1024
+        horizon: 32
+        nbr_actor: 1
         discount: 0.99
         use_gae: True
-        use_cuda: False
+        use_cuda: True
         gae_tau: 0.95
         entropy_weight: 0.01
         gradient_clip: 5
         optimization_epochs: 10
-        batch_size: 256
+        mini_batch_size: 32
         ppo_ratio_clip: 0.2
         learning_rate: 3.0e-4
         adam_eps: 1.0e-5
