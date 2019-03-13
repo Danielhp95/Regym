@@ -6,13 +6,11 @@ import logging.handlers
 from collections import namedtuple
 from collections import Counter
 
-from benchmark_match_play import create_benchmark_process
-
 RecordedAgent = namedtuple('RecordedAgent', 'iteration training_scheme agent')
-BenchmarkingJob = namedtuple('BenchmarkingJob', 'iteration recorded_agent_vector')
+BenchmarkingJob = namedtuple('BenchmarkingJob', 'iteration recorded_agent_vector name')
 
 
-def match_making_process(expected_number_of_agents, benchmarking_episodes, createNewEnvironment, agent_queue, matrix_queue, pool):
+def match_making_process(expected_number_of_agents, agent_queue, benchmark_queue):
     """
     Process in charge of keeping a record of the trained agents
     received from the training processes through the agent queue.
@@ -21,7 +19,6 @@ def match_making_process(expected_number_of_agents, benchmarking_episodes, creat
     It shuts itself down once it doesn't expect any new recorded agents.
 
     :param expected_number_of_agents: Number of agents that the process will wait for before shuting itself down
-    :param benchmarking_episodes: Number of episodes that each benchmarking process will run for
     :param createNewEnvironment: OpenAI gym environment creation function
     :param agent_queue: Queue reference shared among processes to submit agents that will be benchmarked
     :param matrix_queue: Queue reference sent to benchmarking process, where it will put the bencharmking result
@@ -32,12 +29,10 @@ def match_making_process(expected_number_of_agents, benchmarking_episodes, creat
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Started')
 
-    # Initialize variables
     received_agents = 0
     recorded_agents = []
     recorded_benchmarking_jobs = []
 
-    benchmarking_child_processes = []
     while True:
         iteration, training_scheme, agent = agent_queue.get()
         agent_queue.task_done()
@@ -47,17 +42,13 @@ def match_making_process(expected_number_of_agents, benchmarking_episodes, creat
 
         recorded_agents.append(RecordedAgent(iteration, training_scheme, agent))
 
-        processes = [create_benchmark_process(benchmarking_episodes, createNewEnvironment,
-                                              match, pool, matrix_queue, match_name)
-                     for match_name, match in calculate_new_benchmarking_jobs(recorded_agents, recorded_benchmarking_jobs, iteration)]
+        for benchmark_job in calculate_new_benchmarking_jobs(recorded_agents, recorded_benchmarking_jobs, iteration):
+            benchmark_queue.put(benchmark_job)
 
-        for p in processes:
-            benchmarking_child_processes.append(p)
-
-        check_for_termination(received_agents, expected_number_of_agents, benchmarking_child_processes, pool)
+        check_for_termination(received_agents, expected_number_of_agents, benchmark_queue, recorded_benchmarking_jobs, logger)
 
 
-def check_for_termination(received_agents, expected_number_of_agents, child_processes, pool):
+def check_for_termination(received_agents, expected_number_of_agents, benchmark_queue, recorded_benchmarking_jobs, logger):
     """
     Checks if process should be killed because all processing has been submitted.
     That is, all expected agents have been received and all benchmarking
@@ -65,12 +56,10 @@ def check_for_termination(received_agents, expected_number_of_agents, child_proc
 
     :param received_agents: Number of agents received so far
     :param expected_number_of_agents: Number of agents that the process will wait for before shuting itself down
-    :param child_processes: Benchmarking jobs still running
-    :param pool: ProcessPoolExecutor shared between benchmarking_jobs to carry out benchmarking matches
     """
     if received_agents >= expected_number_of_agents:
-        [p.join() for p in child_processes]
-        if pool is not None: pool.shutdown()
+        logger.info('All expected trained agents have been recieved. Shutting down')
+        benchmark_queue.join()
         os.kill(os.getpid(), signal.SIGTERM)
 
 
@@ -93,10 +82,10 @@ def calculate_new_benchmarking_jobs(recorded_agents, recorded_benchmarking_jobs,
                                                                                   recorded_agent_2.training_scheme.name,
                                                                                   recorded_agent_2.agent.name,
                                                                                   iteration_filter)
-            job = BenchmarkingJob(iteration_filter, [recorded_agent_1, recorded_agent_2])
+            job = BenchmarkingJob(iteration_filter, [recorded_agent_1, recorded_agent_2], benchmark_name)
             if not is_benchmarking_job_already_recorded(job, recorded_benchmarking_jobs):
                 recorded_benchmarking_jobs.append(job)
-                yield benchmark_name, job
+                yield job
 
 
 def is_benchmarking_job_already_recorded(job, recorded_benchmarking_jobs):
