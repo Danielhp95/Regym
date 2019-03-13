@@ -18,10 +18,9 @@ def run_episode(env, agent_vector, training):
         action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
         succ_observations, reward_vector, done, info = env.step(action_vector)
         trajectory.append((observations, action_vector, reward_vector, succ_observations, done))
-        observations = succ_observations
         if training:
-            for i, agent in enumerate(agent_vector):
-                agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
+            for i, agent in enumerate(agent_vector): agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
+        observations = succ_observations
 
     return trajectory
 
