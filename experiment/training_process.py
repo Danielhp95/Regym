@@ -12,8 +12,23 @@ from rl_algorithms import AgentHook
 
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
+import os
+import sys
+import math 
+sys.path.append(os.path.abspath('..'))
 
-def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path):
+import time
+import logging
+import logging.handlers
+from torch.multiprocessing import Process
+
+from rl_algorithms import AgentHook
+
+from multiagent_loops.simultaneous_action_rl_loop import self_play_training
+
+
+
+def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path, subfolder_splits=[100000,10000,1000]):
     """
     :param env: Environment where agents will be trained on
     :param training_agent: agent representation + training algorithm which will be trained in this process
@@ -21,6 +36,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     :param checkpoint_at_iterations: array containing the episodes at which the agents will be cloned for benchmarking against one another
     :param agent_queue: queue shared among processes to submit agents that will be benchmarked
     :param process_name: String name identifier
+    :param subfolder_splits: list of Integer that specifies the tree of subfolder where the bencharmed policies are saved.
     :param base_path: Base directory from where subdirectories will be accessed to reach menageries, save episodic rewards and save checkpoints of agents.
     """
     logger = logging.getLogger(process_name)
@@ -50,7 +66,17 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
 
         completed_iterations += next_training_iterations
 
-        save_path = f'{trained_policy_save_directory}/{target_iteration}_iterations.pt'
+        floor_ranges = [ int(target_iteration // split) for split in subfolder_splits]
+        power10s = [ int(math.log10(split)) for split in subfolder_splits]
+        subfolder_paths = ["{}-{}e{}".format( floor_range, floor_range+1, power10) for floor_range, power10 in zip(floor_ranges,power10s) ]
+        subfolder_path = ""
+        for subpath in subfolder_paths:
+            subfolder_path = os.path.join(subfolder_path, subpath)
+        save_dir = f'{trained_policy_save_directory}/{subfolder_path}'
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+        save_path = f'{save_dir}/{target_iteration}_iterations.pt'
+
         logger.info(f'Submitted agent at iteration {target_iteration} :: saving at {save_path}')
         hooked_agent = AgentHook(trained_agent.clone(training=False), save_path=save_path)
         agent_queue.put([target_iteration, self_play_scheme, hooked_agent])
