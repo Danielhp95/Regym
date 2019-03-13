@@ -88,7 +88,8 @@ class PPOAlgorithm():
             sampled_returns = returns[batch_indices].cuda() if self.kwargs['use_cuda'] else returns[batch_indices]
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
-            prediction = self.model(sampled_states, sampled_actions)
+            prediction = {k:v.view((self.kwargs['mini_batch_size'],-1)) for k,v in self.model(sampled_states, sampled_actions).items() }
+
             ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
             obj = ratio * sampled_advantages
             obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],

@@ -27,6 +27,7 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
+    #from rps_test import learns_against_fixed_opponent_RPS_parallel
     from rps_test import learns_against_fixed_opponent_RPS
 
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
@@ -34,3 +35,8 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
                                       total_episodes=1000, training_percentage=0.9,
                                       reward_threshold=0.1)
+    '''
+    learns_against_fixed_opponent_RPS_parallel(agent, fixed_opponent=rockAgent,
+                                      total_episodes=2000, training_percentage=0.9,
+                                      reward_threshold_percentage=0.1,nbr_parallel_env=agent.nbr_actor)
+    '''

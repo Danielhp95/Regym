@@ -20,7 +20,10 @@ class DDPGAgent():
         self.nbr_steps = 0
         self.name = name
         self.nbr_actor = self.algorithm.kwargs['nbr_actor']
-        
+    
+    def set_nbr_actor(self, nbr_actor):
+        self.nbr_actor = nbr_actor
+        self.algorithm.kwargs['nbr_actor'] = nbr_actor
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         hs = self.state_preprocessing(s).view((1,-1))

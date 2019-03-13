@@ -53,6 +53,7 @@ class ParallelEnv():
         return per_env_obs
 
     def step(self, action_vector):
+        import ipdb; ipdb.set_trace()
         observations = []
         rewards = []
         infos = []

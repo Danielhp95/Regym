@@ -20,18 +20,17 @@ class MixedStrategyAgent():
         self.support_vector = support_vector
         self.name = name
         self.nbr_actor = 1
-        
+
+    def set_nbr_actor(self, nbr_actor):
+        self.nbr_actor = nbr_actor
+
     def take_action(self, state):
         '''
         Samples an action based on the probabilities presented by the agent's support vector
         :param state: Ignored for fixed agents
         '''
-        batch_size = len(state)
-        if batch_size==1 :
-            return np.random.choice([0, 1, 2], p=self.support_vector)
-        else : 
-            return [np.random.choice([0, 1, 2], p=self.support_vector) for _ in range(batch_size)]
-
+        return [np.random.choice([0, 1, 2], p=self.support_vector) for _ in range(self.nbr_actor)]
+        
     def handle_experience(self, *args):
         pass
 

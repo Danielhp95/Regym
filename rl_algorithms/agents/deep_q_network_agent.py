@@ -20,6 +20,7 @@ class DeepQNetworkAgent():
 
         self.name = name
         self.algorithm = algorithm
+        self.nbr_actor = self.algorithm.kwargs['nbr_actor']
         self.preprocessing_function = self.algorithm.kwargs["preprocess"]
 
         self.epsend = self.kwargs['epsend']
@@ -31,6 +32,10 @@ class DeepQNetworkAgent():
     def getModel(self):
         return self.algorithm.model
 
+    def set_nbr_actor(self, nbr_actor):
+        self.nbr_actor = nbr_actor
+        self.algorithm.kwargs['nbr_actor'] = nbr_actor
+        
     def handle_experience(self, s, a, r, succ_s, done=False):
         hs = self.preprocessing_function(s)
         hsucc = self.preprocessing_function(succ_s)
@@ -70,9 +75,9 @@ class DeepQNetworkAgent():
 
 
 def build_DQN_Agent(task, config, agent_name):
-    kwargs = dict()
     """
     :param kwargs:
+        "nbr_actor": specifies the number of actor that harvest experiences in parallel.
         "use_cuda": boolean to specify whether to use CUDA.
         "replay_capacity": int, capacity of the replay buffer to use.
         "min_capacity": int, minimal capacity before starting to learn.
@@ -97,6 +102,7 @@ def build_DQN_Agent(task, config, agent_name):
 
     preprocess = PreprocessFunction(state_space_size=task.observation_dim, use_cuda=config['use_cuda'])
 
+    kwargs = config.copy()
     kwargs['nbrTrainIteration'] = config['nbrTrainIteration']
     kwargs["nbr_actions"] = task.action_dim
     kwargs["actfn"] = LeakyReLU

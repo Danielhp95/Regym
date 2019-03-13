@@ -20,29 +20,38 @@ class PPOAgent(object):
         self.name = name
         self.nbr_actor = self.algorithm.kwargs['nbr_actor']
 
+    def set_nbr_actor(self, nbr_actor):
+        self.nbr_actor = nbr_actor
+        self.algorithm.kwargs['nbr_actor'] = nbr_actor
+    
+    
+    '''
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
         state = self.state_preprocessing(s)
-        if isinstance(r, np.ndarray): 
-            r = torch.from_numpy(r).float().view((1))
-        else :
-            r = torch.ones(1)*r
-        r = r.cpu()
-        a = torch.from_numpy(a).cpu().view((1,-1))
-
         current_prediction = self.algorithm.model(state)
         current_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in current_prediction.items()}
-        current_prediction['a'] = a 
+        #current_prediction = {k: v.detach().cpu() for k, v in current_prediction.items()}
+        
+        if isinstance(r, np.ndarray): 
+            #r = torch.from_numpy(r).float().view((1))
+            r = torch.from_numpy(r).float().view((1,-1))
+        else :
+            r = torch.ones(1)*r
+        a = torch.from_numpy(a).view((1,-1))
 
-        state = state.cpu().view((1,-1))
+        current_prediction['a'] = a
+
         self.algorithm.storage.add(current_prediction)
+        state = state.cpu().view((1,-1))
         self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
         self.handled_experiences += 1
         if self.training and self.handled_experiences >= self.algorithm.storage_capacity:
             next_state = self.state_preprocessing(succ_s)
             next_prediction = self.algorithm.model(next_state)
-            next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            #next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            next_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in next_prediction.items()}
             self.algorithm.storage.add(next_prediction)            
             
             self.algorithm.train()
@@ -53,6 +62,42 @@ class PPOAgent(object):
         current_prediction = self.algorithm.model(state)
         return current_prediction['a'].cpu().detach().numpy()
 
+    '''
+    def handle_experience(self, s, a, r, succ_s, done=False):
+        non_terminal = torch.ones(1)*(1 - int(done))
+        state = self.state_preprocessing(s)
+        if isinstance(r, np.ndarray): 
+            #r = torch.from_numpy(r).float().view((1))
+            r = torch.from_numpy(r).float().view((1,-1))
+        else :
+            r = torch.ones(1)*r
+        #a = torch.from_numpy(a)
+        a = torch.from_numpy(a).view((1,-1))
+
+        self.current_prediction['a'] = a 
+        
+        self.algorithm.storage.add(self.current_prediction)
+        state = state.cpu().view((1,-1))
+        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
+        
+        self.handled_experiences += 1
+        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+            next_state = self.state_preprocessing(succ_s)
+            next_prediction = self.algorithm.model(next_state)
+            #next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            next_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in next_prediction.items()}
+            self.algorithm.storage.add(next_prediction)            
+            
+            self.algorithm.train()
+            self.handled_experiences = 0
+
+    def take_action(self, state):
+        state = self.state_preprocessing(state)
+        self.current_prediction = self.algorithm.model(state)
+        self.current_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in self.current_prediction.items()}
+        #self.current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
+        return self.current_prediction['a'].cpu().numpy()
+    
     def clone(self, training=None):
         clone = copy.deepcopy(self)
         clone.training = training

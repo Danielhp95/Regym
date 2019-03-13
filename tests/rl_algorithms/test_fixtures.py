@@ -11,7 +11,7 @@ def ppo_config_dict():
     config = dict()
     config['discount'] = 0.99
     config['use_gae'] = False
-    config['use_cuda'] = False
+    config['use_cuda'] = True
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
@@ -21,6 +21,7 @@ def ppo_config_dict():
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
     config['horizon'] = 1024
+    config['nbr_actor'] = 1
     return config
 
 
@@ -61,6 +62,7 @@ def ddpg_config_dict():
     config['min_capacity'] = 5e3 
     config['batch_size'] = 256#128
     config['learning_rate'] = 3.0e-4
+    config['nbr_actor'] = 1
     return config
 
 @pytest.fixture
@@ -88,6 +90,7 @@ def ddpg_config_dict_ma():
 def dqn_config_dict():
     config = dict()
     config['learning_rate'] = 1.0e-3
+    config['nbr_actor'] = 1
     config['epsstart'] = 1
     config['epsend'] = 0.1
     config['epsdecay'] = 5.0e4
@@ -109,6 +112,19 @@ def dqn_config_dict():
 def tabular_q_learning_config_dict():
     config = dict()
     config['learning_rate'] = 0.9
+    config['nbr_actor'] = 1
+    config['discount_factor'] = 0.99
+    config['epsilon_greedy'] = 0.1
+    config['use_repeated_update_q_learning'] = False
+    config['temperature'] = 1
+    return config
+
+
+@pytest.fixture
+def tabular_q_learning_config_dict_ma():
+    config = dict()
+    config['learning_rate'] = 0.9
+    config['nbr_actor'] = 10
     config['discount_factor'] = 0.99
     config['epsilon_greedy'] = 0.1
     config['use_repeated_update_q_learning'] = False

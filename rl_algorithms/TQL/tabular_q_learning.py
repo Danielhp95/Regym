@@ -3,7 +3,7 @@ import numpy as np
 
 class TabularQLearningAlgorithm():
 
-    def __init__(self, state_space_size, action_space_size, hashing_function, discount_factor, epsilon_greedy, learning_rate):
+    def __init__(self, state_space_size, action_space_size, hashing_function, discount_factor, epsilon_greedy, learning_rate, kwargs):
         """
         TODO: Document
         """
@@ -12,6 +12,7 @@ class TabularQLearningAlgorithm():
         self.hashing_function = hashing_function
         self.epsilon_greedy = epsilon_greedy
         self.discount_factor = discount_factor
+        self.kwargs = kwargs
         assert learning_rate >= 0 and learning_rate <= 1, 'Learning ratev alue should be between [0,1]'
         assert epsilon_greedy >= 0 and epsilon_greedy <= 1, 'Epsilon greedy value should be between [0,1]'
 

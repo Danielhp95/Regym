@@ -25,17 +25,35 @@ def run_episode(env, agent_vector, training, record=False):
     observations = env.reset()
     done = False
     trajectory = []
+    timestep = 0 
+
+    inner_loop = True
+
     while not done:
         action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
-        succ_observations, reward_vector, done, info = env.step(action_vector)
-        trajectory.append((observations, action_vector, reward_vector, succ_observations, done))
-        observations = succ_observations
-        if training:
-            for i, agent in enumerate(agent_vector):
-                agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
+        env_formatted_action_vector = [a[0] for a in action_vector]
+        succ_observations, reward_vector, done, info = env.step(env_formatted_action_vector)
+        trajectory.append( copy.deepcopy( (observations, action_vector, reward_vector, succ_observations, done) ) )
+        
+        if inner_loop:
+            if training:
+                for i, agent in enumerate(agent_vector):
+                    agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
+        
         if record: 
             video_recorder.capture_frame()
-    
+        
+        timestep += 1
+        observations = copy.deepcopy(succ_observations)
+
+
+    if not(inner_loop) and training:
+        for o, a, r, so, d in trajectory:
+            for i, agent in enumerate(agent_vector):
+                a_dummy = agent.take_action(o[i])
+                agent.handle_experience(o[i], a_dummy, r[i], so[i], d)
+                #agent.handle_experience(o[i], a[i], r[i], so[i], d)
+        
     if record: 
         video_recorder.close()
         print("Video recorded :: episode {}".format(episode_n))
@@ -81,7 +99,7 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
             if actor_index == 0 :
                 trajectory.append( (pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]) )
         
-        observations = succ_observations
+        observations = copy.deepcopy(succ_observations)
         previous_done = copy.deepcopy(done)
 
     if training:

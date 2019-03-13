@@ -6,12 +6,13 @@ class RepeatedUpdateQLearningAlgorithm():
     Repeated Update Q Learning (RUQL) as introduced in:
     "Addressing the Policy Bias of Q-Learning by Repeating Updates" - Sherief Abdallah, Michael Kaisers
     '''
-    def __init__(self, state_space_size, action_space_size, hashing_function, discount_factor, learning_rate, temperature):
+    def __init__(self, state_space_size, action_space_size, hashing_function, discount_factor, learning_rate, temperature, kwargs):
         self.Q_table = np.zeros((state_space_size, action_space_size), dtype=np.float64)
         self.learning_rate = learning_rate
         self.hashing_function = hashing_function
         self.temperature = temperature
         self.discount_factor = discount_factor
+        self.kwargs = kwargs
 
     def update_q_table(self, s, a, r, succ_s):
         s, succ_s = self.hashing_function(s), self.hashing_function(succ_s)
