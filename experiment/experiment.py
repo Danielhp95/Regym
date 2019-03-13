@@ -14,7 +14,7 @@ from confusion_matrix_populate_process import confusion_matrix_process
 
 from torch.multiprocessing import Process, JoinableQueue
 
-#import roboschool
+import roboschool
 import gym
 import gym_rock_paper_scissors
 
