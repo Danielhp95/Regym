@@ -1,11 +1,11 @@
 experiment:
-    experiment_id: 'RoboschoolSumoTest-1Runs-100Episodes-8Actors-PPO-DDPG'
+    experiment_id: 'RoboschoolSumoTest-1Runs-1000Episodes-16Actors-PPO-lr4'
     environment: 'RoboschoolSumo-v0'
     number_of_runs: 1
-    checkpoint_at_iterations: [1,10,20,30,40,50,60,70,80,90,100]
+    checkpoint_at_iterations: [50,100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,950,1000]
     benchmarking_episodes: 20
-    self_play_training_schemes: ['halfhistoryselfplay', 'lastquarterhistoryselfplay', 'naiveselfplay']
-    algorithms: ['ppo', 'ddpg']
+    self_play_training_schemes: ['fullhistoryselfplay','halfhistoryselfplay','lastquarterhistoryselfplay']
+    algorithms: ['ppo']
     fixed_agents: []
 
 agents:
@@ -26,9 +26,9 @@ agents:
         gamma: 0.99
         tau: 1.0e-2
     
-    ppo_h1024lr3:                    
-        horizon: 1024
-        nbr_actor: 8
+    ppo_h2048lr4:                    
+        horizon: 2048
+        nbr_actor: 16
         discount: 0.99
         use_gae: True
         use_cuda: True
@@ -50,11 +50,11 @@ agents:
         use_HER: False
         HER_k: 2
         HER_strategy: 'future'
-        config['HER_use_singlegoal: False 
+        HER_use_singlegoal: False 
         use_PER: True 
         PER_alpha: 0.7 
-        replay_capacity: 25e3
-        min_capacity: 5e3 
+        replay_capacity: 25.0e3
+        min_capacity: 5.0e3
         batch_size: 32
         learning_rate: 3.0e-4
         nbr_actor: 8

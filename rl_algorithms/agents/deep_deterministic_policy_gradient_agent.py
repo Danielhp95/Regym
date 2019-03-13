@@ -94,7 +94,8 @@ def build_DDPG_Agent(task, config, agent_name):
         "actfn": activation function to use in between each layer of the neural networks.
         
     """
-
+    kwargs['replay_capacity'] = float(kwargs['replay_capacity'])
+    kwargs['min_capacity'] = float(kwargs['min_capacity'])
     kwargs['state_preprocessing'] = PreprocessFunctionToTorch(task.observation_dim, kwargs['use_cuda'])
 
     #HER :
