@@ -29,7 +29,6 @@ def match_making_process(expected_number_of_agents, agent_queue, benchmark_queue
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Started')
 
-    # Initialize variables
     received_agents = 0
     recorded_agents = []
     recorded_benchmarking_jobs = []

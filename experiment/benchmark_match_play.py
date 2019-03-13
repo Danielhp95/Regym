@@ -39,24 +39,29 @@ def benchmark_match_play_process(expected_benchmarking_matches, benchmarking_epi
 
         agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
 
-        with ProcessPoolExecutor(max_workers=3) as executor:
-            benchmark_start = time.time()
-            futures = [executor.submit(single_match, *[createNewEnvironment(), agent_vector])
-                       for _ in range(benchmarking_episodes)]
-
-            wins_vector = [0 for _ in range(len(agent_vector))]
-
-            for future in as_completed(futures):
-                episode_winner = future.result()
-                wins_vector[episode_winner] += 1
-            benchmark_duration = time.time() - benchmark_start
-            winrates = [winrate / benchmarking_episodes for winrate in wins_vector]
+        winrates = benchmark_empirical_winrates(benchmarking_episodes, createNewEnvironment, agent_vector, logger)
 
         matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
                                              benchmark_job.recorded_agent_vector,
                                              winrates))
-        logger.info('Benchmarking finished. Duration: {} seconds'.format(benchmark_duration))
         check_for_termination(received_agents, expected_benchmarking_matches, matrix_queue, logger)
+
+
+def benchmark_empirical_winrates(benchmarking_episodes, createNewEnvironment, agent_vector, logger):
+    with ProcessPoolExecutor(max_workers=3) as executor:
+        benchmark_start = time.time()
+        futures = [executor.submit(single_match, *[createNewEnvironment(), agent_vector])
+                   for _ in range(benchmarking_episodes)]
+
+        wins_vector = np.zeros(len(agent_vector))
+
+        for future in as_completed(futures):
+            episode_winner = future.result()
+            wins_vector[episode_winner] += 1
+        benchmark_duration = time.time() - benchmark_start
+    logger.info('Benchmarking finished. Duration: {} seconds'.format(benchmark_duration))
+    winrates = wins_vector / benchmarking_episodes
+    return winrates
 
 
 def single_match(env, agent_vector):
