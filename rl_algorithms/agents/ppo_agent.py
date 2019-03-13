@@ -29,6 +29,10 @@ class PPOAgent(object):
 
         self.handled_experiences += 1
         if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+            next_state = self.state_preprocessing(succ_s)
+            next_prediction = self.algorithm.model(next_state)
+            next_prediction = {k: v.detach().cpu().view((1, -1)) for k, v in next_prediction.items()}
+            self.algorithm.storage.add(next_prediction)
             self.algorithm.train()
             self.handled_experiences = 0
 
