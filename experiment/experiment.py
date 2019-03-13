@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 import util
-from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay
+from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, HalfHistoryLimitSelfPlay
 
 from rl_algorithms import AgentHook
 from environments import ParallelEnv, EnvironmentCreationFunction, ParallelEnvironmentCreationFunction
@@ -14,7 +14,7 @@ from confusion_matrix_populate_process import confusion_matrix_process
 
 from torch.multiprocessing import Process, JoinableQueue
 
-import roboschool
+#import roboschool
 import gym
 import gym_rock_paper_scissors
 
@@ -26,7 +26,7 @@ def enumerate_training_jobs(training_schemes, algorithms, env_name):
     a = [TrainingJob(training_scheme, AgentHook(algorithm.clone(training=True)), f'{training_scheme.name}-{algorithm.name}')
         for training_scheme in training_schemes
         for algorithm in algorithms]
-    b = [EnvironmentCreationFunction(env_name) if not('nbr_actor' in agent.algorithm.kwargs) else ParallelEnvironmentCreationFunction(env_name, agent.algorithm.kwargs['nbr_actor'])
+    b = [EnvironmentCreationFunction(env_name) if agent.nbr_actor == 1 else ParallelEnvironmentCreationFunction(env_name, agent.nbr_actor)
         for training_scheme in training_schemes
         for agent in algorithms]
     c = EnvironmentCreationFunction(env_name)

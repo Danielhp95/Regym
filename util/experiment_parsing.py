@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.append(os.path.abspath('..'))
-from training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay
+from training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
 
 from rl_algorithms import build_DQN_Agent
 from rl_algorithms import build_TabularQ_Agent
@@ -31,7 +31,7 @@ def initialize_training_schemes(candidate_training_schemes):
     :param candidate_training_schemes: requested training schemes
     :return: list containing pointers to the corresponding self_play training schemes functions
     '''
-    self_play_training_schemes = {'fullhistoryselfplay': FullHistorySelfPlay, 'halfhistoryselfplay': HalfHistorySelfPlay, 'lastquarterhistoryselfplay': LastQuarterHistorySelfPlay, 'naiveselfplay': NaiveSelfPlay}
+    self_play_training_schemes = {'fullhistoryselfplay': FullHistorySelfPlay, 'halfhistoryselfplay': HalfHistorySelfPlay, 'lastquarterhistoryselfplay': LastQuarterHistorySelfPlay, 'naiveselfplay': NaiveSelfPlay, 'fullhistorylimitselfplay': FullHistoryLimitSelfPlay, 'halfhistorylimitselfplay': HalfHistoryLimitSelfPlay, 'lastquarterhistorylimitselfplay': LastQuarterHistoryLimitSelfPlay}
     check_for_unknown_candidate_input(self_play_training_schemes.keys(), candidate_training_schemes, 'training schemes')
     return [self_play_training_schemes[t_s.lower()] for t_s in candidate_training_schemes]
 

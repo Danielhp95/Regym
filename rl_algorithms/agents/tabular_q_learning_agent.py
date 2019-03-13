@@ -8,6 +8,7 @@ class TabularQLearningAgent():
         self.name = name
         self.training = True
         self.algorithm = algorithm
+        self.nbr_actor = 1
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         if self.training:

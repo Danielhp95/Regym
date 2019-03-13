@@ -19,14 +19,18 @@ class MixedStrategyAgent():
             raise ValueError('The sum of all supports in the support_vector should sum up to 1. Given supports: {}'.format(support_vector))
         self.support_vector = support_vector
         self.name = name
-
+        self.nbr_actor = 1
+        
     def take_action(self, state):
         '''
         Samples an action based on the probabilities presented by the agent's support vector
         :param state: Ignored for fixed agents
         '''
-        batch_size = state.shape[0]
-        return [np.random.choice([0, 1, 2], p=self.support_vector) for _ in range(batch_size)]
+        batch_size = len(state)
+        if batch_size==1 :
+            return np.random.choice([0, 1, 2], p=self.support_vector)
+        else : 
+            return [np.random.choice([0, 1, 2], p=self.support_vector) for _ in range(batch_size)]
 
     def handle_experience(self, *args):
         pass

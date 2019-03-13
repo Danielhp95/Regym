@@ -29,13 +29,21 @@ def learns_against_fixed_opponent_RoboSumo(agent, fixed_opponent, total_episodes
     average_inference_reward = sum(average_inference_rewards) / len(average_inference_rewards)
     assert average_inference_reward  >= maximum_average_reward*reward_threshold_percentage
 
-def simulate(env, agent, fixed_opponent, episodes, training):
+def record_against_fixed_opponent_RoboSumo(agent, fixed_opponent, envname='RoboschoolSumo-v0'):
+    env = gym.make(envname)
+    inference_trajectories = simulate(env, agent, fixed_opponent, episodes=1, training=False, record=envname)
+
+def simulate(env, agent, fixed_opponent, episodes, training, record=None):
     agent_vector = [agent, fixed_opponent]
     trajectories = list()
     mode = 'Training' if training else 'Inference'
     progress_bar = tqdm(range(episodes))
+    if record is None:
+        record = False 
+    else :
+        record = "Recording-{}-vs-{}.mp4".format(record,agent.name, fixed_opponent.name)
     for e in progress_bar:
-        trajectory = simultaneous_action_rl_loop.run_episode(env, agent_vector, training=training)
+        trajectory = simultaneous_action_rl_loop.run_episode(env, agent_vector, training=training, record=record)
         trajectories.append(trajectory)
         avg_trajectory_reward = sum(map(lambda experience: experience[2][0], trajectory)) / len(trajectory)
         progress_bar.set_description(f'{mode} {agent.name} against {fixed_opponent.name}. Last avg reward: {avg_trajectory_reward}')

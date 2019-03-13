@@ -44,7 +44,7 @@ def ppo_config_dict_ma():
     return config
 
 
-#@pytest.fixture
+@pytest.fixture
 def ddpg_config_dict_ma():
     config = dict()
     config['discount'] = 0.99
@@ -96,14 +96,24 @@ def tabular_q_learning_config_dict():
     config['temperature'] = 1
     return config
 
+@pytest.fixture
+def RPSenv():
+    import gym
+    import gym_rock_paper_scissors
+    return gym.make('RockPaperScissors-v0')
 
-#@pytest.fixture
+
+@pytest.fixture
+def RPSTask(RPSenv):
+    return parse_gym_environment(RPSenv)
+
+@pytest.fixture
 def RoboSumoenv():
     import roboschool
     import gym
     return gym.make('RoboschoolSumo-v0')
 
 
-#@pytest.fixture
+@pytest.fixture
 def RoboSumoTask(RoboSumoenv):
     return parse_gym_environment(RoboSumoenv)

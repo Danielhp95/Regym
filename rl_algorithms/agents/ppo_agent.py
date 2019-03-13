@@ -4,7 +4,7 @@ import copy
 
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody
-from ..networks import PreprocessFunctionToTorch
+from ..networks import PreprocessFunctionToTorch, PreprocessFunction
 from ..PPO import PPOAlgorithm
 
 import torch.nn.functional as F
@@ -18,6 +18,7 @@ class PPOAgent(object):
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
         self.handled_experiences = 0
         self.name = name
+        self.nbr_actor = self.algorithm.kwargs['nbr_actor']
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
@@ -73,6 +74,8 @@ def build_PPO_Agent(task, config, agent_name):
                                           phi_body=FCBody(task.observation_dim, hidden_units=(64, 64), gate=F.leaky_relu),
                                           actor_body=None,
                                           critic_body=None)
+        kwargs['state_preprocess'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
+
     if task.action_type is 'Continuous' and task.observation_type is 'Continuous':
         model = GaussianActorCriticNet(task.observation_dim, task.action_dim,
                                        phi_body=FCBody(task.observation_dim, hidden_units=(64, 64), gate=F.leaky_relu),
