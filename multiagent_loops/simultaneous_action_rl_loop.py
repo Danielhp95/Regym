@@ -31,8 +31,7 @@ def run_episode(env, agent_vector, training, record=False):
 
     while not done:
         action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
-        env_formatted_action_vector = [a[0] for a in action_vector]
-        succ_observations, reward_vector, done, info = env.step(env_formatted_action_vector)
+        succ_observations, reward_vector, done, info = env.step(action_vector)
         trajectory.append( copy.deepcopy( (observations, action_vector, reward_vector, succ_observations, done) ) )
         
         if inner_loop:

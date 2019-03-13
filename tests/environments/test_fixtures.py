@@ -5,7 +5,6 @@ sys.path.append(os.path.abspath('../../'))
 import pytest
 from environments.gym_parser import parse_gym_environment
 
-
 @pytest.fixture
 def ppo_config_dict():
     config = dict()
@@ -30,7 +29,7 @@ def ppo_config_dict_ma():
     config = dict()
     config['discount'] = 0.99
     config['use_gae'] = True
-    config['use_cuda'] = False
+    config['use_cuda'] = True
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
@@ -39,12 +38,12 @@ def ppo_config_dict_ma():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 2#32
-    config['horizon'] = 512
+    config['nbr_actor'] = 4#32
+    config['horizon'] = 1024
     return config
 
 
-#@pytest.fixture
+@pytest.fixture
 def ddpg_config_dict_ma():
     config = dict()
     config['discount'] = 0.99
@@ -97,13 +96,13 @@ def tabular_q_learning_config_dict():
     return config
 
 
-#@pytest.fixture
+@pytest.fixture
 def RoboSumoenv():
     import roboschool
     import gym
     return gym.make('RoboschoolSumo-v0')
 
 
-#@pytest.fixture
+@pytest.fixture
 def RoboSumoTask(RoboSumoenv):
     return parse_gym_environment(RoboSumoenv)
