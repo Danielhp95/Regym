@@ -27,12 +27,12 @@ def opponent_sampling_distribution(menagerie, training_agent, delta, distributio
     return [AgentHook.unhook(sampled_hook_agent) for sampled_hook_agent in [distribution(valid_agents)]]
 
 
-def curator(menagerie, training_agent, episode_trajectory, candidate_save_path):
+def curator(menagerie, training_agent, episode_trajectory, iteration):
     '''
-
     :param menagerie: archive of agents selected by the curator and the potential opponents
     :param training_agent: AgentHook of the Agent currently being trained
+    :param episode_trajectory: trajectory of states followed by the training_agent.
+    :param iteration: int, specifies the iteration of the training process at which the training_agent is yielded.
     :returns: menagerie to be used in the next training episode.
     '''
-
-    return menagerie + [AgentHook(training_agent.clone(training=False), save_path=candidate_save_path)]
+    return menagerie( training_agent, iteration)

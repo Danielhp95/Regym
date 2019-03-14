@@ -9,26 +9,10 @@ import logging.handlers
 from torch.multiprocessing import Process
 
 from rl_algorithms import AgentHook
-
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
+from util import Menagerie 
 
-import os
-import sys
-import math 
-sys.path.append(os.path.abspath('..'))
-
-import time
-import logging
-import logging.handlers
-from torch.multiprocessing import Process
-
-from rl_algorithms import AgentHook
-
-from multiagent_loops.simultaneous_action_rl_loop import self_play_training
-
-
-
-def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path, subfolder_splits=[100000,10000,1000]):
+def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path, subfolder_splits=[1e5,1e4,1e3]):
     """
     :param env: Environment where agents will be trained on
     :param training_agent: agent representation + training algorithm which will be trained in this process
@@ -51,31 +35,25 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     process_start_time = time.time()
 
     completed_iterations = 0
-    menagerie = []
     training_agent = AgentHook.unhook(training_agent)
+    menagerie_path=f'{base_path}/menageries'
+    menagerie = Menagerie(subfolder_splits=subfolder_splits, 
+                            selfplay_scheme_name=self_play_scheme.name,
+                            training_agent_name=training_agent.name,
+                            menagerie_path=menagerie_path)
+    
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
 
         training_start = time.time()
         (menagerie, trained_agent,
-         trajectories) = self_play_training(env=env, training_agent=training_agent, self_play_scheme=self_play_scheme,
-                                            target_episodes=next_training_iterations, iteration=completed_iterations,
-                                            menagerie=menagerie, menagerie_path=f'{base_path}/menageries')
+         trajectories) = self_play_training(env=env, training_agent=training_agent, 
+                                            self_play_scheme=self_play_scheme,menagerie=menagerie,
+                                            target_episodes=next_training_iterations, iteration=completed_iterations)
 
         training_duration = time.time() - training_start
-
         completed_iterations += next_training_iterations
-
-        floor_ranges = [ int(target_iteration // split) for split in subfolder_splits]
-        power10s = [ int(math.log10(split)) for split in subfolder_splits]
-        subfolder_paths = ["{}-{}e{}".format( floor_range, floor_range+1, power10) for floor_range, power10 in zip(floor_ranges,power10s) ]
-        subfolder_path = ""
-        for subpath in subfolder_paths:
-            subfolder_path = os.path.join(subfolder_path, subpath)
-        save_dir = f'{trained_policy_save_directory}/{subfolder_path}'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir, exist_ok=True)
-        save_path = f'{save_dir}/{target_iteration}_iterations.pt'
+        save_path = f'{trained_policy_save_directory}/{target_iteration}_iterations.pt'
 
         logger.info(f'Submitted agent at iteration {target_iteration} :: saving at {save_path}')
         hooked_agent = AgentHook(trained_agent.clone(training=False), save_path=save_path)
