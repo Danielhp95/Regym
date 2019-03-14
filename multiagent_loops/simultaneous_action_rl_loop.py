@@ -50,7 +50,6 @@ def self_play_training(env, training_agent, self_play_scheme, target_episodes=10
     if not os.path.exists(agent_menagerie_path):
         os.mkdir(agent_menagerie_path)
 
-    menagerie = menagerie
     trajectories = []
     for episode in range(target_episodes):
         if episode % opci == 0:
