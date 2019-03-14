@@ -39,8 +39,8 @@ class PPOAgent(object):
     def take_action(self, state):
         state = self.state_preprocessing(state)
         self.current_prediction = self.algorithm.model(state)
-        self.current_prediction = {k: v.detach() for k, v in self.current_prediction.items()}
-        return self.current_prediction['a'].cpu().detach().numpy()
+        self.current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
+        return self.current_prediction['a'].numpy()
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
