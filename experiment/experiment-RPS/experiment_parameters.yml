@@ -1,0 +1,52 @@
+agents:
+  tabularqlearning_ruql:
+    discount_factor: 0.99
+    epsilon_greedy: 0.1
+    learning_rate: 0.4
+    temperature: 1
+    use_repeated_update_q_learning: true
+experiment:
+  algorithms:
+  - tabularqlearning
+  benchmarking_episodes: 20
+  checkpoint_at_iterations:
+  - 1000
+  - 1100
+  - 1200
+  - 1300
+  - 1400
+  - 1500
+  - 1600
+  - 1700
+  - 1800
+  - 1900
+  - 2000
+  - 2100
+  - 2200
+  - 2300
+  - 2400
+  - 2500
+  - 2600
+  - 2700
+  - 2800
+  - 2900
+  - 3000
+  - 3100
+  - 3200
+  - 3300
+  - 3400
+  - 3500
+  - 3600
+  - 3700
+  - 3800
+  - 3900
+  - 4000
+  environment: RockPaperScissors-v0
+  experiment_id: RPS
+  fixed_agents:
+  - rockagent
+  - randomagent
+  number_of_runs: 20
+  self_play_training_schemes:
+  - naiveselfplay
+  - fullhistoryselfplay
