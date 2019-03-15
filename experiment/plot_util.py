@@ -59,7 +59,9 @@ def update_benchmark_winrates_violinplot(old_dict, new_dict):
         if key not in old_dict: 
             old_dict[key] = []
         for el in new_dict[key]:
-            old_dict[key].append(el)
+            for _ in range(100):
+                old_dict[key].append(el)
+            
 
 def update_episodic_reward(old_dict, new_dict):
     for name, episodic_rewards in new_dict.items():
@@ -186,12 +188,35 @@ def create_single_agent_violinplot(agent_name, target_dir, data):
     df = df[ df.opponent != agent_name ]
 
     fig, ax = plt.subplots()
-    ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="muted", ax=ax, cut=0, width=1.1, linewidth=0.5, saturation=0.8, inner='box')
+    ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="Pastel1", ax=ax, cut=0, width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
+    #ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="Pastel1", ax=ax, width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
     
+    #g = sns.catplot(x="iteration", y="winrate", hue="opponent", kind="violin", inner=None, data=df, ax=ax)
+    #g = sns.catplot(x="iteration", y="winrate", hue="opponent", kind="bar", data=df, ax=ax)
+    #sns.swarmplot(x="iteration", y="winrate", hue="opponent", color="k", size=3, data=df, ax=ax)
+    
+    #g = sns.catplot(x="iteration", y="winrate", hue="opponent", kind="point", data=df, ax=ax)
+    plt.legend(loc='best')
     plt.title('Head to head winrates against all opponents\nfor policy: {}'.format(agent_name))
     plt.tight_layout()
 
     fig.savefig('{}/violinplot-{}.eps'.format(target_dir, agent_name), format='eps')
+    plt.close()
+
+
+    set_opponent = list(set( df.opponent ))
+    dfs = [df[df.opponent == set_opponent[i] ] for i in range(len(set_opponent))]
+
+    fig = plt.figure(1)
+    axes = []
+    for idx in range(len(set_opponent)):
+        axes.append( plt.subplot(4, 1, idx+1) )
+        sns.violinplot(x="iteration", y="winrate", hue="opponent", data=dfs[idx], palette="Pastel1", ax=axes[idx], width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
+        sns.catplot(x="iteration", y="winrate", hue="opponent", kind="point", data=dfs[idx], ax=axes[idx])
+        
+    plt.legend(loc='best')
+    
+    fig.savefig('{}/violinplot-multiline-{}.eps'.format(target_dir, agent_name), format='eps')
     plt.close()
 
     return ax 
