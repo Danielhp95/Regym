@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns 
 import pandas as pd 
 
+sns.set(style="ticks")
 
 def create_plots(experiment_directory, number_of_runs):
     force_create_directory('{}/plots'.format(experiment_directory))
@@ -59,8 +60,7 @@ def update_benchmark_winrates_violinplot(old_dict, new_dict):
         if key not in old_dict: 
             old_dict[key] = []
         for el in new_dict[key]:
-            for _ in range(100):
-                old_dict[key].append(el)
+            old_dict[key].append(el)
             
 
 def update_episodic_reward(old_dict, new_dict):
@@ -118,19 +118,12 @@ def create_aggregated_benchmark_winrate_plot(winrate_dict, target_dir):
     plt.close()
 
 def create_aggregated_benchmark_winrate_violinplots(winrate_dict, target_dir):
-    agent_names = []
-    agent_names = [ name for name in winrate_dict['agent'] if name not in agent_names]
-    per_agent_winrate_dict = { agent_name:{key:[] for key in winrate_dict.keys()} for agent_name in agent_names  }
-    nbr_items = len(winrate_dict['winrate'])
-    for idx in range(nbr_items):
-        for key in winrate_dict.keys():
-            per_agent_winrate_dict[ winrate_dict['agent'][idx] ][key].append( winrate_dict[key][idx] )
+    df = pd.DataFrame(data=winrate_dict)
+    agent_names = list(set(df.agent))
 
-    axes = []
-    for agent_name in per_agent_winrate_dict.keys():
-        ax = create_single_agent_violinplot(agent_name, target_dir, per_agent_winrate_dict[agent_name] )
-        axes.append(ax)
-
+    for agent_name in agent_names:
+        create_single_agent_violinplot(agent_name, target_dir, df[df.agent == agent_name] )
+        
 
 def plot_single_run(run_id, source_dir):
     create_confusion_matrix_heatmaps(source_dir='{}/confusion_matrices'.format(source_dir),
@@ -183,43 +176,83 @@ def create_single_heatmap(source, target_dir, axis_labels):
 
     fig.savefig('{}/heatmap-{}.eps'.format(target_dir, file_name), format='eps')
 
-def create_single_agent_violinplot(agent_name, target_dir, data):
-    df = pd.DataFrame(data=data).sort_values('iteration')
-    df = df[ df.opponent != agent_name ]
-
-    fig, ax = plt.subplots()
-    ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="Pastel1", ax=ax, cut=0, width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
-    #ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="Pastel1", ax=ax, width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
-    
-    #g = sns.catplot(x="iteration", y="winrate", hue="opponent", kind="violin", inner=None, data=df, ax=ax)
-    #g = sns.catplot(x="iteration", y="winrate", hue="opponent", kind="bar", data=df, ax=ax)
-    #sns.swarmplot(x="iteration", y="winrate", hue="opponent", color="k", size=3, data=df, ax=ax)
-    
-    #g = sns.catplot(x="iteration", y="winrate", hue="opponent", kind="point", data=df, ax=ax)
-    plt.legend(loc='best')
-    plt.title('Head to head winrates against all opponents\nfor policy: {}'.format(agent_name))
-    plt.tight_layout()
-
-    fig.savefig('{}/violinplot-{}.eps'.format(target_dir, agent_name), format='eps')
-    plt.close()
-
-
+def create_multiline_per_opponent_winrate_violinplot(agent_name, df, target_dir ):
     set_opponent = list(set( df.opponent ))
+    y_max = 1
+    x_max = max(df.iteration/10) # wtf?
+    
     dfs = [df[df.opponent == set_opponent[i] ] for i in range(len(set_opponent))]
-
-    fig = plt.figure(1)
+    
+    palettes = [ "Pastel1", "Pastel2", "icefire", "twilight"]
+    fig = plt.figure()
+    gs = fig.add_gridspec(len(set_opponent), 1)
+    gs.update( hspace=1.25/len(set_opponent))
     axes = []
     for idx in range(len(set_opponent)):
-        axes.append( plt.subplot(4, 1, idx+1) )
-        sns.violinplot(x="iteration", y="winrate", hue="opponent", data=dfs[idx], palette="Pastel1", ax=axes[idx], width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
-        sns.catplot(x="iteration", y="winrate", hue="opponent", kind="point", data=dfs[idx], ax=axes[idx])
+        axes.append( fig.add_subplot(gs[idx, 0]) )
+        sns.set_palette(palettes[idx%len(palettes)])
         
-    plt.legend(loc='best')
-    
-    fig.savefig('{}/violinplot-multiline-{}.eps'.format(target_dir, agent_name), format='eps')
-    plt.close()
+        axes[idx].plot( (-1, x_max ), (y_max / 2, y_max / 2), '--')
+        sns.violinplot(x="iteration", y="winrate", hue="opponent", data=dfs[idx], ax=axes[idx], width=0.75, cut=0, linewidth=1.25, saturation=2.0, inner='box', gridsize=1000)
+        sns.set_palette(palettes[-(idx+1)%len(palettes)])
+        sns.catplot(x="iteration", y="winrate", hue="opponent", kind="point", data=dfs[idx], ax=axes[idx], linestyle="--", scale=0.5)
+        
+        axes[idx].set_ylim([0,y_max])
+        axes[idx].set_xlim([-1,x_max])
+        
+        axes[idx].set_title('{} vs {}'.format(agent_name,set_opponent[idx]))
+        axes[idx].legend().set_visible(False)
+        if idx != len(set_opponent)-1:
+            axes[idx].xaxis.set_visible(False)
 
-    return ax 
+    fig.savefig('{}/violinplot-multiline-{}.eps'.format(target_dir, agent_name), format='eps')
+    plt.close(fig)
+
+def create_end_of_training_winrate_violinplot(agent_name, df, target_dir):
+    y_max = 1
+    x_max = max(df.iteration)/100
+    set_opponent = list(set( df.opponent ))
+    
+    fig, ax = plt.subplots()
+    df_last = df[df.iteration == max(df.iteration)]
+    
+    ax.plot( (x_max-(len(set_opponent))/2, x_max+(len(set_opponent)-2)/2 ), (y_max / 2, y_max / 2), '--')
+    ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df_last, palette="Pastel1", ax=ax, cut=0, width=1.0, linewidth=1.75, saturation=2.0, inner='box', gridsize=1000)
+    
+    plt.title('Winrates against all opponents at the end of training\nfor policy: {}'.format(agent_name))
+    ax.set_ylim([0,1])
+    
+    plt.legend(loc='best')
+    plt.tight_layout()
+    
+    fig.savefig('{}/violinplot-EOT-{}.eps'.format(target_dir, agent_name), format='eps')
+    plt.close(fig)
+
+def create_winrate_evolution_violinplot(agent_name, df, target_dir):
+    set_opponent = list(set( df.opponent ))
+    y_max = 1
+    x_max = max(df.iteration/10) # wtf?
+    
+    fig, ax = plt.subplots()
+    
+    ax.plot( (-1, x_max ), (y_max / 2, y_max / 2), '--')
+    ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="Pastel1", ax=ax, cut=0, width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
+    
+    plt.title('Head to head winrates against all opponents\nfor policy: {}'.format(agent_name))
+    ax.set_ylim([0,1])
+    
+    plt.legend(loc='best')
+    plt.tight_layout()
+    
+    fig.savefig('{}/violinplot-{}.eps'.format(target_dir, agent_name), format='eps')
+    plt.close(fig)
+
+def create_single_agent_violinplot(agent_name, target_dir, df):
+    df = df[ df.opponent != agent_name ]
+    
+    create_winrate_evolution_violinplot(agent_name=agent_name, df=df, target_dir=target_dir)
+    create_multiline_per_opponent_winrate_violinplot(agent_name=agent_name, df=df, target_dir=target_dir)
+    create_end_of_training_winrate_violinplot(agent_name=agent_name, df=df, target_dir=target_dir)
 
 def create_average_winrate_graph(source_dir, target_dir):
     benchmark_winrate_dict = {}
@@ -317,5 +350,5 @@ if __name__ == '__main__':
     docopt_options = docopt(_USAGE)
     source_dir = docopt_options['--source']
     number_of_runs = len([f for f in os.listdir('./' + source_dir) if f.startswith('run')])
-    #create_plots(experiment_directory=source_dir,  number_of_runs=number_of_runs)
+    create_plots(experiment_directory=source_dir,  number_of_runs=number_of_runs)
     create_violinplots(experiment_directory=source_dir, number_of_runs=number_of_runs)
