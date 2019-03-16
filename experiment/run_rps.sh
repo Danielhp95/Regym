@@ -1,1 +1,1 @@
-python run.py --config experiment_config.yaml --dest ./
+python run.py --config rps_experiment_config.yaml --dest ./
