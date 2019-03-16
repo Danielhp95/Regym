@@ -102,7 +102,7 @@ def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    load_agent = True
+    load_agent = False
     
     if load_agent:
         agent = AgentHook.load(load_path='/tmp/test_PPO_agent_RoboschoolSumoWithRewardShaping-v0.agent')
@@ -115,7 +115,7 @@ def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
     
     envname = 'RoboschoolSumoWithRewardShaping-v0'
     learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent=opponent,
-                                      total_episodes=100, training_percentage=0.9,
+                                      total_episodes=1000, training_percentage=0.9,
                                       reward_threshold_percentage=0.25, envname=envname, nbr_parallel_env=ppo_config_dict_ma['nbr_actor'], save=True)
 
 def record_RoboDohyo_ZeroAgent(RoboDohyoTask, ppo_config_dict):

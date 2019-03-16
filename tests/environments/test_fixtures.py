@@ -34,12 +34,12 @@ def ppo_config_dict_ma():
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
     config['optimization_epochs'] = 15
-    config['mini_batch_size'] = 256#4096
+    config['mini_batch_size'] = 1024
     config['ppo_ratio_clip'] = 0.2
-    config['learning_rate'] = 3.0e-4
+    config['learning_rate'] = 1.0e-3
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 4#32
-    config['horizon'] = 1024
+    config['nbr_actor'] = 16
+    config['horizon'] = 4096
     return config
 
 
@@ -49,19 +49,19 @@ def ddpg_config_dict_ma():
     config['discount'] = 0.99
     config['tau'] = 1e-3
     config['use_cuda'] = True
-    config['nbrTrainIteration'] = 1 
+    config['nbrTrainIteration'] = 8
     config['action_scaler'] = 1.0 
     config['use_HER'] = False
     config['HER_k'] = 2
     config['HER_strategy'] = 'future'
     config['HER_use_singlegoal'] = False 
     config['use_PER'] = True 
-    config['PER_alpha'] = 0.7 
+    config['PER_alpha'] = 0.7
     config['replay_capacity'] = 25e3
-    config['min_capacity'] = 5e3 
-    config['batch_size'] = 32#128
+    config['min_capacity'] = 25e3 
+    config['batch_size'] = 1024
     config['learning_rate'] = 3.0e-4
-    config['nbr_actor'] = 1#32
+    config['nbr_actor'] = 8#32
     return config
 
 @pytest.fixture
