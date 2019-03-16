@@ -192,13 +192,13 @@ def create_multiline_per_opponent_winrate_violinplot(agent_name, df, target_dir 
         axes.append( fig.add_subplot(gs[idx, 0]) )
         sns.set_palette(palettes[idx%len(palettes)])
         
-        axes[idx].plot( (-1, x_max ), (y_max / 2, y_max / 2), '--')
+        #axes[idx].plot( (-1, x_max ), (y_max / 2, y_max / 2), '--')
         sns.violinplot(x="iteration", y="winrate", hue="opponent", data=dfs[idx], ax=axes[idx], width=0.75, cut=0, linewidth=1.25, saturation=2.0, inner='box', gridsize=1000)
         sns.set_palette(palettes[-(idx+1)%len(palettes)])
         sns.catplot(x="iteration", y="winrate", hue="opponent", kind="point", data=dfs[idx], ax=axes[idx], linestyle="--", scale=0.5)
         
         axes[idx].set_ylim([0,y_max])
-        axes[idx].set_xlim([-1,x_max])
+        #axes[idx].set_xlim([-1,x_max])
         
         axes[idx].set_title('{} vs {}'.format(agent_name,set_opponent[idx]))
         axes[idx].legend().set_visible(False)
@@ -216,7 +216,7 @@ def create_end_of_training_winrate_violinplot(agent_name, df, target_dir):
     fig, ax = plt.subplots()
     df_last = df[df.iteration == max(df.iteration)]
     
-    ax.plot( (x_max-(len(set_opponent))/2, x_max+(len(set_opponent)-2)/2 ), (y_max / 2, y_max / 2), '--')
+    #ax.plot( (x_max-(len(set_opponent))/2, x_max+(len(set_opponent)-2)/2 ), (y_max / 2, y_max / 2), '--')
     ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df_last, palette="Pastel1", ax=ax, cut=0, width=1.0, linewidth=1.75, saturation=2.0, inner='box', gridsize=1000)
     
     plt.title('Winrates against all opponents at the end of training\nfor policy: {}'.format(agent_name))
@@ -235,7 +235,7 @@ def create_winrate_evolution_violinplot(agent_name, df, target_dir):
     
     fig, ax = plt.subplots()
     
-    ax.plot( (-1, x_max ), (y_max / 2, y_max / 2), '--')
+    #ax.plot( (-1, x_max ), (y_max / 2, y_max / 2), '--')
     ax = sns.violinplot(x="iteration", y="winrate", hue="opponent", data=df, palette="Pastel1", ax=ax, cut=0, width=0.75, linewidth=0.75, saturation=2.0, inner='box', gridsize=1000)
     
     plt.title('Head to head winrates against all opponents\nfor policy: {}'.format(agent_name))
