@@ -1,8 +1,8 @@
 experiment:
-    experiment_id: 'Delta-vs-DeltaLimit-UniformTest'
+    experiment_id: 'Delta-vs-DeltaLimit-UniformTest-CH1e4'
     environment: 'RockPaperScissors-v0'
-    number_of_runs: 10
-    checkpoint_at_iterations: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+    number_of_runs: 5
+    checkpoint_at_iterations: [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]
     benchmarking_episodes: 10 
     self_play_training_schemes: ['fullhistoryselfplay','fullhistorylimitselfplay']
     algorithms: ['ppo']
