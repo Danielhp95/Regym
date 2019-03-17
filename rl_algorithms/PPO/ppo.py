@@ -24,7 +24,7 @@ class PPOAlgorithm():
         mini_batch_size: int, Mini batch size to use to calculate losses (Use power of 2 for efficciency)
         ppo_ratio_clip: float, clip boundaries (1 - clip, 1 + clip) used in clipping loss function.
         learning_rate: float, optimizer learning rate.
-        adam_eps: (float), Small Epsilon value used for ADAM optimizar. Prevents numerical inestability when v^{hat} (Second momentum estimator) is near 0.
+        adam_eps: (float), Small Epsilon value used for ADAM optimizer. Prevents numerical instability when v^{hat} (Second momentum estimator) is near 0.
         model: (Pytorch nn.Module) Used to represent BOTH policy network and value network
         '''
         self.kwargs = deepcopy(kwargs)
@@ -33,15 +33,38 @@ class PPOAlgorithm():
             self.model = self.model.cuda()
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=kwargs['learning_rate'], eps=kwargs['adam_eps'])
+        
+        self.recurrent = False
+        self.rnn_keys = [ key for key,value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
+        if len(self.rnn_keys):
+            self.recurrent = True 
+        
         self.storage = Storage(self.kwargs['horizon'])
-
+        if self.recurrent:
+            self.storage.add_key('rnn_states')
+            self.storage.add_key('next_rnn_states')
+        
     def train(self):
         self.storage.placeholder()
 
         self.compute_advantages_and_returns()
-        states, actions, log_probs_old, returns, advantages = self.retrieve_values_from_storage()
+        states, actions, log_probs_old, returns, advantages, rnn_states = self.retrieve_values_from_storage()
+        
+        if self.recurrent:
+            reformated_rnn_states = { k: ( [list()], [list()] ) for k in self.rnn_keys }
+            for rnn_state in rnn_states:
+                for k, (hstates, cstates) in rnn_state.items():
+                    for idx_layer, (h,c) in enumerate( zip(hstates, cstates) ):
+                        reformated_rnn_states[k][0][0].append(h)
+                        reformated_rnn_states[k][1][0].append(c)
+            for k, (hstates, cstates) in reformated_rnn_states.items():
+                hstates = torch.cat(hstates[0], dim=0) 
+                cstates = torch.cat(cstates[0], dim=0)
+                reformated_rnn_states[k] = ( [hstates], [cstates] )
+            rnn_states = reformated_rnn_states
+        
         for _ in range(self.kwargs['optimization_epochs']):
-            self.optimize_model(states, actions, log_probs_old, returns, advantages)
+            self.optimize_model(states, actions, log_probs_old, returns, advantages,rnn_states)
 
         self.storage.reset()
 
@@ -59,17 +82,26 @@ class PPOAlgorithm():
             self.storage.ret[i] = returns.detach()
 
     def retrieve_values_from_storage(self):
-        states, actions, log_probs_old, returns, advantages = self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv'])
-        actions = actions.detach()
-        log_probs_old = log_probs_old.detach()
+        if self.recurrent:
+            cat = self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv', 'rnn_states'])
+            rnn_states = cat[-1]
+            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat[:-1]) 
+        else :
+            states, actions, log_probs_old, returns, advantages= map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']) )
+            rnn_states = None 
+
         advantages = self.standardize(advantages)
-        return states, actions, log_probs_old, returns, advantages
+        return states, actions, log_probs_old, returns, advantages, rnn_states
 
     def standardize(self, x):
         return (x - x.mean()) / x.std()
 
-    def optimize_model(self, states, actions, log_probs_old, returns, advantages):
+    def optimize_model(self, states, actions, log_probs_old, returns, advantages, rnn_states=None):
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
+        assert( (self.recurrent and rnn_states is not None) or not(self.recurrent or rnn_states is not None) )
+        if self.recurrent:
+            nbr_layers_per_rnn = { k:len(rnn_states[k][0] ) for k in self.rnn_keys}
+        
         for batch_indices in sampler:
             batch_indices = torch.from_numpy(batch_indices).long()
 
@@ -79,7 +111,20 @@ class PPOAlgorithm():
             sampled_returns = returns[batch_indices].cuda() if self.kwargs['use_cuda'] else returns[batch_indices]
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
-            prediction = self.model(sampled_states, sampled_actions)
+            if self.recurrent:
+                sampled_rnn_states = { k: ( [None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k] ) for k in self.rnn_keys}
+                for k in sampled_rnn_states:
+                    for idx in range( nbr_layers_per_rnn[k] ):
+                        sampled_rnn_states[k][0][idx] = rnn_states[k][0][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][0][idx][batch_indices]
+                        sampled_rnn_states[k][1][idx] = rnn_states[k][1][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][1][idx][batch_indices]
+                
+                prediction = self.model(sampled_states, sampled_actions, rnn_states=sampled_rnn_states)
+            else :
+                prediction = self.model(sampled_states, sampled_actions)
+            
+            
+            #prediction = {k: v.view((1, -1)) for k, v in prediction.items()}
+                 
             ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
             obj = ratio * sampled_advantages
             obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],
@@ -89,6 +134,6 @@ class PPOAlgorithm():
             value_loss = 0.5 * (sampled_returns - prediction['v']).pow(2).mean()
 
             self.optimizer.zero_grad()
-            (policy_loss + value_loss).backward()
+            (policy_loss + value_loss).backward(retain_graph=False)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
