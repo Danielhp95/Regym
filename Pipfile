@@ -21,6 +21,7 @@ torch = "*"
 torchvision = "*"
 ipdb = "*"
 gym-rock-paper-scissors = "==0.0.2"
+seaborn = "*"
 
 [requires]
 python_version = "3.6"
