@@ -1,4 +1,0 @@
-NaiveSP-tabularqlearning_ruql, 0
-FullHistorySP-tabularqlearning_ruql, 1
-EmptySelfPlay-RockAgent, 2
-EmptySelfPlay-RandomAgent, 3
