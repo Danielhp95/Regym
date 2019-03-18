@@ -14,7 +14,7 @@ from test_fixtures import ppo_config_dict, dqn_config_dict, tabular_q_learning_c
 
 
 def test_can_hook_tql_agent(RPSTask, tabular_q_learning_config_dict):
-    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
+    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL')
     hook = AgentHook(agent)
 
     compare_against_expected_agenthook(agent, hook, AgentType.TQL, [])
@@ -22,7 +22,7 @@ def test_can_hook_tql_agent(RPSTask, tabular_q_learning_config_dict):
 
 def test_can_hook_dqn_agent(RPSTask, dqn_config_dict):
     dqn_config_dict['use_cuda'] = True
-    agent = build_DQN_Agent(RPSTask, dqn_config_dict)
+    agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
     assert all(map(lambda param: param.is_cuda, agent.algorithm.target_model.parameters()))
     hook = AgentHook(agent)
@@ -32,7 +32,7 @@ def test_can_hook_dqn_agent(RPSTask, dqn_config_dict):
 
 def test_can_hook_ppo_agent(RPSTask, ppo_config_dict):
     ppo_config_dict['use_cuda'] = True
-    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
     hook = AgentHook(agent)
 
@@ -46,7 +46,7 @@ def compare_against_expected_agenthook(agent, hooked_agent, expected_hook_type, 
 
 
 def test_can_unhook_tql_agenthook(RPSTask, tabular_q_learning_config_dict):
-    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
+    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL')
     hook = AgentHook(agent)
     retrieved_agent = AgentHook.unhook(hook)
 
@@ -55,7 +55,7 @@ def test_can_unhook_tql_agenthook(RPSTask, tabular_q_learning_config_dict):
 
 def test_can_unhook_dqn_agenthook(RPSTask, dqn_config_dict):
     dqn_config_dict['use_cuda'] = True
-    agent = build_DQN_Agent(RPSTask, dqn_config_dict)
+    agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
     assert all(map(lambda param: param.is_cuda, agent.algorithm.target_model.parameters()))
     hook = AgentHook(agent)
@@ -66,7 +66,7 @@ def test_can_unhook_dqn_agenthook(RPSTask, dqn_config_dict):
 
 def test_can_unhook_ppo_agenthook(RPSTask, ppo_config_dict):
     ppo_config_dict['use_cuda'] = True
-    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
     hook = AgentHook(agent)
 
@@ -81,7 +81,7 @@ def compare_against_expected_retrieved_agent(agent, retrieved_agent, model_list)
 
 
 def test_can_save_tql_to_memory(RPSTask, tabular_q_learning_config_dict):
-    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
+    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL')
     save_path = '/tmp/test_save.agent'
     hook = AgentHook(agent, save_path)
 
@@ -90,7 +90,7 @@ def test_can_save_tql_to_memory(RPSTask, tabular_q_learning_config_dict):
 
 
 def test_can_save_dqn_to_memory(RPSTask, dqn_config_dict):
-    agent = build_DQN_Agent(RPSTask, dqn_config_dict)
+    agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     save_path = '/tmp/test_save.agent'
     hook = AgentHook(agent, save_path)
 
@@ -99,7 +99,7 @@ def test_can_save_dqn_to_memory(RPSTask, dqn_config_dict):
 
 
 def test_can_save_ppo_to_memory(RPSTask, ppo_config_dict):
-    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     save_path = '/tmp/test_save.agent'
     hook = AgentHook(agent, save_path=save_path)
 
@@ -108,7 +108,7 @@ def test_can_save_ppo_to_memory(RPSTask, ppo_config_dict):
 
 
 def test_can_load_tql_from_agenthook(RPSTask, tabular_q_learning_config_dict):
-    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict)
+    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL')
     save_path = '/tmp/test_save.agent'
     hook = AgentHook(agent, save_path=save_path)
 
@@ -118,7 +118,7 @@ def test_can_load_tql_from_agenthook(RPSTask, tabular_q_learning_config_dict):
 
 def test_can_load_dqn_from_agenthook(RPSTask, dqn_config_dict):
     dqn_config_dict['use_cuda'] = True
-    agent = build_DQN_Agent(RPSTask, dqn_config_dict)
+    agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     save_path = '/tmp/test_save.agent'
     hook = AgentHook(agent, save_path=save_path)
 
@@ -129,7 +129,7 @@ def test_can_load_dqn_from_agenthook(RPSTask, dqn_config_dict):
 
 def test_can_load_ppo_from_agenthook(RPSTask, ppo_config_dict):
     ppo_config_dict['use_cuda'] = True
-    agent = build_PPO_Agent(RPSTask, ppo_config_dict)
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     save_path = '/tmp/test_save.agent'
     hook = AgentHook(agent, save_path=save_path)
 
