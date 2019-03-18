@@ -22,7 +22,7 @@ def run_episode(env, agent_vector, training, record=False):
         episode_n +=1
         video_recorder = gym.wrappers.monitoring.video_recorder.VideoRecorder(env=env, base_path=("/tmp/{}-episode-{}".format(record, episode_n)), enabled=True)
     
-    observations = env.reset()
+    observations = copy.deepcopy( env.reset() )
     done = False
     trajectory = []
     timestep = 0 
@@ -30,14 +30,15 @@ def run_episode(env, agent_vector, training, record=False):
     inner_loop = True
 
     while not done:
-        action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
-        succ_observations, reward_vector, done, info = env.step(action_vector)
+        #import ipdb; ipdb.set_trace()
+        action_vector = copy.deepcopy( [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)] )
+        succ_observations, reward_vector, done, info = copy.deepcopy( env.step(action_vector) )
         trajectory.append( copy.deepcopy( (observations, action_vector, reward_vector, succ_observations, done) ) )
         
         if inner_loop:
             if training:
                 for i, agent in enumerate(agent_vector):
-                    agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
+                    agent.handle_experience( copy.deepcopy(observations[i]), copy.deepcopy(action_vector[i]), copy.deepcopy(reward_vector[i]), copy.deepcopy(succ_observations[i]), copy.deepcopy(done) )
         
         if record: 
             video_recorder.capture_frame()
@@ -49,9 +50,9 @@ def run_episode(env, agent_vector, training, record=False):
     if not(inner_loop) and training:
         for o, a, r, so, d in trajectory:
             for i, agent in enumerate(agent_vector):
-                a_dummy = agent.take_action(o[i])
-                agent.handle_experience(o[i], a_dummy, r[i], so[i], d)
-                #agent.handle_experience(o[i], a[i], r[i], so[i], d)
+                #a_dummy = agent.take_action(o[i])
+                #agent.handle_experience(o[i], a_dummy, r[i], so[i], d)
+                agent.handle_experience(o[i], a[i], r[i], so[i], d)
         
     if record: 
         video_recorder.close()
@@ -70,7 +71,7 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
     :param self_play: boolean specifying the mode in which to operate and, thus, what to return
     :returns: Trajectory (o,a,r,o') of actor 0, if self_play, trajectories for all the actor otherwise.
     '''
-    observations = env.reset()
+    observations = copy.deepcopy( env.reset() )
     nbr_actors = env.get_nbr_envs()
     done = [False]*nbr_actors
     previous_done = copy.deepcopy(done)
@@ -79,7 +80,7 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
     trajectory = []
     while not all(done):
         action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
-        succ_observations, reward_vector, done, info = env.step(action_vector)
+        succ_observations, reward_vector, done, info = copy.deepcopy( env.step(action_vector) )
         
 
         batch_index = -1
@@ -93,10 +94,10 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
             pa_r = [ reward_vector[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
             pa_succ_obs = [ succ_observations[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
             pa_done = [ done[actor_index] for idx_agent, agent in enumerate(agent_vector) ]
-            per_actor_trajectories[actor_index].append( (pa_obs, pa_a, pa_r, pa_succ_obs, pa_done) )
+            per_actor_trajectories[actor_index].append( copy.deepcopy( (pa_obs, pa_a, pa_r, pa_succ_obs, pa_done) ) )
 
             if actor_index == 0 :
-                trajectory.append( (pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]) )
+                trajectory.append( copy.deepcopy( (pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]) ) )
         
         observations = copy.deepcopy(succ_observations)
         previous_done = copy.deepcopy(done)
@@ -106,7 +107,7 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
             #progress_bar = tqdm(range(len(per_actor_trajectories[actor_index] ) ) )
             for pa_obs, pa_a, pa_r, pa_succ_obs, pa_done in per_actor_trajectories[actor_index]:
                 for i, agent in enumerate(agent_vector):
-                    agent.handle_experience( pa_obs[i], pa_a[i], pa_r[i], pa_succ_obs[i], pa_done[i])
+                    agent.handle_experience( pa_obs[i].reshape((1,-1)), pa_a[i].reshape((1,-1)), pa_r[i].reshape((1,-1)), pa_succ_obs[i].reshape((1,-1)), pa_done[i])
                 #progress_bar.set_description(f' actor_index: {actor_index}')
     
     

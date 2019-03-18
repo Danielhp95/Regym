@@ -24,12 +24,13 @@ class PPOAgent(object):
         self.nbr_actor = nbr_actor
         self.algorithm.kwargs['nbr_actor'] = nbr_actor
     
-    
+    """
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
+        current_nbr_actor = s.shape[0]
         state = self.state_preprocessing(s)
         current_prediction = self.algorithm.model(state)
-        current_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in current_prediction.items()}
+        current_prediction = {k: v.detach().cpu().view((current_nbr_actor,-1)) for k, v in current_prediction.items()}
         #current_prediction = {k: v.detach().cpu() for k, v in current_prediction.items()}
         
         if isinstance(r, np.ndarray): 
@@ -57,11 +58,63 @@ class PPOAgent(object):
             self.handled_experiences = 0
 
     def take_action(self, s):
+        current_nbr_actor = s.shape[0]
         state = self.state_preprocessing(s)
         current_prediction = self.algorithm.model(state)
-        current_nbr_actor = state.size(0)
         current_prediction = {k: v.detach().cpu().view((current_nbr_actor,-1)) for k, v in current_prediction.items()}
         return current_prediction['a'].cpu().detach().numpy()
+
+    """
+
+    def handle_experience(self, s, a, r, succ_s, done=False):
+        non_terminal = torch.ones(1)*(1 - int(done))
+        state = self.state_preprocessing(s)
+        if isinstance(r, np.ndarray): 
+            #r = torch.from_numpy(r).float().view((1))
+            r = torch.from_numpy(r).float().view((1,-1))
+        else :
+            r = torch.ones(1)*r
+        a = torch.from_numpy(a).view((1,-1))
+
+        current_nbr_actor = state.size(0)
+        #self.current_prediction = self.algorithm.model(state)
+        #self.current_prediction = {k: torch.from_numpy( v.detach().cpu().view((current_nbr_actor,-1)).numpy() ) for k, v in self.current_prediction.items()}
+        
+        current_prediction = self.algorithm.model(state)
+        current_prediction = {k: torch.from_numpy( v.detach().cpu().view((current_nbr_actor,-1)).numpy() ) for k, v in current_prediction.items()}
+        current_prediction['a'] = a 
+        
+        #to use this line or not to use this line:
+        self.current_prediction = {k: v for k, v in current_prediction.items()}
+        
+        self.current_prediction['a'] = a 
+        
+        self.algorithm.storage.add(self.current_prediction)
+        #self.algorithm.storage.add(current_prediction)
+        
+        #state = state.cpu().view((1,-1))
+        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
+        
+        self.handled_experiences += 1
+        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+            next_state = self.state_preprocessing(succ_s)
+            next_prediction = self.algorithm.model(next_state)
+            #next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            next_prediction = {k: torch.from_numpy( v.detach().cpu().view((current_nbr_actor,-1)).numpy() ) for k, v in next_prediction.items()}
+            self.algorithm.storage.add(next_prediction)            
+            
+            self.algorithm.train()
+            self.handled_experiences = 0
+
+    def take_action(self, state):
+        state = self.state_preprocessing(state)
+        self.current_prediction = self.algorithm.model(state)
+        current_nbr_actor = state.size(0)
+        self.current_prediction = {k: v.detach().cpu().view((current_nbr_actor,-1)) for k, v in self.current_prediction.items()}
+        #self.current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
+        return self.current_prediction['a'].cpu().numpy()
+    
+
 
     '''
     def handle_experience(self, s, a, r, succ_s, done=False):

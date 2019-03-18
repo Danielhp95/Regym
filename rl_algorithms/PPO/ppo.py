@@ -66,8 +66,6 @@ class PPOAlgorithm():
 
     def retrieve_values_from_storage(self):
         states, actions, log_probs_old, returns, advantages = self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv'])
-        actions = actions.detach()
-        log_probs_old = log_probs_old.detach()
         advantages = self.standardize(advantages)
         return states, actions, log_probs_old, returns, advantages
 
@@ -89,6 +87,7 @@ class PPOAlgorithm():
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
             prediction = {k:v.view((self.kwargs['mini_batch_size'],-1)) for k,v in self.model(sampled_states, sampled_actions).items() }
+            #prediction = self.model(sampled_states, sampled_actions)
 
             ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
             obj = ratio * sampled_advantages
