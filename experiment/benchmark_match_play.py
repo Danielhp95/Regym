@@ -6,6 +6,7 @@ import logging
 import logging.handlers
 import random
 import numpy as np
+import torch
 from collections import namedtuple
 
 from concurrent.futures import as_completed
@@ -17,7 +18,7 @@ from multiagent_loops.simultaneous_action_rl_loop import run_episode
 BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
 
 
-def benchmark_match_play_process(expected_benchmarking_matches, benchmarking_episodes, createNewEnvironment, benchmark_queue, matrix_queue):
+def benchmark_match_play_process(expected_benchmarking_matches, benchmarking_episodes, createNewEnvironment, benchmark_queue, matrix_queue, seed):
     """
     :param expected_benchmarking_matches: Number of agents that the process will wait for before shuting itself down
     :param benchmarking_episodes: Number of episodes that each benchmarking process will run for to collect statistics
@@ -29,6 +30,9 @@ def benchmark_match_play_process(expected_benchmarking_matches, benchmarking_epi
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Started')
+
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
     received_agents = 0
     while True:
