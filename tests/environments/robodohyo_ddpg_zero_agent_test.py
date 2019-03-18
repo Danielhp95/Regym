@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath('../../'))
 
-from test_fixtures import  ddpg_config_dict_ma, RoboSumoenv, RoboSumoTask
+from test_fixtures import  ddpg_config_dict_ma, RoboSumoenv, RoboSumoTask, RoboSumoWRSenv, RoboSumoWRSTask
 
 from rl_algorithms.agents import build_DDPG_Agent
 from rl_algorithms import AgentHook
@@ -16,7 +16,8 @@ class RoboDohyoZeroAgent:
         self.nbr_actor = nbr_actor
         self.name = "ZeroAgent"
     def take_action(self, state):
-        return np.concatenate( [np.zeros((1,8), dtype="float32") for _ in range(self.nbr_actor)], axis=0)
+        #return np.concatenate( [np.zeros((1,8), dtype="float32") for _ in range(self.nbr_actor)], axis=0)
+        return np.concatenate( [np.asarray([[-0.5, 0.5, 0.25, -0.75, -0.75, -0.5, -0.5, -0.5]]) for _ in range(self.nbr_actor)], axis=0)
     def handle_experience(self, s, a, r, succ_s, done):
         pass 
 
@@ -46,6 +47,7 @@ def ddpg_config_dict():
 def RoboDohyoenv():
     import roboschool
     import gym
+    #return gym.make('RoboschoolSumo-v0')
     return gym.make('RoboschoolSumoWithRewardShaping-v0')
 
 
@@ -53,7 +55,7 @@ def RoboDohyoTask(RoboSumoenv):
     from environments.gym_parser import parse_gym_environment
     return parse_gym_environment(RoboSumoenv)
 
-def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ddpg_config_dict_ma):
+def test_learns_to_beat_zero_in_RoboSumo(RoboSumoWRSTask, ddpg_config_dict_ma):
     '''
     Test used to make sure that agent is 'learning' by learning a best response
     against an agent that only plays rock in rock paper scissors.
@@ -64,7 +66,7 @@ def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ddpg_config_dict_ma):
     if load_agent:
         agent = AgentHook.load(load_path='/tmp/test_DDPG_agent_RoboschoolSumoWithRewardShaping-v0.agent')
     else:
-        agent = build_DDPG_Agent(RoboSumoTask, ddpg_config_dict_ma, 'DDPG_agent')
+        agent = build_DDPG_Agent(RoboSumoWRSTask, ddpg_config_dict_ma, 'DDPG_agent')
     agent.training = True
     assert agent.training
     

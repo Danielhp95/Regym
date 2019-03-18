@@ -33,13 +33,13 @@ def ppo_config_dict_ma():
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
-    config['optimization_epochs'] = 15
+    config['optimization_epochs'] = 25
     config['mini_batch_size'] = 1024
     config['ppo_ratio_clip'] = 0.2
-    config['learning_rate'] = 1.0e-3
+    config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
     config['nbr_actor'] = 16
-    config['horizon'] = 4096
+    config['horizon'] = 2048
     return config
 
 
@@ -47,9 +47,9 @@ def ppo_config_dict_ma():
 def ddpg_config_dict_ma():
     config = dict()
     config['discount'] = 0.99
-    config['tau'] = 1e-3
+    config['tau'] = 1e-4
     config['use_cuda'] = True
-    config['nbrTrainIteration'] = 8
+    config['nbrTrainIteration'] = 1
     config['action_scaler'] = 1.0 
     config['use_HER'] = False
     config['HER_k'] = 2
@@ -59,9 +59,9 @@ def ddpg_config_dict_ma():
     config['PER_alpha'] = 0.7
     config['replay_capacity'] = 25e3
     config['min_capacity'] = 25e3 
-    config['batch_size'] = 1024
+    config['batch_size'] = 256
     config['learning_rate'] = 3.0e-4
-    config['nbr_actor'] = 8#32
+    config['nbr_actor'] = 8
     return config
 
 @pytest.fixture
@@ -102,7 +102,17 @@ def RoboSumoenv():
     import gym
     return gym.make('RoboschoolSumo-v0')
 
+@pytest.fixture
+def RoboSumoWRSenv():
+    import roboschool
+    import gym
+    return gym.make('RoboschoolSumoWithRewardShaping-v0')
+
 
 @pytest.fixture
 def RoboSumoTask(RoboSumoenv):
     return parse_gym_environment(RoboSumoenv)
+
+@pytest.fixture
+def RoboSumoWRSTask(RoboSumoWRSenv):
+    return parse_gym_environment(RoboSumoWRSenv)

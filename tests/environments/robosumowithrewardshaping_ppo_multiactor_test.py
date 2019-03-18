@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath('../../'))
 
-from test_fixtures import ppo_config_dict, ppo_config_dict_ma, RoboSumoenv, RoboSumoTask
+from test_fixtures import ppo_config_dict, ppo_config_dict_ma, RoboSumoenv, RoboSumoTask, RoboSumoWRSenv, RoboSumoWRSTask
 
 from rl_algorithms.agents import build_PPO_Agent
 from rl_algorithms import AgentHook
@@ -62,7 +62,8 @@ class RoboDohyoZeroAgent:
         self.nbr_actor = nbr_actor
         self.name = "ZeroAgent"
     def take_action(self, state):
-        return np.concatenate( [np.zeros((1,8), dtype="float32") for _ in range(self.nbr_actor)], axis=0)
+        #return np.concatenate( [np.zeros((1,8), dtype="float32") for _ in range(self.nbr_actor)], axis=0)
+        return np.concatenate( [np.asarray([[-0.5, 0.5, 0.5, -0.75, -0.5, -0.5, -0.5, -0.5]]) for _ in range(self.nbr_actor)], axis=0)
     def handle_experience(self, s, a, r, succ_s, done):
         pass 
 
@@ -89,14 +90,15 @@ def ppo_config_dict():
 def RoboDohyoenv():
     import roboschool
     import gym
-    return gym.make('RoboschoolSumo-v0')
+    return gym.make('RoboschoolSumoWithRewardShaping-v0')
+    #return gym.make('RoboschoolSumo-v0')
 
 
 def RoboDohyoTask(RoboSumoenv):
     from environments.gym_parser import parse_gym_environment
     return parse_gym_environment(RoboSumoenv)
 
-def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
+def test_learns_to_beat_zero_in_RoboSumo(RoboSumoWRSTask, ppo_config_dict_ma):
     '''
     Test used to make sure that agent is 'learning' by learning a best response
     against an agent that only plays rock in rock paper scissors.
@@ -107,7 +109,7 @@ def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
     if load_agent:
         agent = AgentHook.load(load_path='/tmp/test_PPO_agent_RoboschoolSumoWithRewardShaping-v0.agent')
     else:
-        agent = build_PPO_Agent(RoboSumoTask, ppo_config_dict_ma, 'PPO_agent')
+        agent = build_PPO_Agent(RoboSumoWRSTask, ppo_config_dict_ma, 'PPO_agent')
     agent.training = True
     assert agent.training
     
@@ -115,7 +117,7 @@ def test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask, ppo_config_dict_ma):
     
     envname = 'RoboschoolSumoWithRewardShaping-v0'
     learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent=opponent,
-                                      total_episodes=1000, training_percentage=0.9,
+                                      total_episodes=200, training_percentage=0.9,
                                       reward_threshold_percentage=0.25, envname=envname, nbr_parallel_env=ppo_config_dict_ma['nbr_actor'], save=True)
 
 def record_RoboDohyo_ZeroAgent(RoboDohyoTask, ppo_config_dict):

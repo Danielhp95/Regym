@@ -57,7 +57,7 @@ def record_RoboSumo(RoboSumoTask, ddpg_config_dict_ma):
     load_opponent = False
     
     if load_agent:
-        agent = AgentHook.load(load_path='/tmp/test_ddpg_RoboschoolSumoWithRewardShaping-v0.agent')
+        agent = AgentHook.load(load_path='/tmp/test_DDPG_agent_RoboschoolSumoWithRewardShaping-v0.agent')#/tmp/test_ddpg_RoboschoolSumoWithRewardShaping-v0.agent')
     else:
         agent = build_DDPG_Agent(RoboSumoTask, ddpg_config_dict_ma, 'DDPG_agent')
     agent.training = True
