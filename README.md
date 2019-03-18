@@ -38,6 +38,7 @@ pipenv install
 #### conda
 
 ```
+conda update conda
 conda env create -f environment.yml
 ``` 
 
