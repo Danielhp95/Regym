@@ -15,6 +15,15 @@ def layer_init(layer, w_scale=1.0):
     nn.init.constant_(layer.bias.data, 0)
     return layer
 
+def layer_init_lstm(layer, w_scale=1.0):
+    nn.init.orthogonal_(layer.weight_ih.data)
+    nn.init.orthogonal_(layer.weight_hh.data)
+    layer.weight_ih.data.mul_(w_scale)
+    layer.weight_hh.data.mul_(w_scale)
+    nn.init.constant_(layer.bias_ih.data, 0)
+    nn.init.constant_(layer.bias_hh.data, 0)
+    return layer
+
 
 def tensor(x):
     if isinstance(x, torch.Tensor):

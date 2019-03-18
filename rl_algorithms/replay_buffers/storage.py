@@ -13,6 +13,10 @@ class Storage:
         self.size = size
         self.reset()
 
+    def add_key(self, key):
+        self.keys += [key]
+        setattr( self, key, [])
+        
     def add(self, data):
         for k, v in data.items():
             assert k in self.keys
@@ -30,4 +34,4 @@ class Storage:
 
     def cat(self, keys):
         data = [getattr(self, k)[:self.size] for k in keys]
-        return map(lambda x: torch.cat(x, dim=0), data)
+        return data
