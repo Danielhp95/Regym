@@ -7,9 +7,9 @@ import math
 from rl_algorithms import AgentHook
 
 '''
-Based on the paper: Emergent Complexity in Multi TODO
-The implementation differs from Bansal's because this class
-allows to use distributions which aren't uniform.
+Delta-limit-uniform distribution: 
+enforces a uniform opponent sampling, asymptotically,
+without biasing towards earlier policies.
 '''
 
 
@@ -25,7 +25,11 @@ def opponent_sampling_distribution(menagerie, training_agent, delta, distributio
     indices = range(len(menagerie) + 1) # +1 accounts for the training agent, not (yet) included in menagerie
     subset_of_considered_indices = slice(math.ceil(delta * len(menagerie)), len(indices))
     valid_agents_indices = indices[subset_of_considered_indices]
-    samples_indices = [distribution(valid_agents_indices)]
+    n = len(valid_agents_indices)
+    unormalized_ps = [1.0/((n * (n-i)**2)) for i in range(n)]
+    sum_ps = sum(unormalized_ps)
+    normalized_ps = [p / sum_ps for p in unormalized_ps]
+    samples_indices = [distribution(valid_agents_indices, p=normalized_ps)]
     samples = [ menagerie[idx] if idx < len(menagerie) else latest_training_agent_hook for idx in samples_indices]
     return [AgentHook.unhook(sampled_hook_agent) for sampled_hook_agent in samples]
 
