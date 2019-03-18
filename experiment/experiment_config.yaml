@@ -2,7 +2,7 @@ experiment:
     experiment_id: 'DeltaLimitUniformTest'
     environment: 'RockPaperScissors-v0'
     number_of_runs: 5
-    checkpoint_at_iterations: [10, 20, 30, 40, 50] #, 60, 70, 80, 90, 100]
+    checkpoint_at_iterations: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
     benchmarking_episodes: 10 
     self_play_training_schemes: ['halfhistorylimitselfplay','lastquarterhistorylimitselfplay']
     algorithms: ['ppo']
