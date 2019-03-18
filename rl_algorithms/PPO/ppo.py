@@ -50,23 +50,25 @@ class PPOAlgorithm():
         self.compute_advantages_and_returns()
         states, actions, log_probs_old, returns, advantages, rnn_states = self.retrieve_values_from_storage()
         
-        if self.recurrent:
-            reformated_rnn_states = { k: ( [list()], [list()] ) for k in self.rnn_keys }
-            for rnn_state in rnn_states:
-                for k, (hstates, cstates) in rnn_state.items():
-                    for idx_layer, (h,c) in enumerate( zip(hstates, cstates) ):
-                        reformated_rnn_states[k][0][0].append(h)
-                        reformated_rnn_states[k][1][0].append(c)
-            for k, (hstates, cstates) in reformated_rnn_states.items():
-                hstates = torch.cat(hstates[0], dim=0) 
-                cstates = torch.cat(cstates[0], dim=0)
-                reformated_rnn_states[k] = ( [hstates], [cstates] )
-            rnn_states = reformated_rnn_states
+        if self.recurrent: rnn_states = self.reformat_rnn_states(rnn_states)
         
         for _ in range(self.kwargs['optimization_epochs']):
-            self.optimize_model(states, actions, log_probs_old, returns, advantages,rnn_states)
+            self.optimize_model(states, actions, log_probs_old, returns, advantages, rnn_states)
 
         self.storage.reset()
+
+    def reformat_rnn_states(self, rnn_states):
+        reformated_rnn_states = { k: ( [list()], [list()] ) for k in self.rnn_keys }
+        for rnn_state in rnn_states:
+            for k, (hstates, cstates) in rnn_state.items():
+                for idx_layer, (h,c) in enumerate(zip(hstates, cstates)):
+                    reformated_rnn_states[k][0][0].append(h)
+                    reformated_rnn_states[k][1][0].append(c)
+        for k, (hstates, cstates) in reformated_rnn_states.items():
+            hstates = torch.cat(hstates[0], dim=0) 
+            cstates = torch.cat(cstates[0], dim=0)
+            reformated_rnn_states[k] = ([hstates], [cstates])
+        return reformated_rnn_states
 
     def compute_advantages_and_returns(self):
         advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
@@ -86,7 +88,7 @@ class PPOAlgorithm():
             cat = self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv', 'rnn_states'])
             rnn_states = cat[-1]
             states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat[:-1]) 
-        else :
+        else:
             states, actions, log_probs_old, returns, advantages= map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']) )
             rnn_states = None 
 
@@ -112,19 +114,16 @@ class PPOAlgorithm():
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
             if self.recurrent:
-                sampled_rnn_states = { k: ( [None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k] ) for k in self.rnn_keys}
+                sampled_rnn_states = { k: ([None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k]) for k in self.rnn_keys}
                 for k in sampled_rnn_states:
-                    for idx in range( nbr_layers_per_rnn[k] ):
+                    for idx in range(nbr_layers_per_rnn[k]):
                         sampled_rnn_states[k][0][idx] = rnn_states[k][0][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][0][idx][batch_indices]
                         sampled_rnn_states[k][1][idx] = rnn_states[k][1][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][1][idx][batch_indices]
                 
                 prediction = self.model(sampled_states, sampled_actions, rnn_states=sampled_rnn_states)
-            else :
+            else:
                 prediction = self.model(sampled_states, sampled_actions)
-            
-            
-            #prediction = {k: v.view((1, -1)) for k, v in prediction.items()}
-                 
+                    
             ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
             obj = ratio * sampled_advantages
             obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],
