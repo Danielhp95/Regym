@@ -66,7 +66,7 @@ def benchmark_empirical_winrates(benchmarking_episodes, createNewEnvironment, ag
 
 def single_match(env, agent_vector):
     # trajectory: [(s,a,r,s')]
-    unhooked_agents = [AgentHook.unhook(agent) for agent in agent_vector]
+    unhooked_agents = [AgentHook.unhook(agent, use_cuda=False) for agent in agent_vector]
     trajectory = run_episode(env, unhooked_agents, training=False)
     reward_vector = lambda t: t[2]
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))

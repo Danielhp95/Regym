@@ -140,6 +140,17 @@ def test_can_load_ppo_from_agenthook(RPSTask, ppo_config_dict):
     assert_model_parameters_are_cuda_tensors(model_list)
 
 
+def test_can_load_ppo_from_agenthook_disabling_cuda(RPSTask, ppo_config_dict):
+    ppo_config_dict['use_cuda'] = True
+    agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
+    save_path = '/tmp/test_save.agent'
+    hook = AgentHook(agent, save_path=save_path)
+
+    retrieved_agent = AgentHook.unhook(hook, use_cuda=False)
+    model = retrieved_agent.algorithm.model
+    assert all(map(lambda param: not param.is_cuda, model.parameters()))
+
+
 def assert_model_parameters_are_cuda_tensors(model_list):
     for model in model_list: assert all(map(lambda param: param.is_cuda, model.parameters()))
 
