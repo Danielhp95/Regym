@@ -59,12 +59,17 @@ class LSTMBody(nn.Module):
     def __init__(self, state_dim, hidden_units=(256), gate=F.relu):
         super(LSTMBody, self).__init__()
         dims = (state_dim, ) + hidden_units
-        #self.layers = nn.ModuleList([nn.LSTMCell( dim_in, dim_out) for dim_in, dim_out in zip(dims[:-1], dims[1:]) ])
-        self.layers = nn.ModuleList([ layer_init_lstm(nn.LSTMCell( dim_in, dim_out)) for dim_in, dim_out in zip(dims[:-1], dims[1:]) ])
+        # Consider future cases where we may not want to initialize the LSTMCell(s)
+        self.layers = nn.ModuleList([layer_init_lstm(nn.LSTMCell(dim_in, dim_out)) for dim_in, dim_out in zip(dims[:-1], dims[1:])])
         self.feature_dim = dims[-1]
         self.gate = gate
 
     def forward(self, x):
+        '''
+        :param x: input to LSTM cells. Structured as (input, (hidden_states, cell_states)).
+        hidden_states: list of hidden_state(s) one for each self.layers.
+        cell_states: list of hidden_state(s) one for each self.layers.
+        '''
         x, (hidden_states, cell_states) = x
         next_hstates, next_cstates = [], []
         for idx, (layer, hx, cx) in enumerate(zip(self.layers, hidden_states, cell_states) ):
@@ -78,7 +83,7 @@ class LSTMBody(nn.Module):
             nhx, ncx = layer(x, (hx, cx) )
             next_hstates.append(nhx)
             next_cstates.append(ncx)
-            #if idx != len(self.layers)-1 and self.gate is not None:
+            # Consider not applying activation functions on last layer's output
             if self.gate is not None:
                 x = self.gate(nhx)
         
