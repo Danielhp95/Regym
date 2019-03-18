@@ -3,6 +3,12 @@ import sys
 sys.path.append(os.path.abspath('..'))
 
 from math import factorial
+import numpy as np
+import torch
+from torch.multiprocessing import Process, JoinableQueue
+import gym
+import gym_rock_paper_scissors
+
 import util
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, HalfHistoryLimitSelfPlay
 
@@ -12,11 +18,6 @@ from training_process import create_training_processes
 from match_making import match_making_process
 from benchmark_match_play import benchmark_match_play_process
 from confusion_matrix_populate_process import confusion_matrix_process
-
-from torch.multiprocessing import Process, JoinableQueue
-
-import gym
-import gym_rock_paper_scissors
 
 from collections import namedtuple
 TrainingJob = namedtuple('TrainingJob', 'training_scheme agent name')
@@ -38,14 +39,14 @@ def preprocess_fixed_agents(existing_fixed_agents, checkpoint_at_iterations):
 
 def create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
                                  agent_queue, benchmark_queue, matrix_queue, benchmarking_episodes,
-                                 fixed_agents_for_confusion, results_path):
+                                 fixed_agents_for_confusion, results_path, seed):
 
     total_agents = len(training_jobs) + len(fixed_agents_for_confusion)
     expected_number_of_agents = total_agents * len(checkpoint_at_iterations)
     expected_benchmarking_matches = (int((total_agents * (total_agents - 1)) / 2) + total_agents) * len(checkpoint_at_iterations)
-    training_processes = create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations=checkpoint_at_iterations, agent_queue=agent_queue, results_path=results_path)
+    training_processes = create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations=checkpoint_at_iterations, agent_queue=agent_queue, results_path=results_path, seed=seed)
     mm_process = Process(target=match_making_process, args=(expected_number_of_agents, agent_queue, benchmark_queue))
-    benchmark_process = Process(target=benchmark_match_play_process, args=(expected_benchmarking_matches, benchmarking_episodes, createNewEnvironment, benchmark_queue, matrix_queue))
+    benchmark_process = Process(target=benchmark_match_play_process, args=(expected_benchmarking_matches, benchmarking_episodes, createNewEnvironment, benchmark_queue, matrix_queue, seed))
     cfm_process = Process(target=confusion_matrix_process, args=(training_jobs + fixed_agents_for_confusion, checkpoint_at_iterations, matrix_queue, results_path))
     return training_processes, mm_process, benchmark_process, cfm_process
 
@@ -74,7 +75,10 @@ def run_processes(training_processes, mm_process, benchmark_process, cfm_process
     cfm_process.join()
 
 
-def run_experiment(experiment_id, experiment_directory, run_id, experiment_config, agents_config):
+def run_experiment(experiment_id, experiment_directory, run_id, experiment_config, agents_config, seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
     results_path = f'{experiment_directory}/run-{run_id}'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
@@ -100,6 +104,6 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
      mm_process, benchmark_process,
      cfm_process) = create_all_initial_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations,
                                                  agent_queue, benchmark_queue, matrix_queue, benchmarking_episodes,
-                                                 fixed_agents_for_confusion, results_path)
+                                                 fixed_agents_for_confusion, results_path, seed)
 
     run_processes(training_processes, mm_process, benchmark_process, cfm_process)

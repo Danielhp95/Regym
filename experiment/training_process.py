@@ -6,6 +6,8 @@ sys.path.append(os.path.abspath('..'))
 import time
 import logging
 import logging.handlers
+import numpy as np
+import torch
 from torch.multiprocessing import Process
 
 from rl_algorithms import AgentHook
@@ -13,7 +15,7 @@ from rl_algorithms import AgentHook
 from multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
-def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path):
+def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path, seed):
     """
     :param env: Environment where agents will be trained on
     :param training_agent: agent representation + training algorithm which will be trained in this process
@@ -28,6 +30,9 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     logger.info('Started')
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
 
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
     trained_policy_save_directory = f'{base_path}/{process_name}'
     if not os.path.exists(trained_policy_save_directory):
         os.mkdir(trained_policy_save_directory)
@@ -37,7 +42,7 @@ def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterat
     completed_iterations = 0
     menagerie = []
     menagerie_path = f'{base_path}/menageries'
-    
+
     training_agent = AgentHook.unhook(training_agent)
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
@@ -76,7 +81,7 @@ def write_episodic_reward(enumerated_trajectories, target_file_path):
             f.write('{}, {}\n'.format(iteration, player_1_average_reward))
 
 
-def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, agent_queue, results_path):
+def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at_iterations, agent_queue, results_path, seed):
     """
     :param training_jobs: Array of TrainingJob namedtuples containing a training-scheme, algorithm and name
     :param createNewEnvironment: OpenAI gym environment creation function
@@ -92,16 +97,16 @@ def create_training_processes(training_jobs, createNewEnvironment, checkpoint_at
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
-    
+
     menagerie_path = f'{results_path}/menageries'
     if not os.path.exists(menagerie_path):
         os.mkdir(menagerie_path)
-    
+
     ps = []
     for job in training_jobs:
         p = Process(target=training_process,
                     args=(createNewEnvironment(), job.agent, job.training_scheme,
-                          checkpoint_at_iterations, agent_queue, job.name, results_path))
+                          checkpoint_at_iterations, agent_queue, job.name, results_path, seed))
         ps.append(p)
     logger.info("All training jobs submitted")
     return ps

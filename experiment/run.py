@@ -4,20 +4,18 @@ sys.path.append(os.path.abspath('..'))
 
 import shutil
 import time
-
-from plot_util import create_plots
-
+import numpy as np
 import yaml
 from docopt import docopt
+from threading import Thread
 
 import logging
 import logging.handlers
 import logging_server
 
-from threading import Thread
-
 from util.experiment_parsing import filter_relevant_agent_configurations
 import experiment
+from plot_util import create_plots
 
 
 def initialize_logger():
@@ -71,15 +69,19 @@ if __name__ == '__main__':
 
     docopt_options = docopt(_USAGE)
     print(docopt_options)
-    all_configs = yaml.load(open(docopt_options['--config']))
+    all_configs = yaml.load(open(docopt_options['--config']), Loader=yaml.FullLoader)
     experiment_config = all_configs['experiment']
     relevant_agent_configuration = filter_relevant_agent_configurations(experiment_config, all_configs['agents'])
 
     experiment_path = docopt_options['--dest']
     experiment_id   = experiment_config['experiment_id']
     number_of_runs  = int(experiment_config['number_of_runs'])
+    seeds = list(map(int, experiment_config['seeds'])) if 'seeds' in experiment_config else np.random.randint(0, 10000, number_of_runs).tolist()
+    if len(seeds) < number_of_runs:
+        print(f'Number of random seeds does not match "number of runs" config value. Genereting new seeds"')
+        seeds = np.random.randint(0, 10000, number_of_runs)
+    experiment_config['seeds'] = seeds
 
-    # TODO create directory structure function
     experiment_directory = f'{experiment_path}/experiment-{experiment_id}'
 
     if os.path.exists(experiment_directory): shutil.rmtree(experiment_directory)
@@ -98,12 +100,11 @@ if __name__ == '__main__':
     for run_id in range(number_of_runs):
         logger.info(f'Starting run: {run_id}')
         start_time = time.time()
-        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_config, relevant_agent_configuration)
+        experiment.run_experiment(experiment_id, experiment_directory, run_id, experiment_config, relevant_agent_configuration, seeds[run_id])
         experiment_duration = time.time() - start_time
         experiment_durations.append(experiment_duration)
         logger.info('Finished run: {}. Duration: {} (seconds)\n'.format(run_id, experiment_duration))
 
-    import numpy as np
     total_experiment_duration = sum(experiment_durations)
     average_experiment_duration = np.mean(experiment_durations)
     standard_deviation_experiment_duration = np.std(experiment_durations)
