@@ -20,7 +20,7 @@ opencv-python = "*"
 torch = "*"
 torchvision = "*"
 ipdb = "*"
-gym-rock-paper-scissors = "==0.0.2"
+gym-rock-paper-scissors = "==0.1"
 seaborn = "*"
 
 [requires]
