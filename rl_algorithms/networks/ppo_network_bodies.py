@@ -95,8 +95,8 @@ class LSTMBody(nn.Module):
             h = torch.zeros(1,layer.hidden_size)
             if cuda:
                 h = h.cuda()
-            hidden_states.append( h )
-            cell_states.append( h )
+            hidden_states.append(h)
+            cell_states.append(h)
         return (hidden_states, cell_states)
 
 class TwoLayerFCBodyWithAction(nn.Module):
