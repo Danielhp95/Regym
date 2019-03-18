@@ -43,8 +43,7 @@ def ppo_rnn_config_dict():
     config['horizon'] = 256
     config['phi_arch'] = 'RNN'
     config['actor_arch'] = 'None'
-    config['critic_arch'] = 'None'
-    
+    config['critic_arch'] = 'None'   
     return config
 
 
