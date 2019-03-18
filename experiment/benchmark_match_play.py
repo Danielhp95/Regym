@@ -55,7 +55,7 @@ def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_j
 def single_match(env, agent_vector):
     # trajectory: [(s,a,r,s')]
     unhooked_agents = [AgentHook.unhook(agent, use_cuda=False) for agent in agent_vector]
-    trajectory = run_episode(createNewEnvironment(), unhooked_agents, training=False)
+    trajectory = run_episode(env, unhooked_agents, training=False)
     reward_vector = lambda t: t[2]
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
     cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]
