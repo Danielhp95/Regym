@@ -17,7 +17,7 @@ def test_can_hook_tql_agent(RPSTask, tabular_q_learning_config_dict):
     compare_against_expected_agenthook(agent, hook, AgentType.TQL, [])
 
 
-def test_can_hook_dqn_agent(RPSTask, dqn_config_dict):
+def test_can_hook_dqn_agent_using_cuda(RPSTask, dqn_config_dict):
     dqn_config_dict['use_cuda'] = True
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
@@ -27,7 +27,7 @@ def test_can_hook_dqn_agent(RPSTask, dqn_config_dict):
     compare_against_expected_agenthook(agent, hook, AgentType.DQN, [hook.agent.algorithm.model, hook.agent.algorithm.target_model])
 
 
-def test_can_hook_ppo_agent(RPSTask, ppo_config_dict):
+def test_can_hook_ppo_agent_using_cuda(RPSTask, ppo_config_dict):
     ppo_config_dict['use_cuda'] = True
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
@@ -50,7 +50,7 @@ def test_can_unhook_tql_agenthook(RPSTask, tabular_q_learning_config_dict):
     compare_against_expected_retrieved_agent(agent, retrieved_agent, [])
 
 
-def test_can_unhook_dqn_agenthook(RPSTask, dqn_config_dict):
+def test_can_unhook_dqn_agenthook_cuda(RPSTask, dqn_config_dict):
     dqn_config_dict['use_cuda'] = True
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
@@ -61,7 +61,7 @@ def test_can_unhook_dqn_agenthook(RPSTask, dqn_config_dict):
     compare_against_expected_retrieved_agent(agent, retrieved_agent, [retrieved_agent.algorithm.model, retrieved_agent.algorithm.target_model])
 
 
-def test_can_unhook_ppo_agenthook(RPSTask, ppo_config_dict):
+def test_can_unhook_ppo_agenthook_with_cuda(RPSTask, ppo_config_dict):
     ppo_config_dict['use_cuda'] = True
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     assert all(map(lambda param: param.is_cuda, agent.algorithm.model.parameters()))
@@ -113,7 +113,7 @@ def test_can_load_tql_from_agenthook(RPSTask, tabular_q_learning_config_dict):
     assert np.array_equal(agent.algorithm.Q_table, retrieved_agent.algorithm.Q_table)
 
 
-def test_can_load_dqn_from_agenthook(RPSTask, dqn_config_dict):
+def test_can_load_dqn_from_agenthook_with_cuda(RPSTask, dqn_config_dict):
     dqn_config_dict['use_cuda'] = True
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     save_path = '/tmp/test_save.agent'
@@ -124,7 +124,7 @@ def test_can_load_dqn_from_agenthook(RPSTask, dqn_config_dict):
     assert_model_parameters_are_cuda_tensors(model_list)
 
 
-def test_can_load_ppo_from_agenthook(RPSTask, ppo_config_dict):
+def test_can_load_ppo_from_agenthook_with_cuda(RPSTask, ppo_config_dict):
     ppo_config_dict['use_cuda'] = True
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     save_path = '/tmp/test_save.agent'

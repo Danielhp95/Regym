@@ -28,7 +28,7 @@ def ppo_rnn_config_dict():
     config = dict()
     config['discount'] = 0.99
     config['use_gae'] = False
-    config['use_cuda'] = True
+    config['use_cuda'] = False
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
@@ -53,7 +53,7 @@ def dqn_config_dict():
     config['epsdecay'] = 5.0e4
     config['double'] = False
     config['dueling'] = False
-    config['use_cuda'] = True
+    config['use_cuda'] = False
     config['use_PER'] = False
     config['PER_alpha'] = 0.07
     config['min_memory'] = 1.e03

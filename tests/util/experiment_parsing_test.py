@@ -1,11 +1,7 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
 import yaml
 import pytest
 
-from util import experiment_parsing
+from regym.util import experiment_parsing
 
 
 @pytest.fixture

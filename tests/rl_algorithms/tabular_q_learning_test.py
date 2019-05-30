@@ -14,6 +14,7 @@ def test_creation_tabular_q_learning_algorithm_from_task_and_config(RPSTask, tab
     assert agent.algorithm.hashing_function == RPSTask.hash_function
     assert agent.training == expected_training
 
+
 def test_creation_repeated_update_q_learning_algorithm_from_task_and_config(RPSTask, tabular_q_learning_config_dict):
     tabular_q_learning_config_dict['use_repeated_update_q_learning'] = True
     expected_training = True
@@ -42,11 +43,11 @@ def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, tabular_q_learning_config_d
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    # tabular_q_learning_config_dict['use_repeated_update_q_learning'] = True
     from rps_test import learns_against_fixed_opponent_RPS
+    tabular_q_learning_config_dict['use_repeated_update_q_learning'] = True
 
     agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL_RUQL')
     assert agent.training
     learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
-                                      total_episodes=100000, training_percentage=0.97,
+                                      total_episodes=100000, training_percentage=0.98,
                                       reward_threshold=0.1)
