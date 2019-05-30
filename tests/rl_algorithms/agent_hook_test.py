@@ -1,13 +1,10 @@
 import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
 import numpy as np
 
-from rl_algorithms.agents import build_PPO_Agent
-from rl_algorithms.agents import build_DQN_Agent
-from rl_algorithms.agents import build_TabularQ_Agent
-from rl_algorithms.agent_hook import AgentHook, AgentType
+from regym.rl_algorithms.agents import build_PPO_Agent
+from regym.rl_algorithms.agents import build_DQN_Agent
+from regym.rl_algorithms.agents import build_TabularQ_Agent
+from regym.rl_algorithms.agent_hook import AgentHook, AgentType
 
 from test_fixtures import RPSenv, RPSTask
 from test_fixtures import ppo_config_dict, dqn_config_dict, tabular_q_learning_config_dict

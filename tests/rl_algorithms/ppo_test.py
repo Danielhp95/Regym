@@ -1,11 +1,7 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
 from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSenv, RPSTask
 
-from rl_algorithms.agents import build_PPO_Agent
-from rl_algorithms import rockAgent
+from regym.rl_algorithms.agents import build_PPO_Agent
+from regym.rl_algorithms import rockAgent
 
 def test_ppo_can_take_actions(RPSenv, RPSTask, ppo_config_dict):
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')

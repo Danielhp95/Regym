@@ -1,9 +1,5 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
-from rl_algorithms import rockAgent
-from rl_algorithms.agents import build_TabularQ_Agent
+from regym.rl_algorithms import rockAgent
+from regym.rl_algorithms.agents import build_TabularQ_Agent
 
 from test_fixtures import tabular_q_learning_config_dict, RPSenv, RPSTask
 

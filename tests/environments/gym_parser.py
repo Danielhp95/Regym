@@ -1,10 +1,7 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
 import pytest
 
-import environments
-from environments.gym_parser import Task
+import regym.environments as environments
+from regym.environments.gym_parser import Task
 import gym
 
 

@@ -1,8 +1,4 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
-from rl_algorithms.replay_buffers import PrioritizedReplayBuffer, EXP
+from regym.rl_algorithms.replay_buffers import PrioritizedReplayBuffer, EXP
 import numpy as np
 
 import matplotlib.pyplot as plt

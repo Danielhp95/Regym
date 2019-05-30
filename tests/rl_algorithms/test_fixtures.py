@@ -1,9 +1,5 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
 import pytest
-from environments.gym_parser import parse_gym_environment
+from regym.environments.gym_parser import parse_gym_environment
 
 
 @pytest.fixture
@@ -26,6 +22,7 @@ def ppo_config_dict():
     config['critic_arch'] = 'None'
     return config
 
+
 @pytest.fixture
 def ppo_rnn_config_dict():
     config = dict()
@@ -43,7 +40,7 @@ def ppo_rnn_config_dict():
     config['horizon'] = 256
     config['phi_arch'] = 'RNN'
     config['actor_arch'] = 'None'
-    config['critic_arch'] = 'None'   
+    config['critic_arch'] = 'None'
     return config
 
 

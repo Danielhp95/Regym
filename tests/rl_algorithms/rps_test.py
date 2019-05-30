@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import gym
-from multiagent_loops import simultaneous_action_rl_loop
+from regym.multiagent_loops import simultaneous_action_rl_loop
 
 
 def learns_against_fixed_opponent_RPS(agent, fixed_opponent, total_episodes, training_percentage, reward_threshold):
