@@ -1,14 +1,11 @@
-import os
-import sys
-sys.path.append(os.path.abspath('..'))
-from training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
+from ..training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
 
-from rl_algorithms import build_DQN_Agent
-from rl_algorithms import build_TabularQ_Agent
-from rl_algorithms import build_PPO_Agent
-from rl_algorithms import rockAgent, paperAgent, scissorsAgent, randomAgent
+from ..rl_algorithms import build_DQN_Agent
+from ..rl_algorithms import build_TabularQ_Agent
+from ..rl_algorithms import build_PPO_Agent
+from ..rl_algorithms import rockAgent, paperAgent, scissorsAgent, randomAgent
 
-import environments
+from .. import environments
 
 
 def check_for_unknown_candidate_input(known, candidates, category_name):
