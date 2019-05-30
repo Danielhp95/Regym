@@ -16,18 +16,18 @@ def test_prioritizedReplayBuffer_instantiation():
     nbr_iterative_sampling = 1000
 
     capacity = 1000
-    alphas = [1.0,0.8,0.6,0.3,0.1]
-    colors = ['yellow','green','blue','red','grey']
+    alphas = [1.0, 0.8, 0.6, 0.3, 0.1]
+    colors = ['yellow', 'green', 'blue', 'red', 'grey']
 
-    batch_size = 256
+    batch_size = 52
     fraction = 0.0
 
-    for alpha,color in zip(alphas,colors):
-        replayBuffer = PrioritizedReplayBuffer(capacity=capacity,alpha=alpha)
-        experience = EXP(None,None,None,None,None)
+    for alpha, color in zip(alphas, colors):
+        replayBuffer = PrioritizedReplayBuffer(capacity=capacity, alpha=alpha)
+        experience = EXP(None, None, None, None, None)
         for i in range(capacity):
-            importance = (i/capacity)*np.ones((1,1) )
-            init_sampling_priority = replayBuffer.priority( importance )
+            importance = (i/capacity)*np.ones((1, 1))
+            init_sampling_priority = replayBuffer.priority(importance)
             replayBuffer.add(experience, init_sampling_priority)
 
         prioritysum = replayBuffer.total()
@@ -39,14 +39,14 @@ def test_prioritizedReplayBuffer_instantiation():
             # Random Experience Sampling with priority
             low = fraction*prioritysum
             step = (prioritysum-low) / batch_size
-            randexp = np.arange(low,prioritysum,step)+np.random.uniform(low=0.0,high=step,size=(batch_size))
+            randexp = np.arange(low, prioritysum, step)+np.random.uniform(low=0.0, high=step, size=(batch_size))
 
             for i in range(batch_size):
-                try :
+                try:
                     el = replayBuffer.get(randexp[i])
-                    importances.append( np.exp(np.log(el[1])/alpha) )
+                    importances.append(np.exp(np.log(el[1])/alpha))
                     batch.append(el)
-                except TypeError as e :
+                except TypeError:
                     continue
 
         n, bins, patches = plt.hist(importances, num_bins, facecolor=color, alpha=0.3)
