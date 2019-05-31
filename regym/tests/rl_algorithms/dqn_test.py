@@ -1,9 +1,6 @@
 from regym.rl_algorithms.agents import build_DQN_Agent
 from regym.rl_algorithms import rockAgent
 
-from regym.environments.gym_parser import parse_gym_environment
-from regym.multiagent_loops import simultaneous_action_rl_loop
-
 from test_fixtures import RPSenv, RPSTask, dqn_config_dict
 
 

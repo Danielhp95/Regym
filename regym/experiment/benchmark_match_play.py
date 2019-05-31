@@ -13,7 +13,7 @@ from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 
 from rl_algorithms import AgentHook
-from multiagent_loops.simultaneous_action_rl_loop import run_episode
+from rl_loops.multiagent_loops.simultaneous_action_rl_loop import run_episode
 
 BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
 

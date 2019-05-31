@@ -12,7 +12,7 @@ from torch.multiprocessing import Process
 
 from rl_algorithms import AgentHook
 
-from multiagent_loops.simultaneous_action_rl_loop import self_play_training
+from rl_loops.multiagent_loops.simultaneous_action_rl_loop import self_play_training
 
 
 def training_process(env, training_agent, self_play_scheme, checkpoint_at_iterations, agent_queue, process_name, base_path, seed):
