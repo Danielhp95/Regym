@@ -1,1 +1,1 @@
-from .gym_parser import parse_gym_environment
+from .parse_environment import parse_environment
