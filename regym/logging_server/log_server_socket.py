@@ -94,7 +94,8 @@ def serve_logging_server_forever(log_path):
     '''
     Starts a TCPServer that spawns a new thread for each connection
     (analogous to creating a new connection per logger).
-TODO: figure out a way of shutting the server down upon completion :param log_path: Path where log file will be saved '''
+    TODO: figure out a way of shutting the server down upon completion :param log_path: Path where log file will be saved
+    '''
     tcpserver = LogRecordSocketReceiver(host='localhost',
                                         port=logging.handlers.DEFAULT_TCP_LOGGING_PORT,
                                         handler=LogRecordStreamHandler,
