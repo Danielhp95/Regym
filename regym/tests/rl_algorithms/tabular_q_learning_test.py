@@ -1,7 +1,7 @@
 from regym.rl_algorithms import rockAgent
 from regym.rl_algorithms.agents import build_TabularQ_Agent
 
-from test_fixtures import tabular_q_learning_config_dict, RPSenv, RPSTask
+from test_fixtures import tabular_q_learning_config_dict, RPSTask
 
 
 def test_creation_tabular_q_learning_algorithm_from_task_and_config(RPSTask, tabular_q_learning_config_dict):
@@ -27,17 +27,18 @@ def test_creation_repeated_update_q_learning_algorithm_from_task_and_config(RPST
     assert agent.training == expected_training
 
 
-def test_tabular_q_learning_can_take_actions(RPSenv, RPSTask, tabular_q_learning_config_dict):
+def test_tabular_q_learning_can_take_actions(RPSTask, tabular_q_learning_config_dict):
+    env = RPSTask.env
     agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL')
     number_of_actions = 30
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
-        random_observation = RPSenv.observation_space.sample()[0]
+        random_observation = env.observation_space.sample()[0]
         a = agent.take_action(random_observation)
-        assert RPSenv.action_space.contains([a, a])
+        assert env.action_space.contains([a, a])
 
 
-def test_learns_to_beat_rock_in_RPS(RPSenv, RPSTask, tabular_q_learning_config_dict):
+def test_learns_to_beat_rock_in_RPS(RPSTask, tabular_q_learning_config_dict):
     '''
     Test used to make sure that agent is 'learning' by learning a best response
     against an agent that only plays rock in rock paper scissors.

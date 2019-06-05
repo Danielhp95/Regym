@@ -6,7 +6,7 @@ from regym.rl_algorithms.agents import build_DQN_Agent
 from regym.rl_algorithms.agents import build_TabularQ_Agent
 from regym.rl_algorithms.agent_hook import AgentHook, AgentType
 
-from test_fixtures import RPSenv, RPSTask
+from test_fixtures import RPSTask
 from test_fixtures import ppo_config_dict, dqn_config_dict, tabular_q_learning_config_dict
 
 

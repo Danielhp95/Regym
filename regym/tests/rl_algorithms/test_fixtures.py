@@ -77,12 +77,5 @@ def tabular_q_learning_config_dict():
 
 
 @pytest.fixture
-def RPSenv():
-    import gym
-    import gym_rock_paper_scissors
-    return gym.make('RockPaperScissors-v0')
-
-
-@pytest.fixture
-def RPSTask(RPSenv):
+def RPSTask():
     return parse_environment('RockPaperScissors-v0')

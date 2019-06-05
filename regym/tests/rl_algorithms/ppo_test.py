@@ -1,16 +1,18 @@
-from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSenv, RPSTask
+from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSTask
 
 from regym.rl_algorithms.agents import build_PPO_Agent
 from regym.rl_algorithms import rockAgent
 
-def test_ppo_can_take_actions(RPSenv, RPSTask, ppo_config_dict):
+
+def test_ppo_can_take_actions(RPSTask, ppo_config_dict):
+    env = RPSTask.env
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
     number_of_actions = 30
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
-        random_observation = RPSenv.observation_space.sample()[0]
+        random_observation = env.observation_space.sample()[0]
         a = agent.take_action(random_observation)
-        observation, rewards, done, info = RPSenv.step([a, a])
+        observation, rewards, done, info = env.step([a, a])
         # TODO technical debt
         # assert RPSenv.observation_space.contains([a, a])
         # assert RPSenv.action_space.contains([a, a])
@@ -30,14 +32,16 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
                                       total_episodes=1000, training_percentage=0.9,
                                       reward_threshold=0.1)
 
-def test_ppo_rnn_can_take_actions(RPSenv, RPSTask, ppo_rnn_config_dict):
+
+def test_ppo_rnn_can_take_actions(RPSTask, ppo_rnn_config_dict):
+    env = RPSTask.env
     agent = build_PPO_Agent(RPSTask, ppo_rnn_config_dict, 'RNN_PPO')
     number_of_actions = 30
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
-        random_observation = RPSenv.observation_space.sample()[0]
+        random_observation = env.observation_space.sample()[0]
         a = agent.take_action(random_observation)
-        observation, rewards, done, info = RPSenv.step([a, a])
+        observation, rewards, done, info = env.step([a, a])
         # TODO technical debt
         # assert RPSenv.observation_space.contains([a, a])
         # assert RPSenv.action_space.contains([a, a])
