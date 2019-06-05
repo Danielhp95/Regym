@@ -16,15 +16,10 @@ def RPS_env():
     return gym.make('RockPaperScissors-v0')
 
 
-@pytest.fixture
-def single_agent_env():
-    return gym.make('CartPole-v0')
-
-
 def test_multidiscrete_action_flattening():
     space = MultiDiscrete([3, 3, 2, 3])
     expected_action_space_size = 54
-    action_space_size = gym_parser.flatten_multidiscrete_action_space(space.nvec)
+    action_space_size = gym_parser.compute_multidiscrete_space_size(space.nvec)
     assert action_space_size == expected_action_space_size
 
 
@@ -52,5 +47,5 @@ def test_task_creation(RPS_env):
     expected_action_type = 'Discrete'
     expected_hash_function = RPS_env.hash_state
     expected_state_space_size = RPS_env.state_space_size
-    rps_task = Task(RPS_env.spec.id, expected_state_space_size, expected_action_space_size, expected_observation_dim, expected_observation_type, expected_action_dim, expected_action_type, expected_hash_function)
+    rps_task = Task(RPS_env.spec.id, RPS_env, expected_state_space_size, expected_action_space_size, expected_observation_dim, expected_observation_type, expected_action_dim, expected_action_type, expected_hash_function)
     assert rps_task == gym_parser.parse_gym_environment(RPS_env)
