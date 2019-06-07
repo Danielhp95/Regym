@@ -53,6 +53,7 @@ class CategoricalNet(nn.Module, BaseNet):
         phi = self.body(tensor(x))
         pre_prob = self.fc_categorical(phi).view((-1, self.action_dim, self.num_atoms))
         prob = F.softmax(pre_prob, dim=-1)
+        import ipdb; ipdb.set_trace()
         log_prob = F.log_softmax(pre_prob, dim=-1)
         return prob, log_prob
 
@@ -155,7 +156,7 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
-        
+
         if rnn_states is not None and 'phi_arch' in rnn_states:
             phi, rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
         else:
@@ -165,12 +166,12 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
             phi_a, rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
         else:
             phi_a = self.network.actor_body(phi)
-        
+
         if rnn_states is not None and 'critic_arch' in rnn_states:
             phi_v, rnn_states['critic_arch'] = self.network.critic_body( (phi, rnn_states['critic_arch']) )
         else:
             phi_v = self.network.critic_body(phi)
-        
+
         mean = F.tanh(self.network.fc_action(phi_a))
         v = self.network.fc_critic(phi_v)
         dist = torch.distributions.Normal(mean, F.softplus(self.std))
@@ -178,18 +179,18 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
             action = dist.sample()
         log_prob = dist.log_prob(action).sum(-1).unsqueeze(-1)
         entropy = dist.entropy().sum(-1).unsqueeze(-1)
-        
+
         if rnn_states is not None:
             return {'a': action,
-                'log_pi_a': log_prob,
-                'ent': entropy,
-                'v': v,
-                'rnn_states': rnn_states}
+                    'log_pi_a': log_prob,
+                    'ent': entropy,
+                    'v': v,
+                    'rnn_states': rnn_states}
         else:
             return {'a': action,
-                'log_pi_a': log_prob,
-                'ent': entropy,
-                'v': v}
+                    'log_pi_a': log_prob,
+                    'ent': entropy,
+                    'v': v}
 
 
 class CategoricalActorCriticNet(nn.Module, BaseNet):
@@ -206,7 +207,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         obs = tensor(obs)
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
-        
+
         if rnn_states is not None and 'phi_arch' in rnn_states:
             phi, next_rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
         else:
@@ -216,18 +217,18 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
             phi_a, next_rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
         else:
             phi_a = self.network.actor_body(phi)
-        
+
         if rnn_states is not None and 'critic_arch' in rnn_states:
             phi_v, next_rnn_states['critic_arch'] = self.network.critic_body( (phi, rnn_states['critic_arch']) )
         else:
             phi_v = self.network.critic_body(phi)
-        
+
         #logits = F.softmax( self.network.fc_action(phi_a), dim=1 )
         logits = self.network.fc_action(phi_a)
         # batch x action_dim
         v = self.network.fc_critic(phi_v)
         # batch x 1
-        
+
         dist = torch.distributions.Categorical(logits=logits)
         if action is None:
             action = dist.sample(sample_shape=(logits.size(0),) )
@@ -238,16 +239,16 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         # retrieve the log likelihood of each batched action against its relevant batched distribution: batch x 1
         entropy = dist.entropy().unsqueeze(-1)
         # retrieve the the entropy of each batched distribution: batch x 1
-        
+
         if rnn_states is not None:
             return {'a': action,
-                'log_pi_a': log_prob,
-                'ent': entropy,
-                'v': v,
-                'rnn_states': rnn_states,
-                'next_rnn_states': next_rnn_states}
+                    'log_pi_a': log_prob,
+                    'ent': entropy,
+                    'v': v,
+                    'rnn_states': rnn_states,
+                    'next_rnn_states': next_rnn_states}
         else:
             return {'a': action,
-                'log_pi_a': log_prob,
-                'ent': entropy,
-                'v': v}
+                    'log_pi_a': log_prob,
+                    'ent': entropy,
+                    'v': v}
