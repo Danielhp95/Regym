@@ -5,6 +5,8 @@ import numpy as np
 class ReinforceAgent(object):
 
     def __init__(self, name, episodes_before_update, algorithm):
+        self.name = name
+        self.training = True
         self.algorithm = algorithm
 
         self.episodes_before_update = episodes_before_update
@@ -12,20 +14,18 @@ class ReinforceAgent(object):
         self.trajectories = [[]]
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        self.trajectories[self.completed_episodes].append((s, a, r, succ_s))
+        self.trajectories[self.completed_episodes].append((s, a, self.current_prediction['action_log_probability'], r, succ_s))
         if done:
             self.completed_episodes += 1
-            self.trajectories.append([])
-            if self.episodes_before_update >= self.completed_episodes:
+            if self.completed_episodes >= self.episodes_before_update:
                 self.algorithm.train(self.trajectories)
-                self.trajectories = [[]]
+                self.trajectories = []
+                self.completed_episodes = 0
+            self.trajectories.append([])
 
     def take_action(self, state):
-        prediction = self.algorithm.model(state)
-        action = prediction['action'].numpy()
-        if action.shape == (1, 1): # If action is a single integer
-            action = np.int(action)
-        return action
+        self.current_prediction = self.algorithm.model(state)
+        return self.current_prediction['action'].item()
 
     def clone(self, training=None):
         clone = ReinforceAgent(name=self.name)
@@ -41,6 +41,6 @@ def build_Reinforce_Agent(task, config, agent_name):
     :param algorithm: TODO
     '''
     algorithm = ReinforceAlgorithm(policy_model_input_dim=task.observation_dim, policy_model_output_dim=task.action_dim,
-                                   learning_rate=config['learning_rate'])
+                                   learning_rate=config['learning_rate'], adam_eps=config['adam_eps'])
     return ReinforceAgent(name=agent_name, episodes_before_update=config['episodes_before_update'],
                           algorithm=algorithm)
