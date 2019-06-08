@@ -79,14 +79,14 @@ class LSTMBody(nn.Module):
                 cx = torch.cat( [cx]*batch_size, dim=0)
             elif hx.size(0) != batch_size:
                 raise NotImplemented("Sizes of the hidden states and the inputs do not coincide.")
-            
+
             nhx, ncx = layer(x, (hx, cx) )
             next_hstates.append(nhx)
             next_cstates.append(ncx)
             # Consider not applying activation functions on last layer's output
             if self.gate is not None:
                 x = self.gate(nhx)
-        
+
         return x, (next_hstates, next_cstates)
 
     def get_reset_states(self, cuda=False):

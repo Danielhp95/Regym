@@ -3,6 +3,7 @@ from .tabular_q_learning_agent import build_TabularQ_Agent, TabularQLearningAgen
 from .deep_q_network_agent import build_DQN_Agent, DeepQNetworkAgent
 from .deep_deterministic_policy_gradient_agent import build_DDPG_Agent, DDPGAgent
 from .ppo_agent import build_PPO_Agent, PPOAgent
+from .reinforce_agent import build_Reinforce_Agent, ReinforceAgent
 
 rockAgent     = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent')
 paperAgent    = MixedStrategyAgent(support_vector=[0, 1, 0], name='PaperAgent')

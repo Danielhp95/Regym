@@ -77,5 +77,19 @@ def tabular_q_learning_config_dict():
 
 
 @pytest.fixture
+def reinforce_config_dict():
+    config = dict()
+    config['learning_rate'] = 1.0e-3
+    config['episodes_before_update'] = 5 # Do not make less than 2, for reinforce_test.py
+    config['adam_eps'] = 1.0e-5
+    return config
+
+
+@pytest.fixture
 def RPSTask():
     return parse_environment('RockPaperScissors-v0')
+
+
+@pytest.fixture
+def CartPoleTask():
+    return parse_environment('CartPole-v0')
