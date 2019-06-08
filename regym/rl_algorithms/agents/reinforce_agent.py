@@ -1,8 +1,7 @@
 from ..reinforce import ReinforceAlgorithm
-import numpy as np
 
 
-class ReinforceAgent(object):
+class ReinforceAgent():
 
     def __init__(self, name, episodes_before_update, algorithm):
         self.name = name

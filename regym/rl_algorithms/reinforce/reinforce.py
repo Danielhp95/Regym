@@ -32,7 +32,6 @@ class ReinforceAlgorithm():
         episode_reward = self.cummulative_trajectory_reward(trajectory)
         return sum([log_a * episode_reward for (s, a, log_a, r, succ_s) in trajectory])
 
-    # Make invididual functions for baseline in episodic reward setting
     def cummulative_trajectory_reward(self, trajectory):
         return sum(map(lambda experience: experience[3], trajectory))
 
@@ -50,7 +49,6 @@ class FullyConnectedFeedForward(nn.Module):
         x = torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor).cpu()
         last_layer_output = reduce(lambda acc, layer: self.gate(layer(acc)), self.layers, x)
         action_probabilities = F.softmax(last_layer_output)
-        # ups, do a soft max here?
         distribution = torch.distributions.Categorical(probs=action_probabilities)
         action = distribution.sample(sample_shape=(action_probabilities.size(0),))
         log_probability = distribution.log_prob(action)
