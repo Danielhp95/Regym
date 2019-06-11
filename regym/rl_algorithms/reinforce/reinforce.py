@@ -11,7 +11,7 @@ class ReinforceAlgorithm():
 
     def __init__(self, policy_model_input_dim, policy_model_output_dim, learning_rate, adam_eps):
         self.learning_rate = learning_rate
-        self.model = FullyConnectedFeedForward(policy_model_input_dim, policy_model_output_dim, hidden_units=(64,))
+        self.model = FullyConnectedFeedForward(policy_model_input_dim, policy_model_output_dim, hidden_units=(16,))
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, eps=adam_eps)
 
     def train(self, trajectories):
@@ -33,7 +33,7 @@ class ReinforceAlgorithm():
         return sum([log_a * episode_reward for (s, a, log_a, r, succ_s) in trajectory])
 
     def cummulative_trajectory_reward(self, trajectory):
-        return sum(map(lambda experience: experience[3], trajectory))
+        return sum([reward for (s, a, log_a, reward, succ_s) in trajectory])
 
 
 class FullyConnectedFeedForward(nn.Module):
