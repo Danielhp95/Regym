@@ -1,12 +1,8 @@
-from test_fixtures import reinforce_config_dict, CartPoleTask, FrozenLakeTask
+from test_fixtures import reinforce_config_dict, CartPoleTask
 from utils import can_act_in_environment
 
 from regym.rl_algorithms.agents import build_Reinforce_Agent
 from regym.rl_loops.singleagent_loops.rl_loop import run_episode
-
-
-def test_reinforce_can_take_actions_discrete_obvservation_discrete_action(FrozenLakeTask, reinforce_config_dict):
-    can_act_in_environment(FrozenLakeTask, build_Reinforce_Agent, reinforce_config_dict, name=__name__)
 
 
 def test_reinforce_can_take_actions_continuous_obvservation_discrete_action(CartPoleTask, reinforce_config_dict):
