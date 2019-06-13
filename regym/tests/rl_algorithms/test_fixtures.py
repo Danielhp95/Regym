@@ -86,10 +86,31 @@ def reinforce_config_dict():
 
 
 @pytest.fixture
-def RPSTask():
-    return parse_environment('RockPaperScissors-v0')
+def a2c_config_dict():
+    config = dict()
+    config['discount_factor'] = 0.9
+    config['k_steps'] = 5
+    config['samples_before_update'] = 30
+    config['learning_rate'] = 1.0e-3
+    config['adam_eps'] = 1.0e-5
+    return config
 
 
 @pytest.fixture
-def CartPoleTask():
+def FrozenLakeTask(): # Discrete Action / Observation space
+    return parse_environment('FrozenLake-v0')
+
+
+@pytest.fixture
+def CartPoleTask(): # Discrete Action / Continuous Observation space
     return parse_environment('CartPole-v0')
+
+
+@pytest.fixture
+def PendulumTask(): # Continuous Action / Observation space
+    return parse_environment('Pendulum-v0')
+
+
+@pytest.fixture
+def RPSTask():
+    return parse_environment('RockPaperScissors-v0')
