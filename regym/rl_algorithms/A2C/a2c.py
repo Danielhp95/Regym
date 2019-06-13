@@ -11,38 +11,34 @@ from functools import reduce
 class A2CAlgorithm():
 
     def __init__(self, policy_model_input_dim, policy_model_output_dim,
-                 discount_factor, k_steps, learning_rate, adam_eps):
+                 discount_factor, n_steps, learning_rate, adam_eps):
         self.discount_factor = discount_factor
         self.learning_rate = learning_rate
-        self.policy_loss = None
-        self.value_loss = None
 
-        self.k_steps = k_steps
+        self.n_steps = n_steps
         self.model = FullyConnectedFeedForward(policy_model_input_dim, policy_model_output_dim, hidden_units=(16,))
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, eps=adam_eps)
 
     def train(self, samples, bootstrapped_reward):
         rewards                  = np.array([reward for (s, a, log_a, reward, state_value, succ_s, done) in samples])
-        q_values                 = self.discount_rewards(rewards, bootstrapped_reward)
+        q_values                 = self.compute_temporal_differences_targets(rewards, bootstrapped_reward)
         state_values             = torch.cat([state_value for (s, a, log_a, reward, state_value, succ_s, done) in samples])
         log_action_probabilities = torch.cat([log_a for (s, a, log_a, reward, state_value, succ_s, done) in samples])
 
         def closure():
             self.optimizer.zero_grad()
-            self.policy_loss = -1. * self.compute_policy_utility_gradient(log_action_probabilities, q_values, state_values)
-            self.value_loss  = nn.MSELoss()(state_values.squeeze(), q_values)
-            (self.policy_loss + self.value_loss).backward()
+            policy_loss = -1. * self.compute_policy_utility_gradient(log_action_probabilities, q_values, state_values)
+            value_loss  = nn.MSELoss()(state_values.squeeze(), q_values)
+            (policy_loss + value_loss).backward()
             torch.nn.utils.clip_grad_norm(self.model.parameters(), 0.5)
-            return (self.policy_loss + self.value_loss) # Not sure if this return will work
+            return (policy_loss + value_loss)
         self.optimizer.step(closure)
 
     def compute_policy_utility_gradient(self, log_action_probabilities, q_values, state_values):
         advantages = (q_values - state_values.squeeze()).detach()
-        # import ipdb; ipdb.set_trace()
         return torch.mean(log_action_probabilities.squeeze() * advantages)
 
-    # TODO: rename, we are not only discounting, we are bootstrapping?
-    def discount_rewards(self, rewards, bootstrapped_reward):
+    def compute_temporal_differences_targets(self, rewards, bootstrapped_reward):
         discounted_rewards = np.zeros_like(rewards)
         running_add = bootstrapped_reward
         for t in reversed(range(0, len(rewards))):
