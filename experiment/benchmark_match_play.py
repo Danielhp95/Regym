@@ -1,3 +1,6 @@
+import os
+import signal
+
 import time
 import logging
 import logging.handlers
@@ -5,7 +8,6 @@ import random
 import numpy as np
 from collections import namedtuple
 
-from torch.multiprocessing import Process
 from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 
@@ -15,47 +17,58 @@ from multiagent_loops.simultaneous_action_rl_loop import run_episode
 BenchMarkStatistics = namedtuple('BenchMarkStatistics', 'iteration recorded_agent_vector winrates')
 
 
-def benchmark_match_play_process(num_episodes, createNewEnvironment, benchmark_job, process_pool, matrix_queue, name):
+def benchmark_match_play_process(expected_benchmarking_matches, benchmarking_episodes, createNewEnvironment, benchmark_queue, matrix_queue):
     """
-    :param num_episodes: Number of episodes used for stats collection
+    :param expected_benchmarking_matches: Number of agents that the process will wait for before shuting itself down
+    :param benchmarking_episodes: Number of episodes that each benchmarking process will run for to collect statistics
     :param createNewEnvironment OpenAI gym environment creation function
-    :param benchmark_job: BenchmarkingJob containing iteration and agent vector to benchmark
-    :param process_pool: ProcessPoolExecutor used to submit match runs jobs
+    :param benchmark_queue: Queue from where BenchmarkingJob(s) will be recieved
     :param matrix_queue: Queue to which submit stats
-    :param name: String identifying this benchmarking process
     """
-    logger = logging.getLogger(name)
+    logger = logging.getLogger('Benchmarking')
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
-    logger.info('Started for {} episodes'.format(num_episodes))
+    logger.info('Started')
 
-    agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
+    received_agents = 0
+    while True:
+        benchmark_job = benchmark_queue.get()
+        received_agents += 1
+        benchmark_queue.task_done()
+        logger.info('Received {}. {}/{} received. Started for {} episodes'.format(benchmark_job.name, received_agents, expected_benchmarking_matches, benchmarking_episodes))
 
-    # TODO Use given pool, but how?
-    with ProcessPoolExecutor(max_workers=2) as executor:
+        agent_vector = [recorded_agent.agent for recorded_agent in benchmark_job.recorded_agent_vector]
+
+        winrates = benchmark_empirical_winrates(benchmarking_episodes, createNewEnvironment, agent_vector, logger)
+
+        matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
+                                             benchmark_job.recorded_agent_vector,
+                                             winrates))
+        check_for_termination(received_agents, expected_benchmarking_matches, matrix_queue, logger)
+
+
+def benchmark_empirical_winrates(benchmarking_episodes, createNewEnvironment, agent_vector, logger):
+    with ProcessPoolExecutor(max_workers=3) as executor:
         benchmark_start = time.time()
-        futures = [executor.submit(single_match, *[createNewEnvironment, agent_vector])
-                   for _ in range(num_episodes)]
+        futures = [executor.submit(single_match, *[createNewEnvironment(), agent_vector])
+                   for _ in range(benchmarking_episodes)]
 
-        wins_vector = [0 for _ in range(len(agent_vector))]
+        wins_vector = np.zeros(len(agent_vector))
 
         for future in as_completed(futures):
             episode_winner = future.result()
             wins_vector[episode_winner] += 1
         benchmark_duration = time.time() - benchmark_start
-        winrates = [winrate / num_episodes for winrate in wins_vector]
-
-    matrix_queue.put(BenchMarkStatistics(benchmark_job.iteration,
-                                         benchmark_job.recorded_agent_vector,
-                                         winrates))
     logger.info('Benchmarking finished. Duration: {} seconds'.format(benchmark_duration))
-    matrix_queue.join()
+    winrates = wins_vector / benchmarking_episodes
+    return winrates
 
 
 def single_match(createNewEnvironment, agent_vector):
     # trajectory: [(s,a,r,s')]
     unhooked_agents = [AgentHook.unhook(agent, use_cuda=False) for agent in agent_vector]
-    trajectory = run_episode(createNewEnvironment(), unhooked_agents, training=False)
+    trajectory = run_episode(env, unhooked_agents, training=False)
+    #trajectory = run_episode(createNewEnvironment(), unhooked_agents, training=False)
     reward_vector = lambda t: t[2]
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
     cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]
@@ -68,20 +81,16 @@ def choose_winner(cumulative_reward_vector, break_ties=random.choice):
     return break_ties(indexes_max_score.flatten().tolist())
 
 
-def create_benchmark_process(benchmarking_episodes, createNewEnvironment, benchmark_job, pool, matrix_queue, name):
+def check_for_termination(received_agents, expected_number_of_agents, matrix_queue, logger):
     """
-    Creates a benchmarking process for the precomputed benchmark_job.
-    The results of the benchmark will be put in the matrix_queue to populate confusion matrix
+    Checks if process should be killed because all processing has been submitted.
+    That is, all expected agents have been received and all benchmarking
+    child processes have been created.
 
-    :param benchmarking_episodes: Number of episodes that each benchmarking process will run for
-    :param createNewEnvironment: OpenAI gym environment creation function
-    :param benchmark_job: precomputed BenchmarkingJob
-    :param pool: ProcessPoolExecutor shared between benchmarking_jobs to carry out benchmarking matches
-    :param matrix_queue: Queue reference sent to benchmarking process, where it will put the bencharmking result
-    :param name: BenchmarkingJob name identifier
+    :param received_agents: Number of agents received so far
+    :param expected_number_of_agents: Number of agents that the process will wait for before shuting itself down
     """
-    benchmark_process = Process(target=benchmark_match_play_process,
-                                args=(benchmarking_episodes, createNewEnvironment,
-                                      benchmark_job, pool, matrix_queue, name))
-    benchmark_process.start()
-    return benchmark_process
+    if received_agents >= expected_number_of_agents:
+        logger.info('All expected trained agents have been recieved. Shutting down')
+        matrix_queue.join()
+        os.kill(os.getpid(), signal.SIGTERM)

@@ -30,7 +30,10 @@ def initialize_logger():
 
 if __name__ == '__main__':
     import torch
-    torch.multiprocessing.set_start_method('forkserver', force=True)
+    torch.multiprocessing.set_start_method('forkserver')
+    import resource
+    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1])) # Not impressed
 
     logger = initialize_logger()
 

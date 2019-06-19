@@ -44,7 +44,7 @@ class AgentHook():
         if agent_hook.type == AgentType.TQL or agent_hook.type == AgentType.MixedStrategyAgent: return agent_hook.agent
         if 'use_cuda' in agent_hook.agent.algorithm.kwargs:
             if use_cuda is not None:
-               agent_hook.agent.algorithm.kwargs['use_cuda'] = use_cuda 
+               agent_hook.agent.algorithm.kwargs['use_cuda'] = use_cuda
                if hasattr(agent_hook.agent, 'state_preprocessing'): agent_hook.agent.state_preprocessing.use_cuda = use_cuda
             if agent_hook.agent.algorithm.kwargs['use_cuda']:
                 for name, model in agent_hook.model_list: setattr(agent_hook.agent.algorithm, name, model.cuda())

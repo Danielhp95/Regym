@@ -22,9 +22,12 @@ def opponent_sampling_distribution(menagerie, training_agent, delta, distributio
     :returns: Agent, sampled from the menagerie, to be used as an opponent in the next episode
     '''
     latest_training_agent_hook = AgentHook(training_agent.clone(training=False))
-    subset_of_considered_agents = slice(math.ceil(delta * len(menagerie)), len(menagerie))
-    valid_agents = menagerie[subset_of_considered_agents] + [latest_training_agent_hook]
-    return [AgentHook.unhook(sampled_hook_agent) for sampled_hook_agent in [distribution(valid_agents)]]
+    indices = range(len(menagerie) + 1) # +1 accounts for the training agent, not (yet) included in menagerie
+    subset_of_considered_indices = slice(math.ceil(delta * len(menagerie)), len(indices))
+    valid_agents_indices = indices[subset_of_considered_indices]
+    samples_indices = [distribution(valid_agents_indices)]
+    samples = [ menagerie[idx] if idx < len(menagerie) else latest_training_agent_hook for idx in samples_indices]
+    return [AgentHook.unhook(sampled_hook_agent) for sampled_hook_agent in samples]
 
 
 def curator(menagerie, training_agent, episode_trajectory, candidate_save_path):

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 
-class PreprocessFunction():
+class PreprocessFunctionConcatenate():
 
     def __init__(self, state_space_size, use_cuda=False):
         self.state_space_size = state_space_size
@@ -15,7 +15,7 @@ class PreprocessFunction():
         else:
             return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
-class PreprocessFunctionToTorch():
+class PreprocessFunction():
 
     def __init__(self, state_space_size, use_cuda=False):
         self.state_space_size = state_space_size

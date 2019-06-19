@@ -39,6 +39,8 @@ def training_process(envCreationFunction, training_agent, self_play_scheme, chec
 
     completed_iterations = 0
     menagerie = []
+    menagerie_path = f'{base_path}/menageries'
+    
     training_agent = AgentHook.unhook(training_agent)
     for target_iteration in sorted(checkpoint_at_iterations):
         next_training_iterations = target_iteration - completed_iterations
@@ -47,7 +49,7 @@ def training_process(envCreationFunction, training_agent, self_play_scheme, chec
         (menagerie, trained_agent,
          trajectories) = self_play_training(env=env, training_agent=training_agent, self_play_scheme=self_play_scheme,
                                             target_episodes=next_training_iterations, iteration=completed_iterations,
-                                            menagerie=menagerie, menagerie_path=f'{base_path}/menageries')
+                                            menagerie=menagerie, menagerie_path=menagerie_path)
 
         training_duration = time.time() - training_start
 
@@ -106,6 +108,11 @@ def create_training_processes(training_jobs, training_environment_creation_funct
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.handlers.SocketHandler(host='localhost', port=logging.handlers.DEFAULT_TCP_LOGGING_PORT))
     logger.info('Training {} jobs: [{}]. '.format(len(training_jobs), ', '.join(map(lambda job: job.name, training_jobs))))
+    
+    menagerie_path = f'{results_path}/menageries'
+    if not os.path.exists(menagerie_path):
+        os.mkdir(menagerie_path)
+    
     ps = []
     for job, envCreationFunction in zip(training_jobs, training_environment_creation_functions):
         p = Process(target=training_process,
