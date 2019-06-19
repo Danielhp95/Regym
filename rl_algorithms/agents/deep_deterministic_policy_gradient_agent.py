@@ -3,7 +3,7 @@ import numpy as np
 import copy
 
 from ..replay_buffers import EXP, EXPPER
-from ..networks import  LeakyReLU, ActorNN, CriticNN, PreprocessFunctionToTorch
+from ..networks import  LeakyReLU, ActorNN, CriticNN, PreprocessFunction
 from ..DDPG import DeepDeterministicPolicyGradientAlgorithm
 
 
@@ -100,7 +100,7 @@ def build_DDPG_Agent(task, config, agent_name):
         
     """
 
-    kwargs['state_preprocessing'] = PreprocessFunctionToTorch(task.observation_dim, kwargs['use_cuda'])
+    kwargs['state_preprocessing'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
 
     #HER :
     HER = {'k':kwargs['HER_k'], 'strategy':kwargs['HER_strategy'],'use_her':kwargs['use_HER'],'singlegoal':kwargs['HER_use_singlegoal']}
