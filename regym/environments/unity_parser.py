@@ -1,4 +1,3 @@
-from obstacle_tower_env import ObstacleTowerEnv
 from .gym_parser import parse_gym_environment
 
 
@@ -11,5 +10,6 @@ def parse_unity_environment(env_name):
     :returns: Task created from :param: env_name
     '''
     if 'obstacletower' not in env_name: raise ValueError('Only obstacletower environment currently supported')
+    from obstacle_tower_env import ObstacleTowerEnv
     env = ObstacleTowerEnv(env_name, retro=True, realtime_mode=False) # retro=True mode creates an observation space of a 64x64 (Box) image
     return parse_gym_environment(env, name=env_name)
