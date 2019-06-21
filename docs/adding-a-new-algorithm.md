@@ -16,7 +16,7 @@ Adding a new agent / algorithm can be separated into the following tasks:
 
 ## Adding a new agent / algorithm to `regym` 
 
-Look at the existing [Tabular Q Learning](../regym/rl_algorithms/agents/tabular_q_learning_agent.py) and [REINFORCE]() implementations for "simple" examples of what constitutes an agent and algorithm in our framework.
+Look at the existing [Tabular Q Learning](../regym/rl_algorithms/agents/tabular_q_learning_agent.py) and [REINFORCE](../regym/rl_algorithms/agents/reinforce_agent.py) implementations for "simple" examples of what constitutes an agent and algorithm in our framework.
 
 Let's assume we want to implement the (fictitious) state-of-the-art AlgorithmX into our framework. Adding AlgorithmX requires the following:
 
@@ -55,11 +55,11 @@ def build_AlgorithmX_Agent(task, config, agent_name):
     return AlgorithmXAgent(algorithm, ...)
 ```
 
-Following the usual Reinforcement Learning fashion, the agent will be asked fo an action by calling the `take_action(...)` function. Operationally, calling this function is equivalent to sampling an action from the agent's policy. The `handle_experience(...)` function is called after the environment processes the agent(s) actions, and feeds a single "experience" to the agent to be processed. We recommend that the agent implementes the logic to call its underlying algorithm to update its policy inside of this function. Finally, the `clone(...)` function can be implemented to create a clone of the agent, useful in [self-play training](). A deep copy is encouraged, using the `copy.deepcopy` method from the `copy` built-in python module.
+Following the usual Reinforcement Learning fashion, the agent will be asked fo an action by calling the `take_action(...)` function. Operationally, calling this function is equivalent to sampling an action from the agent's policy. The `handle_experience(...)` function is called after the environment processes the agent(s) actions, and feeds a single "experience" to the agent to be processed. We recommend that the agent implementes the logic to call its underlying algorithm to update its policy inside of this function. Finally, the `clone(...)` function can be implemented to create a clone of the agent, useful in [self-play training](https://danielhp95.github.io/assets/pdfs/COG-2019-submission.pdf). A deep copy is encouraged, using the `copy.deepcopy` method from the `copy` built-in python module.
 
 It's *very* important that the `build_AlgorithmX_Agent(task, config, agent_name)` maintains that function signature, as it gives us a common interface to generate agents with a variety of underlying RL algorithms.
 
-It is inside of this function that you can inspect the `task` object parameter to decide how to initialize the agent and its underlying algorithm. The example above uses the `task.observation_dim` and `task.action_dim` as input to the `AlgorithmX`, which in turn will generate a neural network with an input / output dimension of the same value as the task's action / observation space. Depending on the `task.observation_type` and `task.action_type` you may want to change the topology of the underlying neural networks. For instance, for a `Discrete` action space, you may want to use a categorical distribution, but a `Continuous` action space may require to place a Gaussian distribution over each action dimension (look at [PPO]() for an example of this).
+It is inside of this function that you can inspect the `task` object parameter to decide how to initialize the agent and its underlying algorithm. The example above uses the `task.observation_dim` and `task.action_dim` as input to the `AlgorithmX`, which in turn will generate a neural network with an input / output dimension of the same value as the task's action / observation space. Depending on the `task.observation_type` and `task.action_type` you may want to change the topology of the underlying neural networks. For instance, for a `Discrete` action space, you may want to use a categorical distribution, but a `Continuous` action space may require to place a Gaussian distribution over each action dimension (look at [PPO](../regym/rl_algorithms/agents/ppo_agent.py) for an example of this).
 
 **1.2:** Add to the existing `regym/rl_algorithms/agents/__init__.py` an import to both the new agent class and it's build function. In other words, add:
 
@@ -74,7 +74,7 @@ from .algorithmX_agent import build_AlgorithmX_Agent, AlgorithmXAgent
 
 We have so far used [PyTorch](https://pytorch.org/) as a deep learning framework, and hence our models are `torch.nn.Module` objects. However, `regym` allows for any deep learning frameworks.
 
-Finally, we recommend that, during `AlgorithmXAgent.handle_experience(...)` function, the function `AlgorithmX.train(...)` is called. The [REINFORCE]() algorithm calls this function after a given number of finished episodes. [PPO]() calls this function after a certain number of timesteps have elapsed. What this means is that each algorithm will trigger a policy update (a train operation) under different conditions. Regardless, this call always happens inside of the agent's `handle_experience(...)` function.
+Finally, we recommend that, during `AlgorithmXAgent.handle_experience(...)` function, the function `AlgorithmX.train(...)` is called. The [REINFORCE](../regym/rl_algorithms/reinforce/reinforce.py) algorithm calls this function after a given number of finished episodes. [PPO](../regym/rl_algorithms/PPO/ppo.py) calls this function after a certain number of timesteps have elapsed. What this means is that each algorithm will trigger a policy update (a train operation) under different conditions. Regardless, this call always happens inside of the agent's `handle_experience(...)` function.
 
 ```python
 # This file path: `regym/rl_algorithms/AlgorithmX/algorithmx.py`

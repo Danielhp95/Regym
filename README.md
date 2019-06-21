@@ -7,7 +7,7 @@ Framework to carry out both Single-Agent and Multi-Agent Reinforcement Learning 
 + PyTorch implementation of: [DQN](https://arxiv.org/abs/1312.5602),[Double DQN](https://arxiv.org/abs/1509.06461),[Double Dueling DQN](https://arxiv.org/abs/1511.06581),[A2C](https://hackernoon.com/intuitive-rl-intro-to-advantage-actor-critic-a2c-4ff545978752),[REINFORCE](https://danielhp95.github.io/policy-gradient-algorithms-a-review),[PPO](https://arxiv.org/abs/1707.06347)...
 + Every implementation is compatible with [OpenAI gym](https://github.com/openai/gym) and [Unity](https://github.com/Unity-Technologies/ml-agents) environments.
 + Self-Play training scheme for Multi-Agent environments, as introduced [here](https://danielhp95.github.io/assets/pdfs/COG-2019-submission.pdf).
-+ Emphasis on cross-compatibility and clear interfaces to add new algorithms. See [Adding a new algorithm]().
++ Emphasis on cross-compatibility and clear interfaces to add new algorithms. See [Adding a new algorithm](docs/adding-a-new-algorithm.md).
 + (In development) Test suite to test and benchmark each algorithm on: compatibility on Discrete / Continuous observation / action spaces. Proof of learning, proof of reproducability.
 + (In development) Parallel actors per algorithm.
 
