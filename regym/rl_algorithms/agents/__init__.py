@@ -1,7 +1,6 @@
 from .gym_rock_paper_scissors_agent import MixedStrategyAgent
 from .tabular_q_learning_agent import build_TabularQ_Agent, TabularQLearningAgent
 from .deep_q_network_agent import build_DQN_Agent, DeepQNetworkAgent
-from .deep_deterministic_policy_gradient_agent import build_DDPG_Agent, DDPGAgent
 from .ppo_agent import build_PPO_Agent, PPOAgent
 from .reinforce_agent import build_Reinforce_Agent, ReinforceAgent
 from .a2c_agent import build_A2C_Agent, A2CAgent
