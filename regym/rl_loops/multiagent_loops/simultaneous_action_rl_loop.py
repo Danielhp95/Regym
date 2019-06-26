@@ -3,7 +3,7 @@ import copy
 import gym
 from OpenGL import GL
 from tqdm import tqdm
-from environments import ParallelEnv
+from ...environments import ParallelEnv
 
 episode_n = 0
 
