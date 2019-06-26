@@ -1,6 +1,3 @@
-import torch
-
-
 class Storage:
     def __init__(self, size, keys=None):
         if keys is None:
@@ -15,8 +12,8 @@ class Storage:
 
     def add_key(self, key):
         self.keys += [key]
-        setattr( self, key, [])
-        
+        setattr(self, key, [])
+
     def add(self, data):
         for k, v in data.items():
             assert k in self.keys
