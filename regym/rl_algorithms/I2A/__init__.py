@@ -3,4 +3,4 @@
 # from .environment_model import EnvironmentModel
 # from .rollout_encoder import RolloutEncoder
 # from .aggregator import Aggregator
-# from .imagination_augmented_agent import I2AAlgorithm
+from .i2a import I2AAlgorithm
