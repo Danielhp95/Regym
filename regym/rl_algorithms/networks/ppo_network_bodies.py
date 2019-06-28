@@ -55,6 +55,7 @@ class FCBody(nn.Module):
             x = self.gate(layer(x))
         return x
 
+
 class LSTMBody(nn.Module):
     def __init__(self, state_dim, hidden_units=(256), gate=F.relu):
         super(LSTMBody, self).__init__()
@@ -64,40 +65,46 @@ class LSTMBody(nn.Module):
         self.feature_dim = dims[-1]
         self.gate = gate
 
-    def forward(self, x):
+    def forward(self, inputs):
         '''
-        :param x: input to LSTM cells. Structured as (input, (hidden_states, cell_states)).
+        :param inputs: input to LSTM cells. Structured as (feed_forward_input, {hidden: hidden_states, cell: cell_states}).
         hidden_states: list of hidden_state(s) one for each self.layers.
         cell_states: list of hidden_state(s) one for each self.layers.
         '''
-        x, (hidden_states, cell_states) = x
+        x, recurrent_neurons = inputs
+        try:
+            hidden_states, cell_states = recurrent_neurons['hidden'], recurrent_neurons['cell']
+        except:
+            import ipdb; ipdb.set_trace()
+
         next_hstates, next_cstates = [], []
         for idx, (layer, hx, cx) in enumerate(zip(self.layers, hidden_states, cell_states) ):
             batch_size = x.size(0)
-            if hx.size(0) == 1: #then we have just resetted the values, we need to expand those:
-                hx = torch.cat( [hx]*batch_size, dim=0)
-                cx = torch.cat( [cx]*batch_size, dim=0)
+            if hx.size(0) == 1: # then we have just resetted the values, we need to expand those:
+                hx = torch.cat([hx]*batch_size, dim=0)
+                cx = torch.cat([cx]*batch_size, dim=0)
             elif hx.size(0) != batch_size:
-                raise NotImplemented("Sizes of the hidden states and the inputs do not coincide.")
+                raise NotImplementedError("Sizes of the hidden states and the inputs do not coincide.")
 
-            nhx, ncx = layer(x, (hx, cx) )
+            nhx, ncx = layer(x, (hx, cx))
             next_hstates.append(nhx)
             next_cstates.append(ncx)
             # Consider not applying activation functions on last layer's output
             if self.gate is not None:
                 x = self.gate(nhx)
 
-        return x, (next_hstates, next_cstates)
+        return x, {'hidden': next_hstates, 'cell': next_cstates}
 
     def get_reset_states(self, cuda=False):
         hidden_states, cell_states = [], []
         for layer in self.layers:
-            h = torch.zeros(1,layer.hidden_size)
+            h = torch.zeros(1, layer.hidden_size)
             if cuda:
                 h = h.cuda()
             hidden_states.append(h)
             cell_states.append(h)
-        return (hidden_states, cell_states)
+        return {'hidden': hidden_states, 'cell': cell_states}
+
 
 class TwoLayerFCBodyWithAction(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_units=(64, 64), gate=F.relu):

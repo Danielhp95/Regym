@@ -38,18 +38,19 @@ class PPOAgent(object):
 
     def _post_process(self, prediction):
         if self.recurrent:
-            for k, (hs, cs) in self.rnn_states.items():
-                for idx in range(len(hs)):
-                    self.rnn_states[k][0][idx] = torch.Tensor(prediction['next_rnn_states'][k][0][idx].cpu())
-                    self.rnn_states[k][1][idx] = torch.Tensor(prediction['next_rnn_states'][k][1][idx].cpu())
+            for recurrent_submodule_name in self.rnn_states:
+                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = prediction['next_rnn_states'][recurrent_submodule_name]['hidden'][idx].cpu()
+                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = prediction['next_rnn_states'][recurrent_submodule_name]['cell'][idx].cpu()
 
             for k, v in prediction.items():
                 if isinstance(v, dict):
-                    for vk, (hs, cs) in v.items():
+                    for vk in v:
+                        hs, cs = v[vk]['hidden'], v[vk]['cell']
                         for idx in range(len(hs)):
                             hs[idx] = hs[idx].detach().cpu()
                             cs[idx] = cs[idx].detach().cpu()
-                        prediction[k][vk] = (hs, cs)
+                        prediction[k][vk] = {'hidden': hs, 'cell': cs}
                 else:
                     prediction[k] = v.detach().cpu()
         else:
@@ -60,10 +61,10 @@ class PPOAgent(object):
     def _pre_process_rnn_states(self, done=False):
         if done or self.rnn_states is None: self._reset_rnn_states()
         if self.algorithm.kwargs['use_cuda']:
-            for k, (hs, cs) in self.rnn_states.items():
-                for idx in range(len(hs)):
-                    self.rnn_states[k][0][idx] = self.rnn_states[k][0][idx].cuda()
-                    self.rnn_states[k][1][idx] = self.rnn_states[k][1][idx].cuda()
+            for recurrent_submodule_name in self.rnn_states:
+                for idx in range(len(self.rnn_states[recurrent_submodule_name])):
+                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
+                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
