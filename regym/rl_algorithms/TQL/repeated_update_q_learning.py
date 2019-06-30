@@ -28,7 +28,6 @@ class RepeatedUpdateQLearningAlgorithm():
         state = self.hashing_function(state)
         if exploration:
             p = self.boltzman_exploratory_policy_from_state(state)
-            if any(map(lambda x: np.isnan(x), p)): import ipdb; ipdb.set_trace()
             return np.random.choice(range(self.Q_table.shape[1]), p=p)
         else:
             optimal_moves = np.argwhere(self.Q_table[state, :] == np.amax(self.Q_table[state, :]))
