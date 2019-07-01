@@ -30,6 +30,10 @@ class ConvolutionalBody(nn.Module):
         self.non_linearities = non_linearities
         if not isinstance(non_linearities, list):
             self.non_linearities = [non_linearities] * (len(channels) - 1)
+        else:
+            while len(self.non_linearities) <= (len(channels) - 1):
+                self.non_linearities.append(self.non_linearities[0])
+
         self.feature_dim = feature_dim
         self.convs = nn.ModuleList()
         dim = input_shapes[1] # height

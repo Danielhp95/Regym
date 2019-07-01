@@ -101,8 +101,8 @@ class DoubleDeepQNetworkAlgorithm(DeepQNetworkAlgorithm) :
 
         loss_np = loss_per_item.cpu().data.numpy()
         if self.kwargs['use_PER']:
-            for (idx, new_error) in zip(batch.idx,loss_np) :
+            for (idx, new_error) in zip(batch.idx, loss_np):
                 new_priority = self.replayBuffer.priority(new_error)
-                self.replayBuffer.update(idx,new_priority)
+                self.replayBuffer.update(idx, new_priority)
 
         return loss_np

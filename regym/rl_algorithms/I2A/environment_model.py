@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+
 class EnvironmentModel(nn.Module):
     def __init__(self, observation_shape, num_actions, reward_size, conv_dim=32):
         """
@@ -10,7 +11,7 @@ class EnvironmentModel(nn.Module):
         :param reward_size: size of the reward vector.
         :param conv_dim: number of convolution kernels to use per layer.
         """
-        super(EnvironmentModel,self).__init__()
+        super(EnvironmentModel, self).__init__()
 
         self.observation_shape = observation_shape
         self.num_actions = num_actions
