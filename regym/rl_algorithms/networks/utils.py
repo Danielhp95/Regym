@@ -1,6 +1,6 @@
 import torch
-import numpy as np
 import torch.autograd
+import numpy as np
 
 
 class PreprocessFunction():
@@ -13,11 +13,16 @@ class PreprocessFunction():
         x = np.concatenate(x, axis=None)
         if self.use_cuda:
             return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
-        else:
-            return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+        return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
 
 def random_sample(indices, batch_size):
+    '''
+    TODO
+    :param indices:
+    :param batch_size:
+    :returns: Generator
+    '''
     indices = np.asarray(np.random.permutation(indices))
     batches = indices[:len(indices) // batch_size * batch_size].reshape(-1, batch_size)
     for batch in batches:
@@ -27,6 +32,9 @@ def random_sample(indices, batch_size):
         yield indices[-remainder:]
 
 
+# Note, consider alternative way of calculating output size.
+# Idea: use model.named_modules() generator to find last module and look at its
+# Number of features / output channels (if the last module is a ConvNet)
 def output_size_for_model(model, input_shape):
     '''
     Computes the size of the last layer of the :param model:
