@@ -3,17 +3,24 @@ import torch.autograd
 import numpy as np
 
 
-class PreprocessFunction():
+def PreprocessFunction(x, use_cuda=False):
+    x = np.concatenate(x, axis=None)
+    if use_cuda:
+        return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
+    return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
-    def __init__(self, state_space_size, use_cuda=False):
-        self.state_space_size = state_space_size
-        self.use_cuda = use_cuda
 
-    def __call__(self, x):
-        x = np.concatenate(x, axis=None)
-        if self.use_cuda:
-            return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
-        return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+def CNNPreprocessFunction(x, use_cuda=False):
+    '''
+    Used to convert OpenAI Gym raw pixel observations,
+    which are structured as numpy arrays of shape (Height, Width, Channels),
+    into the equivalent Pytorch Convention of (Channels, Height, Width).
+    Required for torch.nn.Modules which use a convolutional architechture.
+    '''
+    x = x.transpose((2, 0, 1))
+    if use_cuda:
+        return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
+    return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
 
 def random_sample(indices, batch_size):

@@ -68,7 +68,7 @@ class PPOAgent(object):
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         non_terminal = torch.ones(1)*(1 - int(done))
-        state = self.state_preprocessing(s)
+        state = self.state_preprocessing(s, self.algorithm.kwargs['use_cuda'])
         r = torch.ones(1)*r
 
         self.algorithm.storage.add(self.current_prediction)
@@ -76,7 +76,7 @@ class PPOAgent(object):
 
         self.handled_experiences += 1
         if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
-            next_state = self.state_preprocessing(succ_s)
+            next_state = self.state_preprocessing(succ_s, self.algorithm.kwargs['use_cuda'])
 
             if self.recurrent:
                 self._pre_process_rnn_states(done=done)
@@ -90,7 +90,7 @@ class PPOAgent(object):
             self.handled_experiences = 0
 
     def take_action(self, state):
-        state = self.state_preprocessing(state)
+        state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
 
         if self.recurrent:
             self._pre_process_rnn_states()
@@ -118,7 +118,7 @@ def build_PPO_Agent(task, config, agent_name):
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
-    kwargs['state_preprocess'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
+    kwargs['state_preprocess'] = PreprocessFunction
 
     input_dim = task.observation_dim
     if kwargs['phi_arch'] != 'None':
