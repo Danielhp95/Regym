@@ -99,10 +99,7 @@ class PPOAgent(object):
             self.current_prediction = self.algorithm.model(state)
         self.current_prediction = self._post_process(self.current_prediction)
 
-        action = self.current_prediction['a'].numpy()
-        if action.shape == torch.Size([1, 1]): # If action is a single integer
-            action = np.int(action)
-        return action
+        return self.current_prediction['a'].item()
 
     def clone(self, training=None):
         clone = PPOAgent(name=self.name, algorithm=copy.deepcopy(self.algorithm))
