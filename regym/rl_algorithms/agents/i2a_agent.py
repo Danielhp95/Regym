@@ -32,15 +32,6 @@ class I2AAgent():
         self.current_prediction = None
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        '''
-        Info that will be needed to be stored at this point:
-          - state
-          - action taken
-          - log probabilities of all actions from actor (I2A)
-          - log probabilities of distilled (rollout policy)
-          - value estimation for the state
-        Put in storage all
-        '''
         if not self.training: return
         self.handled_experiences += 1
 
@@ -74,14 +65,6 @@ class I2AAgent():
         self.algorithm.policies_storage.add(policies_relevant_info)
 
     def take_action(self, state):
-        '''
-        TODO: call self.algorithm.actor_critic() to get:
-                  - action taken
-                  - log probabilities of all actions from actor (I2A)
-                  - log probabilities of distilled (rollout policy)
-                  - value estimation for the state from critic
-        Put all in self.current_prediction
-        '''
         processed_state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
         self.current_prediction = self.algorithm.take_action(processed_state)
         return self.current_prediction['a'].item()
