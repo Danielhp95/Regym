@@ -19,7 +19,7 @@ class I2AModel(nn.Module):
     self.rollout_encoder = rollout_encoder
     self.imagination_core = imagination_core
 
-  def __forward__(self, state, imagined_rollouts_per_step, rollout_length):
+  def forward(self, state, imagined_rollouts_per_step, rollout_length):
     '''
     :param state: preprocessed observation/state as a PyTorch Tensor
                   of dimensions batch_size=1 x input_shape
