@@ -67,9 +67,7 @@ class PPOAgent(object):
                     self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        non_terminal = torch.ones(1)*(1 - int(done))
-        state = self.state_preprocessing(s, self.algorithm.kwargs['use_cuda'])
-        r = torch.ones(1)*r
+        state, r, non_terminal = self.preprocess_environment_signals(s, r, done)
 
         self.algorithm.storage.add(self.current_prediction)
         self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
@@ -88,6 +86,12 @@ class PPOAgent(object):
             self.algorithm.storage.add(next_prediction)
             self.algorithm.train()
             self.handled_experiences = 0
+
+    def preprocess_environment_signals(self, state, reward, done):
+        non_terminal = torch.ones(1)*(1 - int(done))
+        state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
+        r = torch.ones(1)*reward
+        return state, r, non_terminal
 
     def take_action(self, state):
         state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
