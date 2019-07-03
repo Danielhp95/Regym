@@ -159,9 +159,10 @@ def build_actor_critic_head(task, input_dim, kwargs):
     return model
 
 
-def choose_model_training_algorithm(model_training_algorithm: str):
+def choose_model_training_algorithm(model_training_algorithm: str, kwargs: dict):
     if 'PPO' in model_training_algorithm:
         from regym.rl_algorithms.PPO import PPOAlgorithm
+        PPOAlgorithm.check_mandatory_kwarg_arguments(kwargs)
         return PPOAlgorithm
     raise ValueError(f"I2A agent currently only supports 'PPO' \
                       as a training algorithm. Given {model_training_algorithm}")
@@ -256,7 +257,7 @@ def build_I2A_Agent(task, config, agent_name):
 
     rollout_encoder     = build_rollout_encoder(task, config)
 
-    model_training_algorithm_class = choose_model_training_algorithm(config['model_training_algorithm'])
+    model_training_algorithm_class = choose_model_training_algorithm(config['model_training_algorithm'], config)
     aggregator = build_aggregator(task)
     model_free_network = build_model_free_network(config)
 
@@ -264,13 +265,6 @@ def build_I2A_Agent(task, config, agent_name):
     actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
-    i2a_model = I2AModel(actor_critic_head=actor_critic_head,
-                          model_free_network=model_free_network,
-                          aggregator=aggregator,
-                          rollout_encoder=rollout_encoder,
-                          imagination_core=imagination_core
-                          )
-    
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
                              i2a_model=i2a_model,
                              environment_model=environment_model,

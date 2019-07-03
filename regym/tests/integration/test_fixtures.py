@@ -44,6 +44,21 @@ def i2a_config_dict():
     config['policies_adam_eps'] = 1.0e-5
     config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
     config['use_cuda'] = False
+
+    # PPO hyperparameters:
+    config['model_training_algorithm'] = 'PPO'
+    config['discount'] = 0.99
+    config['use_gae'] = True
+    config['gae_tau'] = 0.95
+    config['entropy_weight'] = 0.01
+    config['gradient_clip'] = 5
+    config['optimization_epochs'] = 10
+    config['mini_batch_size'] = 256
+    config['ppo_ratio_clip'] = 0.2
+    config['learning_rate'] = 3.0e-4
+    config['adam_eps'] = 1.0e-5
+    config['horizon'] = 1024
+
     # Environment Model: Architecture description:
     config['environment_model_arch'] = 'CNN'
     config['environment_model_channels'] = [32]
