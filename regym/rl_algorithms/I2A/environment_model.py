@@ -8,8 +8,12 @@ class EnvironmentModel(nn.Module):
         """
         :param observation_shape: shape depth x height x width.
         :param num_actions: number of actions that are available in the environment.
-        :param reward_size: size of the reward vector.
-        :param conv_dim: number of convolution kernels to use per layer.
+        :param reward_size: number of dimensions of the reward vector. 
+                            Eventhough OpenAI Gym Interface always provides
+                            scalar reward function, it might be interesting 
+                            in some other environments to predict a vector of
+                            reward functions.
+        :param conv_dim: number of convolution kernels to use for each conv layer.
         """
         super(EnvironmentModel, self).__init__()
 
@@ -18,49 +22,60 @@ class EnvironmentModel(nn.Module):
         self.reward_size = reward_size
         self.conv_dim = conv_dim
 
-        dim = self.observation_shape[1]
+        height_dim = self.observation_shape[1]
 
+        # 8x8, conv_dim, /8 convolutional layer:
+        self.conv1, height_dim = self._build_conv_layer(height_dim, 
+                                                        in_channels=self.observation_shape[0]+self.num_actions,
+                                                        out_channels=self.conv_dim,
+                                                        k=8, stride=8, pad=0)    
+        # two size-preserving convolutional layers:
+        self.conv2, height_dim = self._build_conv_layer(height_dim, 
+                                                        in_channels=self.conv_dim,
+                                                        out_channels=self.conv_dim,
+                                                        k=3, stride=1, pad=1)    
+        self.conv3, height_dim = self._build_conv_layer(height_dim, 
+                                                        in_channels=self.conv_dim,
+                                                        out_channels=self.conv_dim,
+                                                        k=3, stride=1, pad=1)    
+        
         k=8
         stride=8
         pad=0
-        self.conv1 = nn.Conv2d(in_channels=self.observation_shape[0], out_channels=self.conv_dim,
-            kernel_size=k, stride=stride, padding=pad)
-        dim = (dim-k+2*pad)//stride +1
-            
-        k=3
-        stride=1
-        pad=0
-        self.conv2 = nn.Conv2d(in_channels=self.conv_dim, out_channels=self.conv_dim,
-            kernel_size=k, stride=stride, padding=pad)
-        dim = (dim-k+2*pad)//stride +1
-        
-        self.conv3 = nn.Conv2d(in_channels=self.conv_dim, out_channels=self.conv_dim,
-            kernel_size=k, stride=stride, padding=pad)
-        dim = (dim-k+2*pad)//stride +1
-        
-        self.output_conv = nn.TransposeConv2d(in_channels=self.conv_dim, out_channels=self.observation_shape[0],
-            kernel_size=3, stride=8, padding=0)
+        dilation=1
+        self.output_conv = nn.ConvTranspose2d(in_channels=self.conv_dim, out_channels=self.observation_shape[0],
+            kernel_size=k, stride=stride, padding=pad,dilation=dilation)
+        output_height_dim = (height_dim-1)*stride-2*pad+dilation*(k-1)+1
         
         k=3
         stride=1
         pad=0
-        self.reward_conv1 = nn.Sequential(
-            nn.Conv2d(in_channels=self.conv_dim, out_channels=self.conv_dim,
-                kernel_size=k, stride=stride, padding=pad),
-            nn.MaxPool(kernel_size=32,stride=3)
-            )
-        dim = (dim-k+2*pad)//stride +1
-        dim = (dim-32)//3+1
+        self.reward_conv1, reward_dim = self._build_conv_maxpool_layer(height_dim, 
+                                                                        in_channels=self.conv_dim,
+                                                                        out_channels=self.conv_dim,
+                                                                        k=3, stride=1, pad=0)    
+        self.reward_conv2, reward_dim = self._build_conv_maxpool_layer(reward_dim, 
+                                                                        in_channels=self.conv_dim,
+                                                                        out_channels=self.conv_dim,
+                                                                        k=3, stride=1, pad=0)    
         
-        self.reward_conv2 = nn.Sequential(
-            nn.Conv2d(in_channels=self.conv_dim, out_channels=self.conv_dim,
+        self.reward_fc = nn.Linear(reward_dim*reward_dim*self.conv_dim, self.reward_size)
+
+    def _build_conv_layer(self, height_dim, in_channels, out_channels, k, stride, pad):
+        new_height_dim = (height_dim-k+2*pad)//stride +1
+        conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
+            kernel_size=k, stride=stride, padding=pad)
+        return conv, new_height_dim
+
+    def _build_conv_maxpool_layer(self, height_dim, in_channels, out_channels, k, stride, pad):
+        new_height_dim = (height_dim-k+2*pad)//stride +1
+        new_height_dim = (new_height_dim-2)//1 +1
+        conv_maxpool = nn.Sequential(
+            nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
                 kernel_size=k, stride=stride, padding=pad),
-            nn.MaxPool(kernel_size=32,stride=3)
+            nn.MaxPool2d(kernel_size=2,stride=1)
             )
-        dim = (dim-k+2*pad)//stride +1
-        dim = (dim-32)//3+1
-        
-        self.reward_fc = nn.Linear(dim*dim*self.conv_dim, self.reward_size)
+        return conv_maxpool, new_height_dim
 
     def forward(self, observations, actions):
         """
@@ -73,14 +88,13 @@ class EnvironmentModel(nn.Module):
         batch_size = observations.size(0)
         
         actions = torch.LongTensor(actions)
-        onehot_actions = torch.zeros(batch_size, self.num_actions, (*observations.size())[1:])
+        onehot_actions = torch.zeros(batch_size, self.num_actions, *(observations.size())[2:])
         onehot_actions[range(batch_size), actions] = 1
-        
         inputs = torch.cat([observations, onehot_actions], 1)
         
         x = F.relu( self.conv1( inputs) )
-        x = F.relu( self.conv2( inputs) )
-        x = x + F.relu( self.conv2(inputs) )
+        x = F.relu( self.conv2( x) )
+        x = x + F.relu( self.conv2(x) )
 
         output = self.output_conv( x)
 

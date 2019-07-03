@@ -2,10 +2,11 @@ import gym.spaces
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from functools import partial
 
-from regym.rl_algorithms.networks import CNNPreprocessFunction, PreprocessFunction
-from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore
-from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody
+from regym.rl_algorithms.networks import ResizeCNNPreprocessFunction
+from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentModel, RolloutEncoder 
+from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody, choose_architecture
 from regym.rl_algorithms.networks.utils import output_size_for_model
 
 
@@ -65,9 +66,23 @@ class I2AAgent():
     def clone(self, training=None):
         pass
 
+def build_environment_model(task, kwargs):
+    if kwargs['environment_model_arch'] == 'CNN':
+        conv_dim = kwargs['environment_model_channels'][0]
+        model = EnvironmentModel(observation_shape=kwargs['preprocessed_observation_shape'],
+                                    num_actions=task.action_dim,
+                                    reward_size=kwargs['reward_size'],
+                                    conv_dim=conv_dim)
+    else:
+      raise NotImplementedError('Environment model: only the CNN architecture has been implemented.')
 
-def choose_model_free_network(task, kwargs):
-    model = choose_architecture(task, task.observation_dim, architecture=kwargs['model_free_network_arch'],
+    return model
+
+
+def build_model_free_network(kwargs):
+    model = choose_architecture(architecture=kwargs['model_free_network_arch'],
+                                input_dim=kwargs['observation_resize_dim'], 
+                                input_shape = kwargs['preprocessed_observation_shape'],
                                 feature_dim=kwargs['model_free_network_feature_dim'],
                                 nbr_channels_list=kwargs['model_free_network_channels'],
                                 kernels=kwargs['model_free_network_kernels'],
@@ -76,28 +91,13 @@ def choose_model_free_network(task, kwargs):
     return model
 
 
-def choose_architecture(task, input_dim, architecture, hidden_units_list=None,
-                        feature_dim=None, nbr_channels_list=None, kernels=None, strides=None, paddings=None):
-    if architecture == 'RNN':
-        return LSTMBody(input_dim, hidden_units=hidden_units_list, gate=F.leaky_relu)
-    if architecture == 'MLP':
-        return FCBody(input_dim, hidden_units=hidden_units_list, gate=F.leaky_relu)
-    if architecture == 'CNN':
-        channels = [task.env.observation_space.shape[-1]] + nbr_channels_list
-        phi_body = ConvolutionalBody(input_shapes=task.env.observation_space.shape,
-                                     feature_dim=feature_dim,
-                                     channels=channels,
-                                     kernel_sizes=kernels,
-                                     strides=strides,
-                                     paddings=paddings)
-        return phi_body
-
-
-def choose_actor_critic_head(task, input_dim, kwargs):
-    actor_body = choose_architecture(task, input_dim, kwargs['actor_critic_head_actor_arch'],
-                                     kwargs['actor_critic_head_actor_nbr_hidden_units'])
-    critic_body = choose_architecture(task, input_dim, kwargs['actor_critic_head_critic_arch'],
-                                      kwargs['actor_critic_head_critic_nbr_hidden_units'])
+def build_actor_critic_head(task, input_dim, kwargs):
+    actor_body = choose_architecture(architecture=kwargs['actor_critic_head_actor_arch'],
+                                      input_dim=input_dim, 
+                                      hidden_units_list=kwargs['actor_critic_head_actor_nbr_hidden_units'])
+    critic_body = choose_architecture(architecture=kwargs['actor_critic_head_critic_arch'],
+                                      input_dim=input_dim, 
+                                      hidden_units_list=kwargs['actor_critic_head_critic_nbr_hidden_units'])
 
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
@@ -110,24 +110,44 @@ def choose_actor_critic_head(task, input_dim, kwargs):
     return model
 
 
-def choose_rollout_encoder(task):
-    return None
+def build_rollout_encoder(task, kwargs):
+    feature_encoder = choose_architecture(architecture='CNN', 
+                                          input_shape=kwargs['preprocessed_observation_shape'], 
+                                          hidden_units_list=None,
+                                          feature_dim=kwargs['rollout_encoder_feature_dim'], 
+                                          nbr_channels_list=kwargs['rollout_encoder_channels'], 
+                                          kernels=kwargs['rollout_encoder_kernels'], 
+                                          strides=kwargs['rollout_encoder_strides'], 
+                                          paddings=kwargs['rollout_encoder_paddings'])
+    rollout_feature_encoder_input_dim = feature_encoder.get_feature_size()+kwargs['reward_size']
+    rollout_feature_encoder = choose_architecture(architecture='RNN',
+                                                  input_dim=rollout_feature_encoder_input_dim, 
+                                                  hidden_units_list=kwargs['rollout_encoder_nbr_hidden_units'])
+
+    rollout_encoder = RolloutEncoder(input_shape=kwargs['preprocessed_observation_shape'], feature_encoder=feature_encoder, rollout_feature_encoder=rollout_feature_encoder, kwargs=kwargs)
+    return rollout_encoder
+        
 
 
-def choose_aggregator(task):
-    # lambda x: torch.cat(x) Simple aggretator which only concatenates
-    return None
+def build_aggregator(task):
+    # input to the aggregator: dimensions: batch x imagined_rollouts_per_step x rollout_embedding_size 
+    class concat_aggr(object):
+      def __call__(self, rollout_embeddings):
+        batch_size=rollout_embeddings.size(0)
+        return rollout_embeddings.view(batch_size,-1)
+    aggr_fn = concat_aggr()
+    return aggr_fn
 
 
-def choose_distill_policy(task, kwargs):
+def build_distill_policy(task, kwargs):
     input_dim = task.observation_dim
     if kwargs['distill_policy_arch'] == 'MLP':
         phi_body = FCBody(input_dim, hidden_units=kwargs['distill_policy_nbr_hidden_units'], gate=F.leaky_relu)
         input_dim = kwargs['distill_policy_nbr_hidden_units'][-1]
     elif kwargs['distill_policy_arch'] == 'CNN':
         # Technical debt add shape of env.observation_space to environment parser
-        channels = [task.env.observation_space.shape[-1]] + kwargs['distill_policy_channels']
-        phi_body = ConvolutionalBody(input_shapes=task.env.observation_space.shape,
+        channels = [kwargs['preprocessed_observation_shape'][0]] + kwargs['distill_policy_channels']
+        phi_body = ConvolutionalBody(input_shape=kwargs['preprocessed_observation_shape'],
                                      feature_dim=kwargs['distill_policy_feature_dim'],
                                      channels=channels,
                                      kernel_sizes=kwargs['distill_policy_kernels'],
@@ -168,23 +188,23 @@ def build_I2A_Agent(task, config, agent_name):
         - 'policies_adam_eps':
         - 'use_cuda': Whether or not to use CUDA to speed up training
     '''
-    preprocess_function = CNNPreprocessFunction if 'CNNPreprocessFunction' in config['preprocess_function'] else PreprocessFunction
-    environment_model = None
+    preprocess_function = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim']) 
+    config['preprocessed_observation_shape'] = [task.env.observation_space.shape[-1], config['observation_resize_dim'],config['observation_resize_dim']]
+    
+    environment_model = build_environment_model(task, config)
 
-    distill_policy_model = choose_distill_policy(task, config)
+    distill_policy_model = build_distill_policy(task, config)
 
     imagination_core    = ImaginationCore(distill_policy=distill_policy_model, environment_model=environment_model)
 
-    rollout_encoder     = choose_rollout_encoder(task)
-    rollout_encoder_hidden_dim = None
+    rollout_encoder     = build_rollout_encoder(task, config)
 
-    aggregator = choose_aggregator(task)
-    model_free_network = choose_model_free_network(task, config)
+    aggregator = build_aggregator(task)
+    model_free_network = build_model_free_network(config)
 
     # TODO once rollout encoder is in place (rollout_encoder_hidden_dim * config['imagined_rollouts_per_step'])
-    actor_critic_input_dim = output_size_for_model(model_free_network,
-                                                   input_shape=task.env.observation_space.sample().transpose((2, 0, 1)).shape)
-    actor_critic_head = choose_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
+    actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step'] 
+    actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
     algorithm = I2AAlgorithm(imagination_core=imagination_core,
                              model_free_network=model_free_network,

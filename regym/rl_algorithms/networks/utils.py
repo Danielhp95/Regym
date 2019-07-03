@@ -1,10 +1,21 @@
 import torch
 import torch.autograd
+import torchvision.transforms as T
 import numpy as np
 
 
 def PreprocessFunction(x, use_cuda=False):
     x = np.concatenate(x, axis=None)
+    if use_cuda:
+        return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
+    return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+
+def ResizeCNNPreprocessFunction(x, size, use_cuda=False):
+    scaling_operation = T.Compose([T.ToPILImage(),
+                                    T.Resize(size=size)])
+    x = scaling_operation(x)
+    x = np.array(x)
+    x = x.transpose((2, 0, 1))
     if use_cuda:
         return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
     return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)

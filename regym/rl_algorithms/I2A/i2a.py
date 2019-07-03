@@ -32,28 +32,40 @@ class I2AAlgorithm():
         self.distill_optimizer = optim.Adam(imagination_core.distill_policy.parameters(),
                                            lr=policies_adam_learning_rate, eps=policies_adam_eps)
 
-        #model_parameters = model_free_network.parameters() + rollout_encoder.parameters() + actor_critic_head.parameters()
-        model_parameters = list(model_free_network.parameters()) + list(actor_critic_head.parameters())
+        model_parameters = list(model_free_network.parameters()) + list(actor_critic_head.parameters()) + list(rollout_encoder.parameters())
         
         self.actor_critic_optimizer = optim.Adam(model_parameters,
                                                  lr=policies_adam_learning_rate,
                                                  eps=policies_adam_eps)
-        '''
+
         self.environment_model_optimizer = optim.Adam(self.imagination_core.environment_model.parameters(),
                                                       lr=environment_model_learning_rate,
                                                       eps=environment_model_adam_eps)
-        '''
-
+        
     def take_action(self, state):
-        # 1. Imagine state and reward for self.imagined_rollouts_per_step times
-        imagined_states, imagined_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length)
-        # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
-        imagination_code = None
+        '''
+        :param state: preprocessed observation/state as a PyTorch Tensor
+                        of dimensions batch_size=1 x input_shape
+        '''
+        rollout_embeddings = []
+        for i in range(self.imagined_rollouts_per_step):
+            # 1. Imagine state and reward for self.imagined_rollouts_per_step times
+            rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length)
+            # dimensions: rollout_length x batch x input_shape / reward-size
+            # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
+            rollout_embedding = self.rollout_encoder(rollout_states, rollout_rewards)
+            # dimensions: batch x rollout_encoder_embedding_size
+            rollout_embeddings.append(rollout_embedding.unsqueeze(1))
+        rollout_embeddings = torch.cat(rollout_embeddings, dim=1)
+        # dimensions: batch x imagined_rollouts_per_step x rollout_encoder_embedding_size
+        imagination_code = self.aggregator(rollout_embeddings)
+        # dimensions: batch x imagined_rollouts_per_step*rollout_encoder_embedding_size
         # 3. model free pass
         features = self.model_free_network(state)
+        # dimensions: batch x model_free_feature_dim
         # 4. concatenate model free pass and imagination code
+        imagination_code_features = torch.cat([imagination_code, features], dim=1)
         # 5. Final fully connected layer which turns into action.
-        imagination_code_features = features #torch.cat([imagination_code, features])
         prediction = self.actor_critic_head(imagination_code_features)
         return prediction
 
