@@ -12,8 +12,9 @@ from . import ppo_loss
 
 class PPOAlgorithm():
 
-    def __init__(self, kwargs, model):
+    def __init__(self, kwargs, model, optimizer=None):
         '''
+        TODO specify which values live inside of kwargs
         Refer to original paper for further explanation: https://arxiv.org/pdf/1707.06347.pdf
         horizon: (0, infinity) Number of timesteps that will elapse in between optimization calls.
         discount: (0,1) Reward discount factor
@@ -34,7 +35,8 @@ class PPOAlgorithm():
         if self.kwargs['use_cuda']:
             self.model = self.model.cuda()
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=kwargs['learning_rate'], eps=kwargs['adam_eps'])
+        if optimizer is None:
+            self.optimizer = optim.Adam(self.model.parameters(), lr=kwargs['learning_rate'], eps=kwargs['adam_eps'])
 
         self.recurrent = False
         self.recurrent_nn_submodule_names = [hyperparameter for hyperparameter, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
@@ -142,3 +144,21 @@ class PPOAlgorithm():
                 sampled_rnn_states[recurrent_submodule_name]['hidden'][idx] = rnn_states[recurrent_submodule_name]['hidden'][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[recurrent_submodule_name]['hidden'][idx][batch_indices]
                 sampled_rnn_states[recurrent_submodule_name]['cell'][idx]   = rnn_states[recurrent_submodule_name]['cell'][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[recurrent_submodule_name]['cell'][idx][batch_indices]
         return sampled_rnn_states
+
+    @staticmethod
+    def check_mandatory_kwarg_arguments(kwargs: dict):
+        '''
+        Checks that all mandatory hyperparameters are present
+        inside of dictionary :param kwargs:
+
+        :param kwargs: Dictionary of hyperparameters
+        '''
+        # Future improvement: add a condition to check_kwarg (discount should be between (0:1])
+        keywords = ['horizon', 'discount', 'use_gae', 'gae_tau', 'use_cuda',
+                    'entropy_weight', 'gradient_clip', 'optimization_epochs',
+                    'mini_batch_size', 'ppo_ratio_clip', 'learning_rate', 'adam_eps']
+
+        def check_kwarg_and_condition(keyword, kwargs):
+            if keyword not in kwargs:
+                raise ValueError(f"Keyword: '{keyword}' not found in kwargs")
+        for keyword in keywords: check_kwarg_and_condition(keyword, kwargs)
