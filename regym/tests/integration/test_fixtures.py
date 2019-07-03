@@ -27,15 +27,20 @@ def ppo_config_dict():
 def i2a_config_dict():
     config = dict()
     config['model_training_algorithm'] = 'PPO'
+    config['environment_model_gradient_clip'] = 5
+    config['environment_model_batch_size'] = 256
+    config['distill_policy_gradient_clip'] = 5
+    config['distill_policy_batch_size'] = 256
     config['observation_resize_dim'] = 80
     config['rollout_length'] = 5
     config['reward_size'] = 1
     config['imagined_rollouts_per_step'] = 3
-    config['environment_update_horizon'] = 1
-    config['policies_update_horizon'] = 1
+    config['environment_model_update_horizon'] = 1
+    config['distill_policy_update_horizon'] = 1
+    config['model_update_horizon'] = 1
     config['environment_model_learning_rate'] = 1.0e-3
     config['environment_model_adam_eps'] = 1.0e-5
-    config['policies_learning_rate'] = 1.0e-3
+    config['policies_adam_learning_rate'] = 1.0e-3
     config['policies_adam_eps'] = 1.0e-5
     config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
     config['use_cuda'] = False

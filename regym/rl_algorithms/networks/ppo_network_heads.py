@@ -242,6 +242,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         if rnn_states is not None:
             return {'a': action,
                     'log_pi_a': log_prob,
+                    'action_logits': logits,
                     'ent': entropy,
                     'v': v,
                     'rnn_states': rnn_states,
@@ -249,5 +250,6 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         else:
             return {'a': action,
                     'log_pi_a': log_prob,
+                    'action_logits': logits,
                     'ent': entropy,
                     'v': v}

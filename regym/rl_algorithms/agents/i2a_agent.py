@@ -9,6 +9,46 @@ from regym.rl_algorithms.networks import ResizeCNNPreprocessFunction
 from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentModel, RolloutEncoder
 from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody, choose_architecture
 
+class I2AModel(nn.Module):
+  def __init__(self, actor_critic_head, model_free_network, aggregator, rollout_encoder, imagination_core):
+    super(I2AModel, self).__init__()
+
+    self.actor_critic_head = actor_critic_head
+    self.model_free_network = model_free_network
+    self.aggregator = aggregator
+    self.rollout_encoder = rollout_encoder
+    self.imagination_core = imagination_core
+
+  def __forward__(self, state, imagined_rollouts_per_step, rollout_length):
+    '''
+    :param state: preprocessed observation/state as a PyTorch Tensor
+                  of dimensions batch_size=1 x input_shape
+    :param imagined_rollouts_per_step: number of rollouts to 
+                  imagine at each inference state.
+    :param rollout_length: nbr of steps per rollout.
+    '''
+    rollout_embeddings = []
+    for i in range(imagined_rollouts_per_step):
+        # 1. Imagine state and reward for self.imagined_rollouts_per_step times
+        rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, rollout_length)
+        # dimensions: rollout_length x batch x input_shape / reward-size
+        # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
+        rollout_embedding = self.rollout_encoder(rollout_states, rollout_rewards)
+        # dimensions: batch x rollout_encoder_embedding_size
+        rollout_embeddings.append(rollout_embedding.unsqueeze(1))
+    rollout_embeddings = torch.cat(rollout_embeddings, dim=1)
+    # dimensions: batch x imagined_rollouts_per_step x rollout_encoder_embedding_size
+    imagination_code = self.aggregator(rollout_embeddings)
+    # dimensions: batch x imagined_rollouts_per_step*rollout_encoder_embedding_size
+    # 3. model free pass
+    features = self.model_free_network(state)
+    # dimensions: batch x model_free_feature_dim
+    # 4. concatenate model free pass and imagination code
+    imagination_code_features = torch.cat([imagination_code, features], dim=1)
+    # 5. Final fully connected layer which turns into action.
+    prediction = self.actor_critic_head(imagination_code_features)
+    return prediction
+
 
 class I2AAgent():
 
@@ -210,9 +250,9 @@ def build_I2A_Agent(task, config, agent_name):
 
     environment_model = build_environment_model(task, config)
 
-    distill_policy_model = build_distill_policy(task, config)
+    distill_policy = build_distill_policy(task, config)
 
-    imagination_core    = ImaginationCore(distill_policy=distill_policy_model, environment_model=environment_model)
+    imagination_core    = ImaginationCore(distill_policy=distill_policy, environment_model=environment_model)
 
     rollout_encoder     = build_rollout_encoder(task, config)
 
@@ -224,21 +264,17 @@ def build_I2A_Agent(task, config, agent_name):
     actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
-    print('DAniiiii')
+    i2a_model = I2AModel(actor_critic_head=actor_critic_head,
+                          model_free_network=model_free_network,
+                          aggregator=aggregator,
+                          rollout_encoder=rollout_encoder,
+                          imagination_core=imagination_core
+                          )
+    
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
-                             imagination_core=imagination_core,
-                             model_free_network=model_free_network,
-                             rollout_encoder=rollout_encoder,
-                             aggregator=aggregator,
-                             actor_critic_head=actor_critic_head,
-                             rollout_length=config['rollout_length'],
-                             imagined_rollouts_per_step=config['imagined_rollouts_per_step'],
-                             policies_update_horizon=config['policies_update_horizon'],
-                             environment_update_horizon=config['environment_update_horizon'],
-                             environment_model_learning_rate=config['environment_model_learning_rate'],
-                             environment_model_adam_eps=config['environment_model_adam_eps'],
-                             policies_adam_learning_rate=config['policies_learning_rate'],
-                             policies_adam_eps=config['policies_adam_eps'],
-                             use_cuda=config['use_cuda'])
+                             i2a_model=i2a_model,
+                             environment_model=environment_model,
+                             distill_policy=distill_policy,
+                             kwargs=config)
     return I2AAgent(algorithm=algorithm, name=agent_name, action_dim=task.action_dim,
                     preprocess_function=preprocess_function)
