@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class EnvironmentModel(nn.Module):
-    def __init__(self, observation_shape, num_actions, reward_size, conv_dim=32):
+    def __init__(self, observation_shape, num_actions, reward_size, conv_dim=32, use_cuda=False):
         """
         :param observation_shape: shape depth x height x width.
         :param num_actions: number of actions that are available in the environment.
@@ -21,6 +21,7 @@ class EnvironmentModel(nn.Module):
         self.num_actions = num_actions
         self.reward_size = reward_size
         self.conv_dim = conv_dim
+        self.use_cuda = use_cuda
 
         height_dim = self.observation_shape[1]
 
@@ -61,6 +62,8 @@ class EnvironmentModel(nn.Module):
         
         self.reward_fc = nn.Linear(reward_dim*reward_dim*self.conv_dim, self.reward_size)
 
+        if self.use_cuda: self = self.cuda()
+
     def _build_conv_layer(self, height_dim, in_channels, out_channels, k, stride, pad):
         new_height_dim = (height_dim-k+2*pad)//stride +1
         conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
@@ -87,8 +90,12 @@ class EnvironmentModel(nn.Module):
 
         batch_size = observations.size(0)
         
-        actions = torch.LongTensor(actions)
+        actions = actions.long()
+        if self.use_cuda: actions = actions.cuda()
+
         onehot_actions = torch.zeros(batch_size, self.num_actions, *(observations.size())[2:])
+        if self.use_cuda: onehot_actions = onehot_actions.cuda()
+
         onehot_actions[range(batch_size), actions] = 1
         inputs = torch.cat([observations, onehot_actions], 1)
         

@@ -3,9 +3,10 @@ import torch.nn as nn
 from regym.rl_algorithms.networks import choose_architecture
 
 class RolloutEncoder(nn.Module):
-    def __init__(self, input_shape, feature_encoder, rollout_feature_encoder, kwargs):
+    def __init__(self, input_shape, nbr_states_to_encode, feature_encoder, rollout_feature_encoder, kwargs):
         '''
         :param input_shapes: dimensions of the input.
+        :param nbr_states_to_encode: number of states to encode in the rollout embeddings, from the end of the rollout.
         :param feature_encoder: nn.Modules that encodes the observations into features.
         :param rollout_feature_encoder: recurrent nn.Modules that encodes 
                                         a rollout of features into a rollout embedding.
@@ -13,6 +14,7 @@ class RolloutEncoder(nn.Module):
         '''
         super(RolloutEncoder,self).__init__()
         self.input_shape = input_shape 
+        self.nbr_states_to_encode = nbr_states_to_encode
         self.kwargs = kwargs
         self.feature_encoder = feature_encoder
         self.rollout_feature_encoder = rollout_feature_encoder
@@ -30,10 +32,12 @@ class RolloutEncoder(nn.Module):
         batch_size = states.size(1)
 
         # batching all the states of all the rollouts:
-        states = states.view(-1, *(self.input_shape))
+        states = states[-self.nbr_states_to_encode:].view(-1, *(self.input_shape))
+        rewards = rewards[-self.nbr_states_to_encode:]
+        
         features = self.feature_encoder(states)
-        # reformating into rollouts x batch x feature_dim:
-        features = features.view( rollout_length, batch_size, -1)
+        # reformating into nbr_states_to_encode x batch x feature_dim:
+        features = features.view( self.nbr_states_to_encode, batch_size, -1)
         
         feat_rewards = torch.cat([features, rewards], dim=2)
         # reversing the rollouts:

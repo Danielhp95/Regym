@@ -43,7 +43,7 @@ def i2a_config_dict():
     config['policies_adam_learning_rate'] = 1.0e-3
     config['policies_adam_eps'] = 1.0e-5
     config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
-    config['use_cuda'] = False
+    config['use_cuda'] = True
 
     # PPO hyperparameters:
     config['model_training_algorithm'] = 'PPO'
@@ -70,6 +70,7 @@ def i2a_config_dict():
     config['rollout_encoder_feature_dim'] = 512
     config['rollout_encoder_nbr_hidden_units'] = (256,)
     config['rollout_encoder_embedding_size'] = 256
+    config['rollout_encoder_nbr_state_to_encode'] = 5
     # Distilled Policy: Convolutional architecture description
     config['distill_policy_arch'] = 'CNN'
     config['distill_policy_channels'] = [16, 32, 64]

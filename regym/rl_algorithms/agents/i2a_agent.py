@@ -20,6 +20,8 @@ class I2AModel(nn.Module):
     self.imagination_core = imagination_core
     self.kwargs = kwargs
 
+    if self.kwargs['use_cuda']: self = self.cuda()
+
   def forward(self, state, imagined_rollouts_per_step, rollout_length):
     '''
     :param state: preprocessed observation/state as a PyTorch Tensor
@@ -123,7 +125,8 @@ def build_environment_model(task, kwargs):
         model = EnvironmentModel(observation_shape=kwargs['preprocessed_observation_shape'],
                                  num_actions=task.action_dim,
                                  reward_size=kwargs['reward_size'],
-                                 conv_dim=conv_dim)
+                                 conv_dim=conv_dim,
+                                 use_cuda=kwargs['use_cuda'])
     else:
         raise NotImplementedError('Environment model: only the CNN architecture has been implemented.')
 
@@ -185,7 +188,11 @@ def build_rollout_encoder(task, kwargs):
                                                   input_dim=rollout_feature_encoder_input_dim,
                                                   hidden_units_list=kwargs['rollout_encoder_nbr_hidden_units'])
 
-    rollout_encoder = RolloutEncoder(input_shape=kwargs['preprocessed_observation_shape'], feature_encoder=feature_encoder, rollout_feature_encoder=rollout_feature_encoder, kwargs=kwargs)
+    rollout_encoder = RolloutEncoder(input_shape=kwargs['preprocessed_observation_shape'], 
+                                     nbr_states_to_encode=kwargs['rollout_encoder_nbr_state_to_encode'],
+                                     feature_encoder=feature_encoder, 
+                                     rollout_feature_encoder=rollout_feature_encoder, 
+                                     kwargs=kwargs)
     return rollout_encoder
 
 
@@ -230,6 +237,8 @@ def build_distill_policy(task, kwargs):
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=None)
+    if kwargs['use_cuda']: model = model.cuda()
+
     return model
 
 
