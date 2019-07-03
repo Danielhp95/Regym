@@ -12,11 +12,11 @@ from regym.rl_algorithms.networks.ppo_network_utils import layer_init, layer_ini
 
 
 class ConvolutionalBody(nn.Module):
-    def __init__(self, input_shapes, feature_dim=256, channels=[3, 3], kernel_sizes=[1], strides=[1], paddings=[0], non_linearities=[F.relu]):
+    def __init__(self, input_shape, feature_dim=256, channels=[3, 3], kernel_sizes=[1], strides=[1], paddings=[0], non_linearities=[F.relu]):
         '''
         Default input channels assume a RGB image (3 channels).
 
-        :param input_shapes: dimensions of the input.
+        :param input_shape: dimensions of the input.
         :param feature_dim: integer size of the output.
         :param channels: list of number of channels for each convolutional layer,
                 with the initial value being the number of channels of the input.
@@ -36,9 +36,9 @@ class ConvolutionalBody(nn.Module):
 
         self.feature_dim = feature_dim
         self.convs = nn.ModuleList()
-        dim = input_shapes[1] # height
+        dim = input_shape[1] # height
         for in_ch, out_ch, k, s, p in zip(channels, channels[1:], kernel_sizes, strides, paddings):
-            self.convs.append( layer_init(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=k, stride=s)))
+            self.convs.append( layer_init(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=k, stride=s, padding=p)))
             # Update of the shape of the input-image, following Conv:
             dim = (dim-k+2*p)//s+1
         self.fc = layer_init(nn.Linear(dim * dim * channels[-1], self.feature_dim))
@@ -51,6 +51,12 @@ class ConvolutionalBody(nn.Module):
         flatten = conv_map.view(conv_map.size(0), -1)
         features = F.relu(self.fc(flatten))
         return features
+
+    def get_input_shape(self):
+        return self.input_shape
+
+    def get_feature_size(self):
+        return self.feature_dim
 
 
 class DDPGConvBody(nn.Module):
@@ -126,6 +132,9 @@ class LSTMBody(nn.Module):
             hidden_states.append(h)
             cell_states.append(h)
         return {'hidden': hidden_states, 'cell': cell_states}
+
+    def get_feature_size(self):
+        return self.feature_dim
 
 
 class TwoLayerFCBodyWithAction(nn.Module):

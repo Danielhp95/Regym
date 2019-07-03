@@ -26,21 +26,35 @@ def ppo_config_dict():
 @pytest.fixture
 def i2a_config_dict():
     config = dict()
+    config['model_training_algorithm'] = 'PPO'
+    config['observation_resize_dim'] = 80
     config['rollout_length'] = 5
-    config['imagined_rollouts_per_step'] = 20
+    config['reward_size'] = 1
+    config['imagined_rollouts_per_step'] = 3
     config['environment_update_horizon'] = 1
     config['policies_update_horizon'] = 1
     config['environment_model_learning_rate'] = 1.0e-3
     config['environment_model_adam_eps'] = 1.0e-5
     config['policies_learning_rate'] = 1.0e-3
     config['policies_adam_eps'] = 1.0e-5
-    config['preprocess_function'] = 'CNNPreprocessFunction'
+    config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
     config['use_cuda'] = False
+    # Environment Model: Architecture description:
+    config['environment_model_arch'] = 'CNN'
+    config['environment_model_channels'] = [32]
+    # Rollout Encoder:
+    config['rollout_encoder_channels'] = [32, 32, 32]
+    config['rollout_encoder_kernels'] = [3, 3, 3]
+    config['rollout_encoder_strides'] = [1, 1, 1]
+    config['rollout_encoder_paddings'] = [0, 0, 0]
+    config['rollout_encoder_feature_dim'] = 512
+    config['rollout_encoder_nbr_hidden_units'] = (256,)
+    config['rollout_encoder_embedding_size'] = 256
     # Distilled Policy: Convolutional architecture description
     config['distill_policy_arch'] = 'CNN'
-    config['distill_policy_channels'] = [32, 32, 32]
-    config['distill_policy_kernels'] = [3, 3, 3]
-    config['distill_policy_strides'] = [1, 1, 1]
+    config['distill_policy_channels'] = [32, 64, 128]
+    config['distill_policy_kernels'] = [8, 4, 3]
+    config['distill_policy_strides'] = [4, 3, 1]
     config['distill_policy_paddings'] = [0, 0, 0]
     config['distill_policy_feature_dim'] = 512
     # Distilled Policy: Fully Connected architecture description
