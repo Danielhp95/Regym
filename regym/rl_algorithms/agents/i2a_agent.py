@@ -10,7 +10,7 @@ from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentMo
 from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody, choose_architecture
 
 class I2AModel(nn.Module):
-  def __init__(self, actor_critic_head, model_free_network, aggregator, rollout_encoder, imagination_core):
+  def __init__(self, actor_critic_head, model_free_network, aggregator, rollout_encoder, imagination_core, kwargs):
     super(I2AModel, self).__init__()
 
     self.actor_critic_head = actor_critic_head
@@ -18,6 +18,7 @@ class I2AModel(nn.Module):
     self.aggregator = aggregator
     self.rollout_encoder = rollout_encoder
     self.imagination_core = imagination_core
+    self.kwargs = kwargs
 
   def forward(self, state, imagined_rollouts_per_step, rollout_length):
     '''
@@ -271,7 +272,9 @@ def build_I2A_Agent(task, config, agent_name):
                          model_free_network=model_free_network,
                          aggregator=aggregator,
                          rollout_encoder=rollout_encoder,
-                         imagination_core=imagination_core)
+                         imagination_core=imagination_core,
+                         kwargs=config)
+
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
                              i2a_model=i2a_model,
                              environment_model=environment_model,

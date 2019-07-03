@@ -63,19 +63,19 @@ def i2a_config_dict():
     config['environment_model_arch'] = 'CNN'
     config['environment_model_channels'] = [32]
     # Rollout Encoder:
-    config['rollout_encoder_channels'] = [32, 32, 32]
-    config['rollout_encoder_kernels'] = [3, 3, 3]
-    config['rollout_encoder_strides'] = [1, 1, 1]
-    config['rollout_encoder_paddings'] = [0, 0, 0]
+    config['rollout_encoder_channels'] = [16, 32, 64]
+    config['rollout_encoder_kernels'] = [8, 4, 3]
+    config['rollout_encoder_strides'] = [8, 2, 1]
+    config['rollout_encoder_paddings'] = [0, 1, 1]
     config['rollout_encoder_feature_dim'] = 512
     config['rollout_encoder_nbr_hidden_units'] = (256,)
     config['rollout_encoder_embedding_size'] = 256
     # Distilled Policy: Convolutional architecture description
     config['distill_policy_arch'] = 'CNN'
-    config['distill_policy_channels'] = [32, 64, 128]
+    config['distill_policy_channels'] = [16, 32, 64]
     config['distill_policy_kernels'] = [8, 4, 3]
-    config['distill_policy_strides'] = [4, 3, 1]
-    config['distill_policy_paddings'] = [0, 0, 0]
+    config['distill_policy_strides'] = [8, 2, 1]
+    config['distill_policy_paddings'] = [0, 1, 1]
     config['distill_policy_feature_dim'] = 512
     # Distilled Policy: Fully Connected architecture description
     config['distill_policy_nbr_hidden_units'] = None
@@ -87,8 +87,8 @@ def i2a_config_dict():
     config['model_free_network_arch'] = 'CNN'
     config['model_free_network_channels'] = [32, 32, 64]
     config['model_free_network_kernels'] = [8, 4, 3]
-    config['model_free_network_strides'] = [4, 3, 1]
-    config['model_free_network_paddings'] = [0, 0, 0]
+    config['model_free_network_strides'] = [8, 2, 1]
+    config['model_free_network_paddings'] = [0, 1, 1]
     config['model_free_network_feature_dim'] = 512
     # Model Free Path: Fully Connected architecture description
     config['model_free_network_nbr_hidden_units'] = None
