@@ -80,10 +80,12 @@ class I2AAgent():
         self.update_experience_storages(state, a, reward, succ_s, non_terminal,
                                         self.current_prediction)
 
-        if (self.handled_experiences % self.algorithm.environment_update_horizon) == 0:
+        if (self.handled_experiences % self.algorithm.environment_model_update_horizon) == 0:
             self.algorithm.train_environment_model()
-        if (self.handled_experiences % self.algorithm.policies_update_horizon) == 0:
-            self.algorithm.train_policies()
+        if (self.handled_experiences % self.algorithm.distill_policy_update_horizon) == 0:
+            self.algorithm.train_distill_policy()
+        if (self.handled_experiences % self.algorithm.model_update_horizon) == 0:
+            self.algorithm.train_i2a_model()
 
     def preprocess_environment_signals(self, state, reward, succ_s, done):
         state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)

@@ -37,6 +37,7 @@ class PPOAlgorithm():
 
         if optimizer is None:
             self.optimizer = optim.Adam(self.model.parameters(), lr=kwargs['learning_rate'], eps=kwargs['adam_eps'])
+        else: self.optimizer = optimizer
 
         self.recurrent = False
         self.recurrent_nn_submodule_names = [hyperparameter for hyperparameter, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
