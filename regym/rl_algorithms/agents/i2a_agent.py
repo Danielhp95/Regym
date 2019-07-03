@@ -265,6 +265,11 @@ def build_I2A_Agent(task, config, agent_name):
     actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
+    i2a_model = I2AModel(actor_critic_head=actor_critic_head, 
+                         model_free_network=model_free_network, 
+                         aggregator=aggregator, 
+                         rollout_encoder=rollout_encoder, 
+                         imagination_core=imagination_core)
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
                              i2a_model=i2a_model,
                              environment_model=environment_model,
