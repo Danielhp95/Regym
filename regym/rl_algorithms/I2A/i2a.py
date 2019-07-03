@@ -41,7 +41,7 @@ class I2AAlgorithm():
         # Adding successive state key to compute the loss of the environment model
         self.environment_model_storage.add_key('succ_s')
 
-        self.distill_optimizer = optim.Adam(self.distill_policy.parameters(),
+        self.distill_policy_optimizer = optim.Adam(self.distill_policy.parameters(),
                                             lr=kwargs['policies_adam_learning_rate'],
                                             eps=kwargs['policies_adam_eps'])
 
@@ -60,20 +60,18 @@ class I2AAlgorithm():
         self.kwargs = kwargs
 
     def take_action(self, state):
-        return self.i2a_model(state,
-                              imagined_rollouts_per_step=self.imagined_rollouts_per_step,
-                              rollout_length=self.rollout_length)
+        return self.i2a_model(state)
 
     def train_distill_policy(self):
         self.distill_policy_storage.placeholder()
-        self.distill_policy.zero_grad()
+        self.distill_policy_optimizer.zero_grad()
 
         distill_loss = self.compute_distill_policy_loss()
 
         distill_loss.backward()
         nn.utils.clip_grad_norm_(self.environment_model.parameters(), self.kwargs['distill_policy_gradient_clip'])
 
-        self.distill_policy.step()
+        self.distill_policy_optimizer.step()
         self.distill_policy_storage.reset()
 
     def train_i2a_model(self):
@@ -92,7 +90,7 @@ class I2AAlgorithm():
         self.environment_model_storage.reset()
 
     def compute_environment_model_loss(self): # TODO
-        states, actions, rewards, next_states = map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a', 'r', 'succ_s']))
+        states, actions, rewards, next_states = map(lambda x: torch.cat(x, dim=0), self.environment_model_storage.cat(['s', 'a', 'r', 'succ_s']))
 
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['environment_model_batch_size'])
         loss = 0.0
@@ -113,7 +111,7 @@ class I2AAlgorithm():
     def compute_distill_policy_loss(self): # TODO
         # Note: this formula may only work with discrete actions?
         # Formula: cross_entropy_coefficient * softmax_probabilities(actor_critic_logit) * softmax_probabilities(distil_logit)).sum(1).mean()
-        states, actions = map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a']))
+        states, actions = map(lambda x: torch.cat(x, dim=0), self.distill_policy_storage.cat(['s', 'a']))
 
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['distill_policy_batch_size'])
         loss = 0.0
@@ -124,8 +122,9 @@ class I2AAlgorithm():
             sampled_actions = actions[batch_indices].cuda() if self.kwargs['use_cuda'] else actions[batch_indices]
 
             distill_prediction = self.distill_policy(sampled_states,sampled_actions)
-            model_prediction = self.i2a_model(sampled_states,sampled_actions)
+            model_prediction = self.i2a_model(state=sampled_states, 
+                                              action=sampled_actions)
 
-            loss += 0.01 * (F.softmax(model_prediction['action_logits']).detach() * F.log_softmax(distill_prediction['action_logits'])).sum(1).mean()
+            loss += 0.01 * (F.softmax(model_prediction['action_logits']).detach() * F.log_softmax(distill_prediction['action_logits'], dim=1)).sum(1).mean()
 
         return loss

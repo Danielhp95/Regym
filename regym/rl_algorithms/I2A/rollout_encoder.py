@@ -18,7 +18,7 @@ class RolloutEncoder(nn.Module):
         self.kwargs = kwargs
         self.feature_encoder = feature_encoder
         self.rollout_feature_encoder = rollout_feature_encoder
-        self.fc_rollout_embeddings = nn.Linear(self.rollout_feature_encoder.get_feature_size(), self.kwargs['rollout_encoder_embedding_size'])
+        self.fc_rollout_embeddings = nn.Linear(self.kwargs['rollout_encoder_nbr_hidden_units'], self.kwargs['rollout_encoder_embedding_size'])
 
     def forward(self, states, rewards):
         '''
@@ -32,18 +32,20 @@ class RolloutEncoder(nn.Module):
         batch_size = states.size(1)
 
         # batching all the states of all the rollouts:
-        states = states[-self.nbr_states_to_encode:].view(-1, *(self.input_shape))
+        states2encode = states[-self.nbr_states_to_encode:].view(-1, *(self.input_shape))
         rewards = rewards[-self.nbr_states_to_encode:]
         
-        features = self.feature_encoder(states)
+        features = self.feature_encoder(states2encode)
         # reformating into nbr_states_to_encode x batch x feature_dim:
         features = features.view( self.nbr_states_to_encode, batch_size, -1)
         
         feat_rewards = torch.cat([features, rewards], dim=2)
         # reversing the rollouts:
-        reversed_feat_rewards = torch.cat([ feat_rewards[i] for i in range(feat_rewards.size(0)-1,-1,-1)], dim=0)
-        init_rnn_states = self.rollout_feature_encoder.get_reset_states(cuda=self.kwargs['use_cuda'])
-        outputs, next_rnn_states = self.rollout_feature_encoder((reversed_feat_rewards, init_rnn_states))
+        reversed_feat_rewards = torch.cat([ feat_rewards[i].unsqueeze(0) for i in range(feat_rewards.size(0)-1,-1,-1)], dim=0)
+        
+        # Forward pass:
+        outputs, next_rnn_states = self.rollout_feature_encoder(reversed_feat_rewards)
+        
         # rollout_length x batch_size x hidden_size
         rollout_embeddings = self.fc_rollout_embeddings( outputs[-1].view(batch_size, -1) )
         # batch x rollout_encoder_embedding_size 

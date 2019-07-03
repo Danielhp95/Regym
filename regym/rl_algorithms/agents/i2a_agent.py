@@ -10,7 +10,19 @@ from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentMo
 from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody, choose_architecture
 
 class I2AModel(nn.Module):
-  def __init__(self, actor_critic_head, model_free_network, aggregator, rollout_encoder, imagination_core, kwargs):
+  def __init__(self, actor_critic_head, 
+               model_free_network, 
+               aggregator, 
+               rollout_encoder, 
+               imagination_core, 
+               imagined_rollouts_per_step, 
+               rollout_length,
+               kwargs):
+    '''
+    :param imagined_rollouts_per_step: number of rollouts to
+                  imagine at each inference state.
+    :param rollout_length: nbr of steps per rollout.
+    '''
     super(I2AModel, self).__init__()
 
     self.actor_critic_head = actor_critic_head
@@ -18,38 +30,38 @@ class I2AModel(nn.Module):
     self.aggregator = aggregator
     self.rollout_encoder = rollout_encoder
     self.imagination_core = imagination_core
+    self.imagined_rollouts_per_step = imagined_rollouts_per_step
+    self.rollout_length = rollout_length
     self.kwargs = kwargs
 
     if self.kwargs['use_cuda']: self = self.cuda()
 
-  def forward(self, state, imagined_rollouts_per_step, rollout_length):
+  def forward(self, state, action=None):
     '''
     :param state: preprocessed observation/state as a PyTorch Tensor
                   of dimensions batch_size=1 x input_shape
-    :param imagined_rollouts_per_step: number of rollouts to
-                  imagine at each inference state.
-    :param rollout_length: nbr of steps per rollout.
+    :param action: action for which the log likelyhood will be computed.
     '''
     rollout_embeddings = []
-    for i in range(imagined_rollouts_per_step):
+    for i in range(self.imagined_rollouts_per_step):
         # 1. Imagine state and reward for self.imagined_rollouts_per_step times
-        rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, rollout_length)
-        # dimensions: rollout_length x batch x input_shape / reward-size
+        rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length)
+        # dimensions: self.rollout_length x batch x input_shape / reward-size
         # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
         rollout_embedding = self.rollout_encoder(rollout_states, rollout_rewards)
         # dimensions: batch x rollout_encoder_embedding_size
         rollout_embeddings.append(rollout_embedding.unsqueeze(1))
     rollout_embeddings = torch.cat(rollout_embeddings, dim=1)
-    # dimensions: batch x imagined_rollouts_per_step x rollout_encoder_embedding_size
+    # dimensions: batch x self.imagined_rollouts_per_step x rollout_encoder_embedding_size
     imagination_code = self.aggregator(rollout_embeddings)
-    # dimensions: batch x imagined_rollouts_per_step*rollout_encoder_embedding_size
+    # dimensions: batch x self.imagined_rollouts_per_step*rollout_encoder_embedding_size
     # 3. model free pass
     features = self.model_free_network(state)
     # dimensions: batch x model_free_feature_dim
     # 4. concatenate model free pass and imagination code
     imagination_code_features = torch.cat([imagination_code, features], dim=1)
     # 5. Final fully connected layer which turns into action.
-    prediction = self.actor_critic_head(imagination_code_features)
+    prediction = self.actor_critic_head(imagination_code_features,action=action)
     return prediction
 
 
@@ -80,8 +92,9 @@ class I2AAgent():
         self.handled_experiences += 1
 
         state, reward, succ_s, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
+        current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
         self.update_experience_storages(state, a, reward, succ_s, non_terminal,
-                                        self.current_prediction)
+                                        current_prediction)
 
         if (self.handled_experiences % self.algorithm.environment_model_update_horizon) == 0:
             self.algorithm.train_environment_model()
@@ -105,15 +118,30 @@ class I2AAgent():
                                            'non_terminal': done}
         self.algorithm.environment_model_storage.add(environment_model_relevant_info)
 
-        policies_relevant_info = {'r': reward, 's': state,
-                                  'non_terminal': done}
-        self.algorithm.policies_storage.add(current_prediction)
-        self.algorithm.policies_storage.add(policies_relevant_info)
-
+        distill_policy_relevant_info = {'s': state,
+                                        'a': current_prediction['a']}
+        self.algorithm.distill_policy_storage.add(distill_policy_relevant_info)
+        
+        
+        model_relevant_info = {'s': state,
+                               'r': reward,
+                               'succ_s': succ_s,
+                               'non_terminal': done}  
+        model_relevant_info.update(current_prediction)
+        self.algorithm.model_training_algorithm.storage.add(model_relevant_info)
+        if self.training and self.handled_experiences % self.algorithm.kwargs['horizon'] == 0:
+            next_prediction = self._make_prediction(succ_s)
+            next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            self.algorithm.model_training_algorithm.storage.add(next_prediction)    
+        
     def take_action(self, state):
-        processed_state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
-        self.current_prediction = self.algorithm.take_action(processed_state)
+        preprocessed_state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
+        self.current_prediction = self._make_prediction(preprocessed_state)
         return self.current_prediction['a'].item()
+
+    def _make_prediction(self, preprocessed_state):
+        prediction = self.algorithm.take_action(preprocessed_state)
+        return prediction
 
     def clone(self, training=None):
         pass
@@ -184,12 +212,19 @@ def build_rollout_encoder(task, kwargs):
                                           strides=kwargs['rollout_encoder_strides'],
                                           paddings=kwargs['rollout_encoder_paddings'])
     rollout_feature_encoder_input_dim = feature_encoder.get_feature_size()+kwargs['reward_size']
+    rollout_feature_encoder = nn.LSTM(input_size=rollout_feature_encoder_input_dim,
+                            hidden_size=kwargs['rollout_encoder_nbr_hidden_units'],
+                            num_layers=kwargs['rollout_encoder_nbr_rnn_layers'],
+                            batch_first=False,
+                            dropout=0.0,
+                            bidirectional=False)
+    '''
     rollout_feature_encoder = choose_architecture(architecture='RNN',
                                                   input_dim=rollout_feature_encoder_input_dim,
                                                   hidden_units_list=kwargs['rollout_encoder_nbr_hidden_units'])
-
+    '''
     rollout_encoder = RolloutEncoder(input_shape=kwargs['preprocessed_observation_shape'], 
-                                     nbr_states_to_encode=kwargs['rollout_encoder_nbr_state_to_encode'],
+                                     nbr_states_to_encode=min(kwargs['rollout_length'],kwargs['rollout_encoder_nbr_state_to_encode']),
                                      feature_encoder=feature_encoder, 
                                      rollout_feature_encoder=rollout_feature_encoder, 
                                      kwargs=kwargs)
@@ -257,6 +292,11 @@ def build_I2A_Agent(task, config, agent_name):
         - 'policies_adam_eps':
         - 'use_cuda': Whether or not to use CUDA to speed up training
     '''
+    # Given the dependance on another training algorithm to train the model,
+    # the horizon value used by this training algorithm ought to be set by 
+    # the hyperparamet 'model_update_horizon'...
+    config['horizon'] = config['model_update_horizon']
+
     # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
     preprocess_function = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
     config['preprocessed_observation_shape'] = [task.env.observation_space.shape[-1], config['observation_resize_dim'], config['observation_resize_dim']]
@@ -282,6 +322,8 @@ def build_I2A_Agent(task, config, agent_name):
                          aggregator=aggregator,
                          rollout_encoder=rollout_encoder,
                          imagination_core=imagination_core,
+                         imagined_rollouts_per_step=config['imagined_rollouts_per_step'],
+                         rollout_length=config['rollout_length'],
                          kwargs=config)
 
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
