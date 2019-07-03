@@ -30,7 +30,7 @@ def i2a_config_dict():
     config['rollout_length'] = 5
     config['reward_size'] = 1
     config['imagined_rollouts_per_step'] = 3
-    config['environment_update_horizon'] = 1
+    config['environment_model_update_horizon'] = 1
     config['policies_update_horizon'] = 1
     config['environment_model_learning_rate'] = 1.0e-3
     config['environment_model_adam_eps'] = 1.0e-5
