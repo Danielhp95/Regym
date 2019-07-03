@@ -16,7 +16,7 @@ class Storage:
 
     def add(self, data):
         for k, v in data.items():
-            assert k in self.keys
+            assert k in self.keys, f'Tried to add value key ({k}, {v}) but, {k} is not a registered key'
             getattr(self, k).append(v)
 
     def placeholder(self):
@@ -32,3 +32,11 @@ class Storage:
     def cat(self, keys):
         data = [getattr(self, k)[:self.size] for k in keys]
         return data
+
+    def __repr__(self):
+        string_form = 'Storage:\n'
+        for k in self.keys:
+            v = getattr(self, k)
+            if v != []:
+                string_form += f'{k}: {v}\n'
+        return string_form

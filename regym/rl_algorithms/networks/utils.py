@@ -10,25 +10,44 @@ def PreprocessFunction(x, use_cuda=False):
         return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
     return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
-def ResizeCNNPreprocessFunction(x, size, use_cuda=False):
+def ResizeCNNPreprocessFunction(x, size, use_cuda=False, normalize_rgb_values=True):
+    '''
+    Used to resize, normalize and convert OpenAI Gym raw pixel observations,
+    which are structured as numpy arrays of shape (Height, Width, Channels),
+    into the equivalent Pytorch Convention of (Channels, Height, Width).
+    Required for torch.nn.Modules which use a convolutional architechture.
+
+    :param x: Numpy array to be processed
+    :param size: int or tuple, (height,width) size
+    :param use_cuda: Boolean to determine whether to create Cuda Tensor
+    :param normalize_rgb_values: Maps the 0-255 values of rgb colours
+                                 to interval (0-1)
+    '''
     scaling_operation = T.Compose([T.ToPILImage(),
                                     T.Resize(size=size)])
     x = scaling_operation(x)
     x = np.array(x)
     x = x.transpose((2, 0, 1))
+    x = x / 255. if normalize_rgb_values else x
     if use_cuda:
         return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
     return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
 
-def CNNPreprocessFunction(x, use_cuda=False):
+def CNNPreprocessFunction(x, use_cuda=False, normalize_rgb_values=True):
     '''
-    Used to convert OpenAI Gym raw pixel observations,
+    Used to normalize and convert OpenAI Gym raw pixel observations,
     which are structured as numpy arrays of shape (Height, Width, Channels),
     into the equivalent Pytorch Convention of (Channels, Height, Width).
     Required for torch.nn.Modules which use a convolutional architechture.
+
+    :param x: Numpy array to be processed
+    :param use_cuda: Boolean to determine whether to create Cuda Tensor
+    :param normalize_rgb_values: Maps the 0-255 values of rgb colours
+                                 to interval (0-1)
     '''
     x = x.transpose((2, 0, 1))
+    x = x / 255. if normalize_rgb_values else x
     if use_cuda:
         return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
     return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)

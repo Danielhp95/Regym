@@ -25,15 +25,18 @@ class I2AAlgorithm():
         self.model_free_network = model_free_network
         self.actor_critic_head = actor_critic_head
 
-        self.storage = Storage(size=10) # TODO figure out storage mechanism
-
         self.policies_update_horizon    = policies_update_horizon
         self.environment_update_horizon = environment_update_horizon
+        self.policies_storage = Storage(size=policies_update_horizon)
+        self.environment_model_storage = Storage(size=environment_update_horizon)
+        # Adding successive state key to compute the loss of the environment model
+        self.environment_model_storage.add_key('succ_s')
+
         self.distill_optimizer = optim.Adam(imagination_core.distill_policy.parameters(),
-                                           lr=policies_adam_learning_rate, eps=policies_adam_eps)
+                                            lr=policies_adam_learning_rate, eps=policies_adam_eps)
 
         model_parameters = list(model_free_network.parameters()) + list(actor_critic_head.parameters()) + list(rollout_encoder.parameters())
-        
+
         self.actor_critic_optimizer = optim.Adam(model_parameters,
                                                  lr=policies_adam_learning_rate,
                                                  eps=policies_adam_eps)
@@ -93,5 +96,6 @@ class I2AAlgorithm():
     # Use PPO loss. Try and refactor PPOAlgorithm.optimize_model
     # into it's own function that we can call here?
     def compute_actor_critic_policy_loss(self): # TODO
-        # loss = ppo_loss()
-        return loss
+        #loss = ppo_loss()
+        #return loss
+        return None

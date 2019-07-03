@@ -28,6 +28,9 @@ class I2AAgent():
 
         self.action_dim = action_dim
         self.handled_experiences = 0
+        # Current_prediction stores information
+        # from the last action that was taken
+        self.current_prediction = None
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         '''
@@ -42,13 +45,34 @@ class I2AAgent():
         if not self.training: return
         self.handled_experiences += 1
 
-        non_terminal = torch.ones(1)*(1 - int(done))
-        # Add current_prediction to storage (current_prediction needs to be computed in take_action)
-        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's':  s})
+        state, reward, succ_s, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
+        self.update_experience_storages(state, a, reward, succ_s, non_terminal,
+                                        self.current_prediction)
+
         if (self.handled_experiences % self.algorithm.environment_update_horizon) == 0:
             self.algorithm.train_environment_model()
         if (self.handled_experiences % self.algorithm.policies_update_horizon) == 0:
             self.algorithm.train_policies()
+
+    def preprocess_environment_signals(self, state, reward, succ_s, done):
+        state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
+        succ_s = self.preprocess_function(succ_s, use_cuda=self.algorithm.use_cuda)
+        reward = torch.ones(1)*reward
+        non_terminal = torch.ones(1)*(1 - int(done))
+        return state, reward, succ_s, non_terminal
+
+    def update_experience_storages(self, state, action, reward, succ_s, done, current_prediction):
+        environment_model_relevant_info = {'s': state,
+                                           'a': current_prediction['a'],
+                                           'r': reward,
+                                           'succ_s': succ_s,
+                                           'non_terminal': done}
+        self.algorithm.environment_model_storage.add(environment_model_relevant_info)
+
+        policies_relevant_info = {'r': reward, 's': state,
+                                  'non_terminal': done}
+        self.algorithm.policies_storage.add(current_prediction)
+        self.algorithm.policies_storage.add(policies_relevant_info)
 
     def take_action(self, state):
         '''
@@ -60,8 +84,8 @@ class I2AAgent():
         Put all in self.current_prediction
         '''
         processed_state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
-        prediction = self.algorithm.take_action(processed_state)
-        return prediction['a'].item()
+        self.current_prediction = self.algorithm.take_action(processed_state)
+        return self.current_prediction['a'].item()
 
     def clone(self, training=None):
         pass
@@ -188,6 +212,7 @@ def build_I2A_Agent(task, config, agent_name):
         - 'policies_adam_eps':
         - 'use_cuda': Whether or not to use CUDA to speed up training
     '''
+    # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
     preprocess_function = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim']) 
     config['preprocessed_observation_shape'] = [task.env.observation_space.shape[-1], config['observation_resize_dim'],config['observation_resize_dim']]
     
