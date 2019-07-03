@@ -6,15 +6,21 @@ from ..PPO import compute_loss as ppo_loss
 
 
 class I2AAlgorithm():
+    '''
+    Original paper: https://arxiv.org/abs/1707.06203
 
-    def __init__(self, imagination_core, model_free_network,
+    Note: The {base algorithm} used to compute the loss function
+          which will propagate through the :param model_free_network:,
+          :param actor_critic_head: and :param rollout_encoder: needs
+          to adhere to a specific function signature TODO: describe function signature
+    '''
+
+    def __init__(self, training_algorithm, imagination_core, model_free_network,
                  rollout_encoder, aggregator, actor_critic_head,
                  rollout_length, imagined_rollouts_per_step,
                  policies_update_horizon, environment_update_horizon,
                  environment_model_learning_rate, environment_model_adam_eps,
                  policies_adam_learning_rate, policies_adam_eps, use_cuda):
-        self.use_cuda = use_cuda
-
         self.imagination_core = imagination_core
         self.rollout_length = rollout_length
         self.imagined_rollouts_per_step = imagined_rollouts_per_step
@@ -46,6 +52,7 @@ class I2AAlgorithm():
                                                       lr=environment_model_learning_rate,
                                                       eps=environment_model_adam_eps)
         '''
+        self.use_cuda = use_cuda
 
     def take_action(self, state):
         # 1. Imagine state and reward for self.imagined_rollouts_per_step times

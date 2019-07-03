@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from regym.rl_algorithms.PPO import PPOAlgorithm
 from regym.rl_algorithms.networks import CNNPreprocessFunction, PreprocessFunction
 from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore
 from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody
@@ -128,6 +129,14 @@ def choose_aggregator(task):
     return None
 
 
+def choose_training_algorithm(training_algorithm: str):
+    if 'PPO' in training_algorithm:
+        from regym.rl_algorithms.PPO import PPOAlgorithm
+        return PPOAlgorithm
+    raise ValueError(f"I2A agent currently only supports 'PPO' \
+                      as a training algorithm. Given {training_algorithm}")
+
+
 def choose_distill_policy(task, kwargs):
     input_dim = task.observation_dim
     if kwargs['distill_policy_arch'] == 'MLP':
@@ -187,6 +196,8 @@ def build_I2A_Agent(task, config, agent_name):
     rollout_encoder     = choose_rollout_encoder(task)
     rollout_encoder_hidden_dim = None
 
+    training_algorithm = choose_training_algorithm(config['training_algorithm'])
+
     aggregator = choose_aggregator(task)
     model_free_network = choose_model_free_network(task, config)
 
@@ -195,7 +206,8 @@ def build_I2A_Agent(task, config, agent_name):
                                                    input_shape=task.env.observation_space.sample().transpose((2, 0, 1)).shape)
     actor_critic_head = choose_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
-    algorithm = I2AAlgorithm(imagination_core=imagination_core,
+    algorithm = I2AAlgorithm(training_algorithm=training_algorithm,
+                             imagination_core=imagination_core,
                              model_free_network=model_free_network,
                              rollout_encoder=rollout_encoder,
                              aggregator=aggregator,
