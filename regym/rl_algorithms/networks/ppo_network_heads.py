@@ -155,19 +155,22 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
+        next_rnn_states = None 
+        if rnn_states is not None:
+            next_rnn_states = {k: None for k in rnn_states}
 
         if rnn_states is not None and 'phi_arch' in rnn_states:
-            phi, rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
+            phi, next_rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
         else:
             phi = self.network.phi_body(obs)
 
         if rnn_states is not None and 'actor_arch' in rnn_states:
-            phi_a, rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
+            phi_a, next_rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
         else:
             phi_a = self.network.actor_body(phi)
 
         if rnn_states is not None and 'critic_arch' in rnn_states:
-            phi_v, rnn_states['critic_arch'] = self.network.critic_body( (phi, rnn_states['critic_arch']) )
+            phi_v, next_rnn_states['critic_arch'] = self.network.critic_body( (phi, rnn_states['critic_arch']) )
         else:
             phi_v = self.network.critic_body(phi)
 
@@ -184,7 +187,8 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
                     'log_pi_a': log_prob,
                     'ent': entropy,
                     'v': v,
-                    'rnn_states': rnn_states}
+                    'rnn_states': rnn_states,
+                    'next_rnn_states': next_rnn_states}
         else:
             return {'a': action,
                     'log_pi_a': log_prob,
@@ -204,6 +208,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
+        next_rnn_states = None 
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
 
