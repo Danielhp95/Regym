@@ -6,11 +6,8 @@ def compute_loss(states, actions, log_probs_old, returns, advantages, model, rat
     '''
     TODO: document
     '''
-    if rnn_states is not None:
-        prediction = model(states, actions, rnn_states=rnn_states)
-    else:
-        prediction = model(states, actions)
-
+    prediction = model(states, actions, rnn_states=rnn_states)
+    
     ratio = (prediction['log_pi_a'] - log_probs_old).exp()
     obj = ratio * advantages
     obj_clipped = ratio.clamp(1.0 - ratio_clip,
