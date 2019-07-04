@@ -36,6 +36,10 @@ class I2AAlgorithm():
         self.environment_model_update_horizon = kwargs['environment_model_update_horizon']
 
         self.distill_policy_storage = Storage(size=self.distill_policy_update_horizon)
+        if self.i2a_model.recurrent:
+            self.distill_policy_storage.add_key('rnn_states')
+            self.distill_policy_storage.add_key('next_rnn_states')
+
         self.environment_model_storage = Storage(size=self.environment_model_update_horizon)
 
         # Adding successive state key to compute the loss of the environment model
@@ -112,18 +116,30 @@ class I2AAlgorithm():
         # Note: this formula may only work with discrete actions?
         # Formula: cross_entropy_coefficient * softmax_probabilities(actor_critic_logit) * softmax_probabilities(distil_logit)).sum(1).mean()
         states, actions = map(lambda x: torch.cat(x, dim=0), self.distill_policy_storage.cat(['s', 'a']))
+        rnn_states = self.distill_policy_storage.cat(['rnn_states'])[0]
+        if self.model_training_algorithm.recurrent: rnn_states = self.model_training_algorithm.reformat_rnn_states(rnn_states)
+
+        nbr_layers_per_rnn = None
+        if self.model_training_algorithm.recurrent:
+            nbr_layers_per_rnn = {recurrent_submodule_name: len(rnn_states[recurrent_submodule_name]['hidden'])
+                                  for recurrent_submodule_name in rnn_states}
 
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['distill_policy_batch_size'])
         loss = 0.0
         for batch_indices in sampler:
             batch_indices = torch.from_numpy(batch_indices).long()
 
+            sampled_rnn_states = None
+            if self.i2a_model.recurrent:
+                sampled_rnn_states = self.model_training_algorithm.calculate_rnn_states_from_batch_indices(rnn_states, batch_indices, nbr_layers_per_rnn)
+
             sampled_states = states[batch_indices].cuda() if self.kwargs['use_cuda'] else states[batch_indices]
             sampled_actions = actions[batch_indices].cuda() if self.kwargs['use_cuda'] else actions[batch_indices]
 
             distill_prediction = self.distill_policy(sampled_states,sampled_actions)
             model_prediction = self.i2a_model(state=sampled_states, 
-                                              action=sampled_actions)
+                                              action=sampled_actions,
+                                              rnn_states=sampled_rnn_states)
 
             loss += 0.01 * (F.softmax(model_prediction['action_logits']).detach() * F.log_softmax(distill_prediction['action_logits'], dim=1)).sum(1).mean()
 

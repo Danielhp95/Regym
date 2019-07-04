@@ -9,6 +9,18 @@ from regym.rl_algorithms.networks import ResizeCNNPreprocessFunction
 from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentModel, RolloutEncoder
 from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody, choose_architecture
 
+def _remove_in_keys(part2rm, dictionnary):
+  newdict = {}
+  corr = {}
+  for k in dictionnary:
+    if part2rm in k:
+      newk = k.replace(part2rm,'')
+      newdict[newk] = dictionnary[k]
+      corr[k] = newk
+    else : corr[k] = k
+  return newdict, corr
+
+
 class I2AModel(nn.Module):
   def __init__(self, actor_critic_head, 
                model_free_network, 
@@ -34,40 +46,85 @@ class I2AModel(nn.Module):
     self.rollout_length = rollout_length
     self.kwargs = kwargs
 
+    self.recurrent = False
+    self.rnn_states = None
+    self.rnn_keys = [key for key, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
+    if len(self.rnn_keys):
+        self.recurrent = True
+        self._reset_rnn_states()
+
     if self.kwargs['use_cuda']: self = self.cuda()
 
-  def forward(self, state, action=None):
+  def _reset_rnn_states(self):
+        self.rnn_states = {k: None for k in self.rnn_keys}
+        for k in self.rnn_states:
+            if 'phi' in k:
+                self.rnn_states[k] = self.actor_critic_head.network.phi_body.get_reset_states(cuda=self.kwargs['use_cuda'])
+            if 'critic' in k:
+                self.rnn_states[k] = self.actor_critic_head.network.critic_body.get_reset_states(cuda=self.kwargs['use_cuda'])
+            if 'actor' in k:
+                self.rnn_states[k] = self.actor_critic_head.network.actor_body.get_reset_states(cuda=self.kwargs['use_cuda'])
+
+  def _update_rnn_states(self, prediction, correspondance=None):
+    for recurrent_submodule_name in self.rnn_states:
+      corr_name = correspondance[recurrent_submodule_name]
+      for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+        self.rnn_states[recurrent_submodule_name]['hidden'][idx] = prediction['next_rnn_states'][corr_name]['hidden'][idx].cpu()
+        self.rnn_states[recurrent_submodule_name]['cell'][idx]   = prediction['next_rnn_states'][corr_name]['cell'][idx].cpu()
+
+  def _pre_process_rnn_states(self, done=False):
+    if done or self.rnn_states is None: self._reset_rnn_states()
+    if self.kwargs['use_cuda']:
+      for recurrent_submodule_name in self.rnn_states:
+        for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+          self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
+          self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
+  
+  def forward(self, state, action=None, rnn_states=None):
     '''
     :param state: preprocessed observation/state as a PyTorch Tensor
                   of dimensions batch_size=1 x input_shape
     :param action: action for which the log likelyhood will be computed.
+    :param rnn_states: dictionnary of list of rnn_states if not None.
+                       Used by the training algorithm, thus no need to pre/postprocess.
     '''
     rollout_embeddings = []
     for i in range(self.imagined_rollouts_per_step):
         # 1. Imagine state and reward for self.imagined_rollouts_per_step times
         rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length)
         # dimensions: self.rollout_length x batch x input_shape / reward-size
-        # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
+        # 2. encode them with RolloutEncoder:
         rollout_embedding = self.rollout_encoder(rollout_states, rollout_rewards)
         # dimensions: batch x rollout_encoder_embedding_size
         rollout_embeddings.append(rollout_embedding.unsqueeze(1))
     rollout_embeddings = torch.cat(rollout_embeddings, dim=1)
     # dimensions: batch x self.imagined_rollouts_per_step x rollout_encoder_embedding_size
+    # 3. use aggregator to concatenate them together into imagination code:
     imagination_code = self.aggregator(rollout_embeddings)
     # dimensions: batch x self.imagined_rollouts_per_step*rollout_encoder_embedding_size
-    # 3. model free pass
+    # 4. model free pass
     features = self.model_free_network(state)
     # dimensions: batch x model_free_feature_dim
-    # 4. concatenate model free pass and imagination code
+    # 5. concatenate model free pass and imagination code
     imagination_code_features = torch.cat([imagination_code, features], dim=1)
-    # 5. Final fully connected layer which turns into action.
-    prediction = self.actor_critic_head(imagination_code_features,action=action)
+    # 6. Final actor critic module which turns the imagination code into action and value.  
+    if self.recurrent:
+      if rnn_states is None:
+        self._pre_process_rnn_states()
+        rnn_states4achead, correspondance = _remove_in_keys('achead_', self.rnn_states)
+        prediction = self.actor_critic_head(imagination_code_features, rnn_states=rnn_states4achead, action=action)
+        self._update_rnn_states(prediction, correspondance=correspondance)
+      else:
+        prediction = self.actor_critic_head(imagination_code_features, rnn_states=rnn_states, action=action)
+    else:
+      prediction = self.actor_critic_head(imagination_code_features, action=action)
+    
     return prediction
 
 
 class I2AAgent():
 
-    def __init__(self, name, algorithm, action_dim, preprocess_function):
+    def __init__(self, name, algorithm, action_dim, preprocess_function, kwargs):
         '''
         :param name: String identifier for the agent
         :param samples_before_update: Number of actions the agent will take before updating
@@ -75,10 +132,12 @@ class I2AAgent():
                           Contains the agent's policy, represented as a neural network.
         :param preprocess_function: Function which preprocesses the state before
                                     being handed to the algorithm
+        :param kwargs:
         '''
         self.name = name
         self.algorithm = algorithm
         self.training = True
+        self.kwargs = kwargs
         self.preprocess_function = preprocess_function
 
         self.action_dim = action_dim
@@ -87,14 +146,17 @@ class I2AAgent():
         # from the last action that was taken
         self.current_prediction = None
 
+        self.recurrent = False
+        self.rnn_keys = [key for key, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
+        if len(self.rnn_keys):
+            self.recurrent = True
+        
     def handle_experience(self, s, a, r, succ_s, done=False):
         if not self.training: return
         self.handled_experiences += 1
 
         state, reward, succ_s, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
-        current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
-        self.update_experience_storages(state, a, reward, succ_s, non_terminal,
-                                        current_prediction)
+        self.update_experience_storages(state, a, reward, succ_s, non_terminal,self.current_prediction)
 
         if (self.handled_experiences % self.algorithm.environment_model_update_horizon) == 0:
             self.algorithm.train_environment_model()
@@ -110,6 +172,23 @@ class I2AAgent():
         non_terminal = torch.ones(1)*(1 - int(done))
         return state, reward, succ_s, non_terminal
 
+    def _post_process(self, prediction):
+      if self.recurrent:
+        for k, v in prediction.items():
+          if isinstance(v, dict):
+            for vk in v:
+              hs, cs = v[vk]['hidden'], v[vk]['cell']
+              for idx in range(len(hs)):
+                hs[idx] = hs[idx].detach().cpu()
+                cs[idx] = cs[idx].detach().cpu()
+              prediction[k][vk] = {'hidden': hs, 'cell': cs}
+          else:
+              prediction[k] = v.detach().cpu()
+      else:
+        prediction = {k: v.detach().cpu() for k, v in prediction.items()}
+
+      return prediction
+
     def update_experience_storages(self, state, action, reward, succ_s, done, current_prediction):
         environment_model_relevant_info = {'s': state,
                                            'a': current_prediction['a'],
@@ -120,6 +199,7 @@ class I2AAgent():
 
         distill_policy_relevant_info = {'s': state,
                                         'a': current_prediction['a']}
+        distill_policy_relevant_info.update(current_prediction)
         self.algorithm.distill_policy_storage.add(distill_policy_relevant_info)
         
         
@@ -131,12 +211,13 @@ class I2AAgent():
         self.algorithm.model_training_algorithm.storage.add(model_relevant_info)
         if self.training and self.handled_experiences % self.algorithm.kwargs['horizon'] == 0:
             next_prediction = self._make_prediction(succ_s)
-            next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            next_prediction = self._post_process(next_prediction)
             self.algorithm.model_training_algorithm.storage.add(next_prediction)    
         
     def take_action(self, state):
-        preprocessed_state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
+        preprocessed_state = self.preprocess_function(state, use_cuda=self.kwargs['use_cuda'])
         self.current_prediction = self._make_prediction(preprocessed_state)
+        self.current_prediction = self._post_process(self.current_prediction)
         return self.current_prediction['a'].item()
 
     def _make_prediction(self, preprocessed_state):
@@ -174,21 +255,25 @@ def build_model_free_network(kwargs):
 
 
 def build_actor_critic_head(task, input_dim, kwargs):
-    actor_body = choose_architecture(architecture=kwargs['actor_critic_head_actor_arch'],
+    phi_body = choose_architecture(architecture=kwargs['achead_phi_arch'],
                                      input_dim=input_dim,
-                                     hidden_units_list=kwargs['actor_critic_head_actor_nbr_hidden_units'])
-    critic_body = choose_architecture(architecture=kwargs['actor_critic_head_critic_arch'],
+                                     hidden_units_list=kwargs['achead_phi_nbr_hidden_units'])
+    input_dim = phi_body.get_feature_size()
+    actor_body = choose_architecture(architecture=kwargs['achead_actor_arch'],
+                                     input_dim=input_dim,
+                                     hidden_units_list=kwargs['achead_actor_nbr_hidden_units'])
+    critic_body = choose_architecture(architecture=kwargs['achead_critic_arch'],
                                       input_dim=input_dim,
 
-                                      hidden_units_list=kwargs['actor_critic_head_critic_nbr_hidden_units'])
+                                      hidden_units_list=kwargs['achead_critic_nbr_hidden_units'])
 
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
-                                          phi_body=None,
+                                          phi_body=phi_body,
                                           actor_body=actor_body, critic_body=critic_body)
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
-                                          phi_body=None,
+                                          phi_body=phi_body,
                                           actor_body=actor_body, critic_body=critic_body)
     return model
 
@@ -332,4 +417,4 @@ def build_I2A_Agent(task, config, agent_name):
                              distill_policy=distill_policy,
                              kwargs=config)
     return I2AAgent(algorithm=algorithm, name=agent_name, action_dim=task.action_dim,
-                    preprocess_function=preprocess_function)
+                    preprocess_function=preprocess_function, kwargs=config)
