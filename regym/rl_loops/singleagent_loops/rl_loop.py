@@ -13,7 +13,8 @@ def run_episode(env, agent, training, max_episode_length=math.inf):
     observation = env.reset()
     done = False
     trajectory = []
-    for step in tqdm(range(max_episode_length)):
+    generator = tqdm(range(int(max_episode_length))) if max_episode_length != math.inf else range(int(1e20))
+    for step in generator:
         action = agent.take_action(observation)
         succ_observation, reward, done, info = env.step(action)
         trajectory.append((observation, action, reward, succ_observation, done))
