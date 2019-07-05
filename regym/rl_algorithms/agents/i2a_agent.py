@@ -334,7 +334,6 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     aggregator = build_aggregator(task)
     model_free_network = build_model_free_network(config)
 
-    # TODO once rollout encoder is in place (rollout_encoder_hidden_dim * config['imagined_rollouts_per_step'])
     actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
