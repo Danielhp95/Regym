@@ -40,6 +40,8 @@ class PPOAlgorithm():
         else: self.optimizer = optimizer
 
         self.recurrent = False
+        # TECHNICAL DEBT: check for recurrent property by looking at the modules in the model rather than relying on the kwargs that may contain
+        # elements that do not concern the model trained by this algorithm, given that it is now use-able inside I2A...
         self.recurrent_nn_submodule_names = [hyperparameter for hyperparameter, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
         if self.recurrent_nn_submodule_names != []: self.recurrent = True
 
@@ -67,7 +69,7 @@ class PPOAlgorithm():
         1. What are we doing in this function
         2. Why are we doing it
         '''
-        reformated_rnn_states = {k: {'hidden': [list()], 'cell': [list()]} for k in self.recurrent_nn_submodule_names}
+        reformated_rnn_states = {k: {'hidden': [list()], 'cell': [list()]} for k in rnn_states[0]}
         for rnn_state in rnn_states:
             for k in rnn_state:
                 hstates, cstates = rnn_state[k]['hidden'], rnn_state[k]['cell']
@@ -114,7 +116,7 @@ class PPOAlgorithm():
         nbr_layers_per_rnn = None
         if self.recurrent:
             nbr_layers_per_rnn = {recurrent_submodule_name: len(rnn_states[recurrent_submodule_name]['hidden'])
-                                  for recurrent_submodule_name in self.recurrent_nn_submodule_names}
+                                  for recurrent_submodule_name in rnn_states}
 
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
         for batch_indices in sampler:
@@ -134,12 +136,13 @@ class PPOAlgorithm():
                                          sampled_returns, sampled_advantages, rnn_states=sampled_rnn_states,
                                          ratio_clip=self.kwargs['ppo_ratio_clip'], entropy_weight=self.kwargs['entropy_weight'],
                                          model=self.model)
-            loss.backward(retain_graph=False)
+            #loss.backward(retain_graph=False)
+            loss.backward(retain_graph=True)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
 
     def calculate_rnn_states_from_batch_indices(self, rnn_states, batch_indices, nbr_layers_per_rnn):
-        sampled_rnn_states = {k: {'hidden': [None]*nbr_layers_per_rnn[k], 'cell': [None]*nbr_layers_per_rnn[k]} for k in self.recurrent_nn_submodule_names}
+        sampled_rnn_states = {k: {'hidden': [None]*nbr_layers_per_rnn[k], 'cell': [None]*nbr_layers_per_rnn[k]} for k in rnn_states}
         for recurrent_submodule_name in sampled_rnn_states:
             for idx in range(nbr_layers_per_rnn[recurrent_submodule_name]):
                 sampled_rnn_states[recurrent_submodule_name]['hidden'][idx] = rnn_states[recurrent_submodule_name]['hidden'][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[recurrent_submodule_name]['hidden'][idx][batch_indices]

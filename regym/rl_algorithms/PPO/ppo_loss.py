@@ -39,11 +39,8 @@ def compute_loss(states: torch.Tensor, actions: torch.Tensor,
                        the LSTM submodules. These tensors are used by the
                        :param model: when calculating the policy probability ratio.
     '''
-    if rnn_states is not None:
-        prediction = model(states, actions, rnn_states=rnn_states)
-    else:
-        prediction = model(states, actions)
-
+    prediction = model(states, actions, rnn_states=rnn_states)
+    
     ratio = (prediction['log_pi_a'] - log_probs_old).exp()
     obj = ratio * advantages
     obj_clipped = ratio.clamp(1.0 - ratio_clip,

@@ -62,7 +62,7 @@ class PPOAgent(object):
         if done or self.rnn_states is None: self._reset_rnn_states()
         if self.algorithm.kwargs['use_cuda']:
             for recurrent_submodule_name in self.rnn_states:
-                for idx in range(len(self.rnn_states[recurrent_submodule_name])):
+                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
                     self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
                     self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
 

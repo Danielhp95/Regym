@@ -54,7 +54,7 @@ def i2a_config_dict():
     config['adam_eps'] = 1.0e-5
 
     # Environment Model: Architecture description:
-    config['environment_model_update_horizon'] = 64
+    config['environment_model_update_horizon'] = 1024
     config['environment_model_gradient_clip'] = 5
     config['environment_model_batch_size'] = 32
     config['environment_model_arch'] = 'CNN'
@@ -71,7 +71,7 @@ def i2a_config_dict():
     config['rollout_encoder_nbr_state_to_encode'] = 5
 
     # Distilled Policy:
-    config['distill_policy_update_horizon'] = 64
+    config['distill_policy_update_horizon'] = 2048
     config['distill_policy_gradient_clip'] = 5
     config['distill_policy_batch_size'] = 32
     # Distilled Policy: Convolutional architecture description
@@ -88,7 +88,7 @@ def i2a_config_dict():
     config['distill_policy_head_nbr_hidden_units'] = (256, 128)
 
     # Model :
-    config['model_update_horizon'] = 64
+    config['model_update_horizon'] = 2048
     # Model Free Path: Convolutional architecture description
     config['model_free_network_arch'] = 'CNN'
     config['model_free_network_channels'] = [32, 32, 64]
@@ -98,11 +98,13 @@ def i2a_config_dict():
     config['model_free_network_feature_dim'] = 512
     # Model Free Path: Fully Connected architecture description
     config['model_free_network_nbr_hidden_units'] = None
-
-    config['actor_critic_head_actor_arch'] = 'MLP'
-    config['actor_critic_head_actor_nbr_hidden_units'] = (128,)
-    config['actor_critic_head_critic_arch'] = 'MLP'
-    config['actor_critic_head_critic_nbr_hidden_units'] = (128,)
+    # Actor Critic Head:
+    config['achead_phi_arch'] = 'RNN'
+    config['achead_phi_nbr_hidden_units'] = (256,)
+    config['achead_actor_arch'] = 'MLP'
+    config['achead_actor_nbr_hidden_units'] = (128,)
+    config['achead_critic_arch'] = 'MLP'
+    config['achead_critic_nbr_hidden_units'] = (128,)
     return config
 
 

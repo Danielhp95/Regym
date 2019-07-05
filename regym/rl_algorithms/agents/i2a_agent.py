@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,17 +15,21 @@ class I2AAgent():
     to improve an underlying policy model.
     '''
 
-    def __init__(self, name: str, algorithm: I2AAlgorithm, preprocess_function):
+    def __init__(self, name: str, algorithm: I2AAlgorithm, preprocess_function,
+                 rnn_keys: List[str], use_cuda: bool):
         '''
         :param name: String identifier for the agent
         :param algorithm: Reinforcement Learning algorithm used to update the agent's policy.
                           Contains the agent's policy, represented as a neural network.
         :param preprocess_function: Function which preprocesses the states before
                                     being handed to the algorithm
+        :param rnn_keys:
+        :param use_cuda:
         '''
         self.name = name
         self.algorithm = algorithm
         self.training = True
+        self.use_cuda = use_cuda
         self.preprocess_function = preprocess_function
 
         self.handled_experiences = 0
@@ -33,14 +37,17 @@ class I2AAgent():
         # from the last action that was taken
         self.current_prediction: Dict[str, object]
 
+        self.recurrent = False
+        self.rnn_keys = rnn_keys
+        if len(self.rnn_keys):
+            self.recurrent = True
+
     def handle_experience(self, s, a, r, succ_s, done=False):
         if not self.training: return
         self.handled_experiences += 1
 
         state, reward, succ_s, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
-        current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
-        self.update_experience_storages(state, a, reward, succ_s, non_terminal,
-                                        current_prediction)
+        self.update_experience_storages(state, a, reward, succ_s, non_terminal, self.current_prediction)
 
         if (self.handled_experiences % self.algorithm.environment_model_update_horizon) == 0:
             self.algorithm.train_environment_model()
@@ -61,6 +68,22 @@ class I2AAgent():
         non_terminal = torch.Tensor([1 - int(done)])
         return state, reward, succ_s, non_terminal
 
+    def _post_process(self, prediction):
+        if self.recurrent:
+            for k, v in prediction.items():
+                if isinstance(v, dict):
+                    for vk in v:
+                        hs, cs = v[vk]['hidden'], v[vk]['cell']
+                        for idx in range(len(hs)):
+                            hs[idx] = hs[idx].detach().cpu()
+                            cs[idx] = cs[idx].detach().cpu()
+                        prediction[k][vk] = {'hidden': hs, 'cell': cs}
+                else:
+                    prediction[k] = v.detach().cpu()
+        else:
+            prediction = {k: v.detach().cpu() for k, v in prediction.items()}
+        return prediction
+
     def update_experience_storages(self, state: torch.Tensor, action: torch.Tensor,
                                    reward: torch.Tensor, succ_s: torch.Tensor,
                                    done: torch.Tensor, current_prediction: Dict[str, object]):
@@ -79,6 +102,7 @@ class I2AAgent():
 
         distill_policy_relevant_info = {'s': state,
                                         'a': current_prediction['a']}
+        distill_policy_relevant_info.update(current_prediction)
         self.algorithm.distill_policy_storage.add(distill_policy_relevant_info)
 
         model_relevant_info = {'s': state,
@@ -88,13 +112,13 @@ class I2AAgent():
         model_relevant_info.update(current_prediction)
         self.algorithm.model_training_algorithm.storage.add(model_relevant_info)
         if self.training and self.handled_experiences % self.algorithm.kwargs['horizon'] == 0:
-            next_prediction = self._make_prediction(succ_s)
-            next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
+            next_prediction = self._post_process(self._make_prediction(succ_s))
             self.algorithm.model_training_algorithm.storage.add(next_prediction)
 
     def take_action(self, state):
-        preprocessed_state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
+        preprocessed_state = self.preprocess_function(state, use_cuda=self.use_cuda)
         self.current_prediction = self._make_prediction(preprocessed_state)
+        self.current_prediction = self._post_process(self.current_prediction)
         return self.current_prediction['a'].item()
 
     def _make_prediction(self, preprocessed_state: torch.Tensor) -> Dict[str, object]:
@@ -154,21 +178,25 @@ def build_actor_critic_head(task, input_dim, kwargs: Dict[str, object]) -> nn.Mo
     and the other is the value head (critic). Refer to original paper Figure (1).
     :returns: torch.nn.Module used as part of I2A's policy model
     '''
-    actor_body = choose_architecture(architecture=kwargs['actor_critic_head_actor_arch'],
+    phi_body = choose_architecture(architecture=kwargs['achead_phi_arch'],
+                                   input_dim=input_dim,
+                                   hidden_units_list=kwargs['achead_phi_nbr_hidden_units'])
+    input_dim = phi_body.get_feature_size()
+    actor_body = choose_architecture(architecture=kwargs['achead_actor_arch'],
                                      input_dim=input_dim,
-                                     hidden_units_list=kwargs['actor_critic_head_actor_nbr_hidden_units'])
-    critic_body = choose_architecture(architecture=kwargs['actor_critic_head_critic_arch'],
+                                     hidden_units_list=kwargs['achead_actor_nbr_hidden_units'])
+    critic_body = choose_architecture(architecture=kwargs['achead_critic_arch'],
                                       input_dim=input_dim,
 
-                                      hidden_units_list=kwargs['actor_critic_head_critic_nbr_hidden_units'])
+                                      hidden_units_list=kwargs['achead_critic_nbr_hidden_units'])
 
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
-                                          phi_body=None,
+                                          phi_body=phi_body,
                                           actor_body=actor_body, critic_body=critic_body)
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
-                                          phi_body=None,
+                                          phi_body=phi_body,
                                           actor_body=actor_body, critic_body=critic_body)
     return model
 
@@ -310,6 +338,7 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
+    recurrent_submodule_names = [key for key, value in config.items() if isinstance(value, str) and 'RNN' in value]
     i2a_model = I2AModel(actor_critic_head=actor_critic_head,
                          model_free_network=model_free_network,
                          aggregator=aggregator,
@@ -317,6 +346,7 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
                          imagination_core=imagination_core,
                          imagined_rollouts_per_step=config['imagined_rollouts_per_step'],
                          rollout_length=config['rollout_length'],
+                         rnn_keys=recurrent_submodule_names,
                          use_cuda=config['use_cuda'])
 
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
@@ -325,4 +355,6 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
                              distill_policy=distill_policy,
                              kwargs=config)
     return I2AAgent(algorithm=algorithm, name=agent_name,
-                    preprocess_function=preprocess_function)
+                    preprocess_function=preprocess_function,
+                    rnn_keys=recurrent_submodule_names,
+                    use_cuda=config['use_cuda'])

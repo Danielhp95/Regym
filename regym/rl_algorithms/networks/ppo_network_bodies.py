@@ -86,6 +86,8 @@ class FCBody(nn.Module):
             x = self.gate(layer(x))
         return x
 
+    def get_feature_size(self):
+        return self.feature_dim
 
 class LSTMBody(nn.Module):
     def __init__(self, state_dim, hidden_units=(256), gate=F.relu):
