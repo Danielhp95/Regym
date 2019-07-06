@@ -4,7 +4,7 @@ import copy
 
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody, LSTMBody
-from ..networks import PreprocessFunctionConcatenate, PreprocessFunction
+from ..networks import PreprocessFunction
 from ..PPO import PPOAlgorithm
 
 import torch.nn.functional as F
@@ -115,7 +115,7 @@ class PPOAgent(object):
     """
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-'''
+        '''
         non_terminal = torch.ones(1)*(1 - int(done))
         state = self.state_preprocessing(s)
         if isinstance(r, np.ndarray):
@@ -141,7 +141,7 @@ class PPOAgent(object):
         self.current_prediction = {k: v for k, v in current_prediction.items()}
 
         self.current_prediction['a'] = a
-'''
+        '''
         state, r, non_terminal = self.preprocess_environment_signals(s, r, done)
 #
         self.algorithm.storage.add(self.current_prediction)
@@ -166,9 +166,10 @@ class PPOAgent(object):
             self.handled_experiences = 0
 
     def preprocess_environment_signals(self, state, reward, done):
-        non_terminal = torch.ones(1)*(1 - int(done))
+        non_terminal = torch.ones(1).type(torch.FloatTensor)*(1 - int(done))
         state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
-        r = torch.ones(1)*reward
+        if isinstance(reward, np.ndarray): r = torch.from_numpy(reward).type(torch.FloatTensor)
+        else: r = torch.ones(1).type(torch.FloatTensor)*reward
         return state, r, non_terminal
 
     def take_action(self, state):
@@ -180,6 +181,9 @@ class PPOAgent(object):
         else:
             self.current_prediction = self.algorithm.model(state)
         self.current_prediction = self._post_process(self.current_prediction)
+
+        if isinstance(self.algorithm.model, GaussianActorCriticNet):
+            return self.current_prediction['a'].numpy()
 
         return self.current_prediction['a'].item()
 
@@ -236,6 +240,7 @@ def build_PPO_Agent(task, config, agent_name):
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
+    kwargs['discount'] = float(kwargs['discount'])
     kwargs['state_preprocess'] = PreprocessFunction
 
     input_dim = task.observation_dim
@@ -278,7 +283,7 @@ def build_PPO_Agent(task, config, agent_name):
                                           actor_body=actor_body,
                                           critic_body=critic_body)
 
-        kwargs['state_preprocess'] = PreprocessFunctionConcatenate(task.observation_dim, kwargs['use_cuda'])
+        kwargs['state_preprocess'] = PreprocessFunctionConcatenate
 
     if task.action_type is 'Continuous' and task.observation_type is 'Continuous':
         model = GaussianActorCriticNet(task.observation_dim, task.action_dim,

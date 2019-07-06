@@ -85,12 +85,12 @@ class PPOAlgorithm():
     def compute_advantages_and_returns(self):
         advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
         returns = self.storage.v[-1].detach()
-        for i in reversed(range(self.storage_capacity)):
+        for i in reversed(range(self.kwargs['horizon'])):
             returns = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * returns
             if not self.kwargs['use_gae']:
                 advantages = returns - self.storage.v[i].detach()
             else:
-                td_error = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * self.storage.v[i + 1] - self.storage.v[i]
+                td_error = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * self.storage.v[i + 1].detach() - self.storage.v[i].detach()
                 advantages = advantages * self.kwargs['gae_tau'] * self.kwargs['discount'] * self.storage.non_terminal[i] + td_error
             self.storage.adv[i] = advantages.detach()
             self.storage.ret[i] = returns.detach()
