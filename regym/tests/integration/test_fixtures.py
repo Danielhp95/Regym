@@ -6,20 +6,20 @@ from regym.environments import parse_environment
 def ppo_config_dict():
     config = dict()
     config['discount'] = 0.99
-    config['use_gae'] = False
-    config['use_cuda'] = False
+    config['use_gae'] = True
+    config['use_cuda'] = True
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
     config['optimization_epochs'] = 10
-    config['mini_batch_size'] = 256
+    config['mini_batch_size'] = 32
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
     config['horizon'] = 1024
-    config['phi_arch'] = 'MLP'
-    config['actor_arch'] = 'None'
-    config['critic_arch'] = 'None'
+    config['phi_arch'] = 'RNN'
+    config['actor_arch'] = 'MLP'
+    config['critic_arch'] = 'MLP'
     return config
 
 
@@ -113,3 +113,8 @@ def otc_task():
     import os
     here = os.path.abspath(os.path.dirname(__file__))
     return parse_environment(os.path.join(here, 'ObstacleTower/obstacletower'))
+
+@pytest.fixture
+def si_task():
+    import os
+    return parse_environment('SpaceInvaders-v0')

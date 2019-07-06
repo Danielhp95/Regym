@@ -136,8 +136,8 @@ class PPOAlgorithm():
                                          sampled_returns, sampled_advantages, rnn_states=sampled_rnn_states,
                                          ratio_clip=self.kwargs['ppo_ratio_clip'], entropy_weight=self.kwargs['entropy_weight'],
                                          model=self.model)
-            #loss.backward(retain_graph=False)
-            loss.backward(retain_graph=True)
+            loss.backward(retain_graph=False)
+            #loss.backward(retain_graph=True)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
 
