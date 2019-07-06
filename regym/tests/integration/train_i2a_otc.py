@@ -9,14 +9,14 @@ import torch
 
 def test_train_i2a_otc_env(i2a_config_dict, otc_task):
     #logdir = './test_i2a/'
-    logdir = './test_i2a_mlp/'
+    logdir = './test_i2a_rnn/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
     save_path = os.path.join(logdir,'./i2a.agent')
 
-    #agent_i2a = build_I2A_Agent(config=i2a_config_dict, task=otc_task, agent_name='TestI2A')
-    agent_i2a = build_I2A_Agent(config=i2a_config_dict, task=otc_task, agent_name='TestI2A_MLP')
+    agent_i2a = build_I2A_Agent(config=i2a_config_dict, task=otc_task, agent_name='TestI2A_RNN')
+    #agent_i2a = build_I2A_Agent(config=i2a_config_dict, task=otc_task, agent_name='TestI2A_MLP')
     nbr_episodes = 1e6
     max_episode_length = math.inf
 

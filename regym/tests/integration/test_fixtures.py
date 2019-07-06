@@ -28,17 +28,17 @@ def i2a_config_dict():
     config = dict()
     config['model_training_algorithm'] = 'PPO'
     config['observation_resize_dim'] = 80
-    config['rollout_length'] = 5
+    config['rollout_length'] = 3
     config['reward_size'] = 1
-    config['imagined_rollouts_per_step'] = 3
+    config['imagined_rollouts_per_step'] = 2
     config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
     config['use_cuda'] = True
 
-    config['environment_model_learning_rate'] = 1.0e-3
+    config['environment_model_learning_rate'] = 3.0e-4
     config['environment_model_adam_eps'] = 1.0e-5
-    config['policies_adam_learning_rate'] = 1.0e-3
+    config['policies_adam_learning_rate'] = 3.0e-4
     config['policies_adam_eps'] = 1.0e-5
-    
+
     # Model Training Algorithm hyperparameters:
     config['model_training_algorithm'] = 'PPO'
     # PPO hyperparameters:
@@ -52,7 +52,7 @@ def i2a_config_dict():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    
+
     # Environment Model: Architecture description:
     config['environment_model_update_horizon'] = 1024
     config['environment_model_gradient_clip'] = 5
@@ -69,7 +69,7 @@ def i2a_config_dict():
     config['rollout_encoder_nbr_rnn_layers'] = 1
     config['rollout_encoder_embedding_size'] = 256
     config['rollout_encoder_nbr_state_to_encode'] = 5
-    
+
     # Distilled Policy:
     config['distill_policy_update_horizon'] = 2048
     config['distill_policy_gradient_clip'] = 5
@@ -85,7 +85,7 @@ def i2a_config_dict():
     config['distill_policy_nbr_hidden_units'] = None
     # Distilled Policy: Head architecture description
     config['distill_policy_head_arch'] = 'MLP'
-    config['distill_policy_head_nbr_hidden_units'] = (256, 128)
+    config['distill_policy_head_nbr_hidden_units'] = (128,)
 
     # Model :
     config['model_update_horizon'] = 2048

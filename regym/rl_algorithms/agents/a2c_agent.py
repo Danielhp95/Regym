@@ -31,7 +31,8 @@ class A2CAgent():
         return self.current_prediction['action'].item()
 
     def clone(self, training=None):
-        pass
+        return NotImplementedError(f'Clone function for  {self.__class__} \
+                                     algorithm not yet supported')
 
 
 def build_A2C_Agent(task, config, agent_name):
