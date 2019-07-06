@@ -23,6 +23,7 @@ def ResizeCNNPreprocessFunction(x, size, use_cuda=False, normalize_rgb_values=Tr
     :param normalize_rgb_values: Maps the 0-255 values of rgb colours
                                  to interval (0-1)
     '''
+    if isinstance(size, int): size = (size,size)
     scaling_operation = T.Compose([T.ToPILImage(),
                                     T.Resize(size=size)])
     x = scaling_operation(x)
