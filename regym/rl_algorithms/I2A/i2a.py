@@ -116,11 +116,12 @@ class I2AAlgorithm():
         # Note: this formula may only work with discrete actions?
         # Formula: cross_entropy_coefficient * softmax_probabilities(actor_critic_logit) * softmax_probabilities(distil_logit)).sum(1).mean()
         states, actions = map(lambda x: torch.cat(x, dim=0), self.distill_policy_storage.cat(['s', 'a']))
-        rnn_states = self.distill_policy_storage.cat(['rnn_states'])[0]
-        if self.model_training_algorithm.recurrent: rnn_states = self.model_training_algorithm.reformat_rnn_states(rnn_states)
+        if self.i2a_model.recurrent: 
+            rnn_states = self.distill_policy_storage.cat(['rnn_states'])[0]
+            rnn_states = self.model_training_algorithm.reformat_rnn_states(rnn_states)
 
         nbr_layers_per_rnn = None
-        if self.model_training_algorithm.recurrent:
+        if self.i2a_model.recurrent:
             nbr_layers_per_rnn = {recurrent_submodule_name: len(rnn_states[recurrent_submodule_name]['hidden'])
                                   for recurrent_submodule_name in rnn_states}
 
