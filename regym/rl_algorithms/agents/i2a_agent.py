@@ -315,13 +315,13 @@ def build_rollout_encoder(task, kwargs):
                                      kwargs=kwargs)
     return rollout_encoder
 
+class concat_aggr(object):
+    def __call__(self, rollout_embeddings):
+        batch_size = rollout_embeddings.size(0)
+        return rollout_embeddings.view(batch_size, -1)
 
 def build_aggregator(task):
     # input to the aggregator: dimensions: batch x imagined_rollouts_per_step x rollout_embedding_size
-    class concat_aggr(object):
-        def __call__(self, rollout_embeddings):
-            batch_size = rollout_embeddings.size(0)
-            return rollout_embeddings.view(batch_size, -1)
     aggr_fn = concat_aggr()
     return aggr_fn
 
