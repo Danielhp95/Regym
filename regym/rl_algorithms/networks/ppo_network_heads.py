@@ -155,6 +155,7 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
+        next_rnn_states = None 
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
 
@@ -213,6 +214,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
+        next_rnn_states = None 
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
 
@@ -254,6 +256,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         if rnn_states is not None:
             return {'a': action,
                     'log_pi_a': log_prob,
+                    'action_logits': logits,
                     'ent': entropy,
                     'v': v,
                     'rnn_states': rnn_states,
@@ -261,5 +264,6 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         else:
             return {'a': action,
                     'log_pi_a': log_prob,
+                    'action_logits': logits,
                     'ent': entropy,
                     'v': v}

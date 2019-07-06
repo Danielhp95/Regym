@@ -8,6 +8,7 @@ import torch
 from torch.multiprocessing import Process, JoinableQueue
 import gym
 import gym_rock_paper_scissors
+from tensorboardX import SummaryWriter
 
 import util
 from training_schemes import EmptySelfPlay, NaiveSelfPlay, HalfHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, HalfHistoryLimitSelfPlay
@@ -76,7 +77,6 @@ def run_experiment(experiment_id, experiment_directory, run_id, experiment_confi
     results_path = f'{experiment_directory}/run-{run_id}'
     if not os.path.exists(results_path):
         os.mkdir(results_path)
-    base_path = results_path
 
     createNewEnvironment  = EnvironmentCreationFunction(experiment_config['environment'])
 

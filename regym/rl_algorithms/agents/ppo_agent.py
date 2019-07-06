@@ -44,18 +44,19 @@ class PPOAgent(object):
 
     def _post_process(self, prediction):
         if self.recurrent:
-            for k, (hs, cs) in self.rnn_states.items():
-                for idx in range(len(hs)):
-                    self.rnn_states[k][0][idx] = torch.Tensor(prediction['next_rnn_states'][k][0][idx].cpu())
-                    self.rnn_states[k][1][idx] = torch.Tensor(prediction['next_rnn_states'][k][1][idx].cpu())
+            for recurrent_submodule_name in self.rnn_states:
+                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = prediction['next_rnn_states'][recurrent_submodule_name]['hidden'][idx].cpu()
+                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = prediction['next_rnn_states'][recurrent_submodule_name]['cell'][idx].cpu()
 
             for k, v in prediction.items():
                 if isinstance(v, dict):
-                    for vk, (hs, cs) in v.items():
+                    for vk in v:
+                        hs, cs = v[vk]['hidden'], v[vk]['cell']
                         for idx in range(len(hs)):
                             hs[idx] = hs[idx].detach().cpu()
                             cs[idx] = cs[idx].detach().cpu()
-                        prediction[k][vk] = (hs, cs)
+                        prediction[k][vk] = {'hidden': hs, 'cell': cs}
                 else:
                     prediction[k] = v.detach().cpu()
         else:
@@ -66,10 +67,10 @@ class PPOAgent(object):
     def _pre_process_rnn_states(self, done=False):
         if done or self.rnn_states is None: self._reset_rnn_states()
         if self.algorithm.kwargs['use_cuda']:
-            for k, (hs, cs) in self.rnn_states.items():
-                for idx in range(len(hs)):
-                    self.rnn_states[k][0][idx] = self.rnn_states[k][0][idx].cuda()
-                    self.rnn_states[k][1][idx] = self.rnn_states[k][1][idx].cuda()
+            for recurrent_submodule_name in self.rnn_states:
+                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
+                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
 
     """
     def handle_experience(self, s, a, r, succ_s, done=False):
@@ -114,6 +115,7 @@ class PPOAgent(object):
     """
 
     def handle_experience(self, s, a, r, succ_s, done=False):
+'''
         non_terminal = torch.ones(1)*(1 - int(done))
         state = self.state_preprocessing(s)
         if isinstance(r, np.ndarray):
@@ -139,7 +141,9 @@ class PPOAgent(object):
         self.current_prediction = {k: v for k, v in current_prediction.items()}
 
         self.current_prediction['a'] = a
-
+'''
+        state, r, non_terminal = self.preprocess_environment_signals(s, r, done)
+#
         self.algorithm.storage.add(self.current_prediction)
         #self.algorithm.storage.add(current_prediction)
 
@@ -148,7 +152,7 @@ class PPOAgent(object):
 
         self.handled_experiences += 1
         if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
-            next_state = self.state_preprocessing(succ_s)
+            next_state = self.state_preprocessing(succ_s, self.algorithm.kwargs['use_cuda'])
 
             if self.recurrent:
                 self._pre_process_rnn_states(done=done)
@@ -161,8 +165,14 @@ class PPOAgent(object):
             self.algorithm.train()
             self.handled_experiences = 0
 
+    def preprocess_environment_signals(self, state, reward, done):
+        non_terminal = torch.ones(1)*(1 - int(done))
+        state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
+        r = torch.ones(1)*reward
+        return state, r, non_terminal
+
     def take_action(self, state):
-        state = self.state_preprocessing(state)
+        state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
 
         if self.recurrent:
             self._pre_process_rnn_states()
@@ -171,10 +181,7 @@ class PPOAgent(object):
             self.current_prediction = self.algorithm.model(state)
         self.current_prediction = self._post_process(self.current_prediction)
 
-        action = self.current_prediction['a'].numpy()
-        if action.shape == torch.Size([1, 1]): # If action is a single integer
-            action = np.int(action)
-        return action
+        return self.current_prediction['a'].item()
 
 
     '''
@@ -229,7 +236,7 @@ def build_PPO_Agent(task, config, agent_name):
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
-    kwargs['state_preprocess'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
+    kwargs['state_preprocess'] = PreprocessFunction
 
     input_dim = task.observation_dim
     if kwargs['phi_arch'] != 'None':

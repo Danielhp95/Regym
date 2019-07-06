@@ -37,8 +37,8 @@ class DeepQNetworkAgent():
         self.algorithm.kwargs['nbr_actor'] = nbr_actor
         
     def handle_experience(self, s, a, r, succ_s, done=False):
-        hs = self.preprocessing_function(s)
-        hsucc = self.preprocessing_function(succ_s)
+        hs = self.preprocessing_function(s, self.kwargs['use_cuda'])
+        hsucc = self.preprocessing_function(succ_s, self.kwargs['use_cuda'])
         r = torch.ones(1)*r
         a = torch.from_numpy(a)
         experience = EXP(hs, a, hsucc, r, done)
@@ -50,7 +50,7 @@ class DeepQNetworkAgent():
     def take_action(self, state):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
-        action, qsa = self.select_action(model=self.algorithm.model, state=self.preprocessing_function(state), eps=self.eps)
+        action, qsa = self.select_action(model=self.algorithm.model, state=self.preprocessing_function(state, self.kwargs['use_cuda']), eps=self.eps)
         return action
 
     def reset_eps(self):
@@ -100,7 +100,7 @@ def build_DQN_Agent(task, config, agent_name):
         "state_dim": number of dimensions in the state space.
     """
 
-    preprocess = PreprocessFunction(state_space_size=task.observation_dim, use_cuda=config['use_cuda'])
+    preprocess = PreprocessFunction
 
     kwargs = config.copy()
     kwargs['nbrTrainIteration'] = config['nbrTrainIteration']

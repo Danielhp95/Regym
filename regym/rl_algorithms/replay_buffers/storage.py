@@ -1,25 +1,22 @@
-import torch
-
-
 class Storage:
     def __init__(self, size, keys=None):
         if keys is None:
             keys = []
-        keys = keys + ['s', 'a', 'r', 'non_terminal',
+        keys = keys + ['s', 'a', 'r', 'succ_s', 'non_terminal',
                        'v', 'q', 'pi', 'log_pi', 'ent',
                        'adv', 'ret', 'q_a', 'log_pi_a',
-                       'mean']
+                       'mean', 'action_logits']
         self.keys = keys
         self.size = size
         self.reset()
 
     def add_key(self, key):
         self.keys += [key]
-        setattr( self, key, [])
+        setattr(self, key, [])
 
     def add(self, data):
         for k, v in data.items():
-            assert k in self.keys
+            assert k in self.keys, f'Tried to add value key ({k}, {v}) but, {k} is not a registered key'
             getattr(self, k).append(v)
 
     def placeholder(self):
@@ -35,3 +32,11 @@ class Storage:
     def cat(self, keys):
         data = [getattr(self, k)[:self.size] for k in keys]
         return data
+
+    def __repr__(self):
+        string_form = 'Storage:\n'
+        for k in self.keys:
+            v = getattr(self, k)
+            if v != []:
+                string_form += f'{k}: {v}\n'
+        return string_form

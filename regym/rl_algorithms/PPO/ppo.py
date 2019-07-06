@@ -1,18 +1,19 @@
 from copy import deepcopy
-from tqdm import tqdm
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
 
-from ..replay_buffers import Storage
 from ..networks import random_sample
+from ..replay_buffers import Storage
+from . import ppo_loss
 
 
 class PPOAlgorithm():
 
-    def __init__(self, kwargs, model):
+    def __init__(self, kwargs, model, optimizer=None):
         '''
+        TODO specify which values live inside of kwargs
         Refer to original paper for further explanation: https://arxiv.org/pdf/1707.06347.pdf
         horizon: (0, infinity) Number of timesteps that will elapse in between optimization calls.
         discount: (0,1) Reward discount factor
@@ -33,16 +34,17 @@ class PPOAlgorithm():
         if self.kwargs['use_cuda']:
             self.model = self.model.cuda()
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=kwargs['learning_rate'], eps=kwargs['adam_eps'])
+        if optimizer is None:
+            self.optimizer = optim.Adam(self.model.parameters(), lr=kwargs['learning_rate'], eps=kwargs['adam_eps'])
+        else: self.optimizer = optimizer
 
         self.recurrent = False
-        self.rnn_keys = [ key for key,value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
-        if len(self.rnn_keys):
-            self.recurrent = True
+        # TECHNICAL DEBT: check for recurrent property by looking at the modules in the model rather than relying on the kwargs that may contain
+        # elements that do not concern the model trained by this algorithm, given that it is now use-able inside I2A...
+        self.recurrent_nn_submodule_names = [hyperparameter for hyperparameter, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
+        if self.recurrent_nn_submodule_names != []: self.recurrent = True
 
-        self.storage_capacity = self.kwargs['horizon']
-        if 'nbr_actor' in self.kwargs: self.storage_capacity *= self.kwargs['nbr_actor']
-        self.storage = Storage(self.storage_capacity)
+        self.storage = Storage(self.kwargs['horizon'])
         if self.recurrent:
             self.storage.add_key('rnn_states')
             self.storage.add_key('next_rnn_states')
@@ -55,24 +57,29 @@ class PPOAlgorithm():
 
         if self.recurrent: rnn_states = self.reformat_rnn_states(rnn_states)
 
-        #progress_bar = tqdm(range(self.kwargs['optimization_epochs']) )
-        #for epoch in progress_bar:
-        for epoch in range(self.kwargs['optimization_epochs']):
+        for _ in range(self.kwargs['optimization_epochs']):
             self.optimize_model(states, actions, log_probs_old, returns, advantages, rnn_states)
-            #progress_bar.set_description(f"Training epoch : {epoch}/{self.kwargs['optimization_epochs']}")
+
         self.storage.reset()
 
     def reformat_rnn_states(self, rnn_states):
-        reformated_rnn_states = { k: ( [list()], [list()] ) for k in self.rnn_keys }
+        '''
+        TODO for Kevin. Document:
+        1. What are we doing in this function
+        2. Why are we doing it
+        '''
+        reformated_rnn_states = {k: {'hidden': [list()], 'cell': [list()]} for k in rnn_states[0]}
         for rnn_state in rnn_states:
-            for k, (hstates, cstates) in rnn_state.items():
-                for idx_layer, (h,c) in enumerate(zip(hstates, cstates)):
-                    reformated_rnn_states[k][0][0].append(h)
-                    reformated_rnn_states[k][1][0].append(c)
-        for k, (hstates, cstates) in reformated_rnn_states.items():
+            for k in rnn_state:
+                hstates, cstates = rnn_state[k]['hidden'], rnn_state[k]['cell']
+                for idx_layer, (h, c) in enumerate(zip(hstates, cstates)):
+                    reformated_rnn_states[k]['hidden'][0].append(h)
+                    reformated_rnn_states[k]['cell'][0].append(c)
+        for k in reformated_rnn_states:
+            hstates, cstates = reformated_rnn_states[k]['hidden'], reformated_rnn_states[k]['cell']
             hstates = torch.cat(hstates[0], dim=0)
             cstates = torch.cat(cstates[0], dim=0)
-            reformated_rnn_states[k] = ([hstates], [cstates])
+            reformated_rnn_states[k] = {'hidden': [hstates], 'cell': [cstates]}
         return reformated_rnn_states
 
     def compute_advantages_and_returns(self):
@@ -94,7 +101,7 @@ class PPOAlgorithm():
             rnn_states = cat[-1]
             states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat[:-1])
         else:
-            states, actions, log_probs_old, returns, advantages= map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']) )
+            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']))
             rnn_states = None
 
         advantages = self.standardize(advantages)
@@ -104,16 +111,18 @@ class PPOAlgorithm():
         return (x - x.mean()) / x.std()
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages, rnn_states=None):
-        sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
-        assert( (self.recurrent and rnn_states is not None) or not(self.recurrent or rnn_states is not None) )
+        # What is this: create dictionary to store length of each part of the recurrent submodules of the current model
+        nbr_layers_per_rnn = None
         if self.recurrent:
-            nbr_layers_per_rnn = { k:len(rnn_states[k][0] ) for k in self.rnn_keys}
+            nbr_layers_per_rnn = {recurrent_submodule_name: len(rnn_states[recurrent_submodule_name]['hidden'])
+                                  for recurrent_submodule_name in rnn_states}
 
-        #nbr_batch = states.size(0)//self.kwargs['mini_batch_size']
-        #progress_bar = tqdm(range(nbr_batch) )
-        #for it,batch_indices in zip(progress_bar,sampler):
+        sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
         for batch_indices in sampler:
             batch_indices = torch.from_numpy(batch_indices).long()
+            sampled_rnn_states = None
+            if self.recurrent:
+                sampled_rnn_states = self.calculate_rnn_states_from_batch_indices(rnn_states, batch_indices, nbr_layers_per_rnn)
 
             sampled_states = states[batch_indices].cuda() if self.kwargs['use_cuda'] else states[batch_indices]
             sampled_actions = actions[batch_indices].cuda() if self.kwargs['use_cuda'] else actions[batch_indices]
@@ -121,29 +130,38 @@ class PPOAlgorithm():
             sampled_returns = returns[batch_indices].cuda() if self.kwargs['use_cuda'] else returns[batch_indices]
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
-            if self.recurrent:
-                sampled_rnn_states = { k: ([None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k]) for k in self.rnn_keys}
-                for k in sampled_rnn_states:
-                    for idx in range(nbr_layers_per_rnn[k]):
-                        sampled_rnn_states[k][0][idx] = rnn_states[k][0][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][0][idx][batch_indices]
-                        sampled_rnn_states[k][1][idx] = rnn_states[k][1][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][1][idx][batch_indices]
-
-                unformated_prediction = self.model(sampled_states, sampled_actions, rnn_states=sampled_rnn_states)
-                prediction = {k:v.view((self.kwargs['mini_batch_size'],-1)) for k,v in unformated_prediction.items() }
-            else:
-                unformated_prediction = self.model(sampled_states, sampled_actions)
-                prediction = {k:v.view((self.kwargs['mini_batch_size'],-1)) for k,v in unformated_prediction.items() }
-
-            ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
-            obj = ratio * sampled_advantages
-            obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],
-                                      1.0 + self.kwargs['ppo_ratio_clip']) * sampled_advantages
-            policy_loss = -torch.min(obj, obj_clipped).mean() - self.kwargs['entropy_weight'] * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
-
-            value_loss = 0.5 * (sampled_returns - prediction['v']).pow(2).mean()
-
             self.optimizer.zero_grad()
-            (policy_loss + value_loss).backward(retain_graph=False)
+            loss = ppo_loss.compute_loss(sampled_states, sampled_actions, sampled_log_probs_old,
+                                         sampled_returns, sampled_advantages, rnn_states=sampled_rnn_states,
+                                         ratio_clip=self.kwargs['ppo_ratio_clip'], entropy_weight=self.kwargs['entropy_weight'],
+                                         model=self.model)
+            loss.backward(retain_graph=False)
+            #loss.backward(retain_graph=True)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
-            #progress_bar.set_description(f"Epoch: training iteration : {it}/{nbr_batch}")
+
+    def calculate_rnn_states_from_batch_indices(self, rnn_states, batch_indices, nbr_layers_per_rnn):
+        sampled_rnn_states = {k: {'hidden': [None]*nbr_layers_per_rnn[k], 'cell': [None]*nbr_layers_per_rnn[k]} for k in rnn_states}
+        for recurrent_submodule_name in sampled_rnn_states:
+            for idx in range(nbr_layers_per_rnn[recurrent_submodule_name]):
+                sampled_rnn_states[recurrent_submodule_name]['hidden'][idx] = rnn_states[recurrent_submodule_name]['hidden'][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[recurrent_submodule_name]['hidden'][idx][batch_indices]
+                sampled_rnn_states[recurrent_submodule_name]['cell'][idx]   = rnn_states[recurrent_submodule_name]['cell'][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[recurrent_submodule_name]['cell'][idx][batch_indices]
+        return sampled_rnn_states
+
+    @staticmethod
+    def check_mandatory_kwarg_arguments(kwargs: dict):
+        '''
+        Checks that all mandatory hyperparameters are present
+        inside of dictionary :param kwargs:
+
+        :param kwargs: Dictionary of hyperparameters
+        '''
+        # Future improvement: add a condition to check_kwarg (discount should be between (0:1])
+        keywords = ['horizon', 'discount', 'use_gae', 'gae_tau', 'use_cuda',
+                    'entropy_weight', 'gradient_clip', 'optimization_epochs',
+                    'mini_batch_size', 'ppo_ratio_clip', 'learning_rate', 'adam_eps']
+
+        def check_kwarg_and_condition(keyword, kwargs):
+            if keyword not in kwargs:
+                raise ValueError(f"Keyword: '{keyword}' not found in kwargs")
+        for keyword in keywords: check_kwarg_and_condition(keyword, kwargs)
