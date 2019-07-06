@@ -1,8 +1,8 @@
 from tqdm import tqdm
 import gym
-from environments import ParallelEnv
-from multiagent_loops import simultaneous_action_rl_loop
-from rl_algorithms import AgentHook
+from regym.environments import ParallelEnv
+from regym.rl_loops.multiagent_loops import simultaneous_action_rl_loop
+from regym.rl_algorithms import AgentHook
 
 
 def learns_against_fixed_opponent_RoboSumo(agent, fixed_opponent, total_episodes, training_percentage, reward_threshold_percentage, envname='RoboschoolSumo-v0', save=False):

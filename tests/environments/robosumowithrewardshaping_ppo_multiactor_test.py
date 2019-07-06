@@ -4,9 +4,8 @@ sys.path.append(os.path.abspath('../../'))
 
 from test_fixtures import ppo_config_dict, ppo_config_dict_ma, RoboSumoenv, RoboSumoTask, RoboSumoWRSenv, RoboSumoWRSTask
 
-from rl_algorithms.agents import build_PPO_Agent
-from rl_algorithms import AgentHook
-from rl_algorithms.networks import PreprocessFunctionToTorch
+from regym.rl_algorithms.agents import build_PPO_Agent
+from regym.rl_algorithms import AgentHook
 from RoboSumo_test import learns_against_fixed_opponent_RoboSumo_parallel, record_against_fixed_opponent_RoboSumo
 
 import numpy as np 

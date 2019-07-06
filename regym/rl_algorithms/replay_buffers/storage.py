@@ -34,5 +34,4 @@ class Storage:
 
     def cat(self, keys):
         data = [getattr(self, k)[:self.size] for k in keys]
-        return map(lambda x: torch.cat(x, dim=0), data)
-        #return data
+        return data

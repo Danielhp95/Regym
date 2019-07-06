@@ -70,7 +70,7 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
     :param self_play: boolean specifying the mode in which to operate and, thus, what to return
     :returns: Trajectory (o,a,r,o') of actor 0, if self_play, trajectories for all the actor otherwise.
     '''
-    observations = copy.deepcopy( env.reset() )
+    observations = env.reset()
     nbr_actors = env.get_nbr_envs()
     done = [False]*nbr_actors
     previous_done = copy.deepcopy(done)
@@ -79,7 +79,7 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
     trajectory = []
     while not all(done):
         action_vector = [agent.take_action(observations[i]) for i, agent in enumerate(agent_vector)]
-        succ_observations, reward_vector, done, info = copy.deepcopy( env.step(action_vector) )
+        succ_observations, reward_vector, done, info = env.step(action_vector)
 
 
         batch_index = -1
@@ -93,22 +93,20 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
             pa_r = [ reward_vector[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
             pa_succ_obs = [ succ_observations[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
             pa_done = [ done[actor_index] for idx_agent, agent in enumerate(agent_vector) ]
-            per_actor_trajectories[actor_index].append( copy.deepcopy( (pa_obs, pa_a, pa_r, pa_succ_obs, pa_done) ) )
+            per_actor_trajectories[actor_index].append((pa_obs, pa_a, pa_r, pa_succ_obs, pa_done))
 
             if actor_index == 0 :
-                trajectory.append( copy.deepcopy( (pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]) ) )
+                trajectory.append((pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]))
 
         observations = copy.deepcopy(succ_observations)
         previous_done = copy.deepcopy(done)
 
     if training:
+        # Let us handle the experience (actor-)sequence by (actor-)sequence, for each agent: 
         for actor_index in per_actor_trajectories.keys():
-            #progress_bar = tqdm(range(len(per_actor_trajectories[actor_index] ) ) )
             for pa_obs, pa_a, pa_r, pa_succ_obs, pa_done in per_actor_trajectories[actor_index]:
                 for i, agent in enumerate(agent_vector):
                     agent.handle_experience( pa_obs[i].reshape((1,-1)), pa_a[i].reshape((1,-1)), pa_r[i].reshape((1,-1)), pa_succ_obs[i].reshape((1,-1)), pa_done[i])
-                #progress_bar.set_description(f' actor_index: {actor_index}')
-
 
     if self_play:
         return trajectory

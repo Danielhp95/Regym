@@ -127,8 +127,12 @@ class PPOAgent(object):
         #self.current_prediction = self.algorithm.model(state)
         #self.current_prediction = {k: torch.from_numpy( v.detach().cpu().view((current_nbr_actor,-1)).numpy() ) for k, v in self.current_prediction.items()}
 
-        current_prediction = self.algorithm.model(state)
-        current_prediction = {k: torch.from_numpy( v.detach().cpu().view((current_nbr_actor,-1)).numpy() ) for k, v in current_prediction.items()}
+        if self.recurrent:
+            self._pre_process_rnn_states(done=done)
+            current_prediction = self.algorithm.model(state, rnn_states=self.rnn_states)
+        else:
+            current_prediction = self.algorithm.model(state)
+        current_prediction = self._post_process(current_prediction)
         current_prediction['a'] = a
 
         #to use this line or not to use this line:

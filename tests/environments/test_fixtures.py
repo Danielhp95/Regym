@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.abspath('../../'))
 
 import pytest
-from environments.gym_parser import parse_gym_environment
+from regym.environments.gym_parser import parse_gym_environment
 
 @pytest.fixture
 def ppo_config_dict():
@@ -21,6 +21,9 @@ def ppo_config_dict():
     config['adam_eps'] = 1.0e-5
     config['nbr_actor'] = 1
     config['horizon'] = 8192
+    config['phi_arch'] = 'RNN'
+    config['actor_arch'] = 'MLP'
+    config['critic_arch'] = 'MLP'
     return config
 
 
@@ -38,8 +41,11 @@ def ppo_config_dict_ma():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 16
+    config['nbr_actor'] = 1
     config['horizon'] = 2048
+    config['phi_arch'] = 'RNN'
+    config['actor_arch'] = 'MLP'
+    config['critic_arch'] = 'MLP'
     return config
 
 

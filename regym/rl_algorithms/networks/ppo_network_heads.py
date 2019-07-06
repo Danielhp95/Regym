@@ -155,36 +155,45 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
+        if rnn_states is not None:
+            next_rnn_states = {k: None for k in rnn_states}
 
         if rnn_states is not None and 'phi_arch' in rnn_states:
-            phi, rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
+            phi, next_rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
         else:
             phi = self.network.phi_body(obs)
 
         if rnn_states is not None and 'actor_arch' in rnn_states:
-            phi_a, rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
+            phi_a, next_rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
         else:
             phi_a = self.network.actor_body(phi)
 
         if rnn_states is not None and 'critic_arch' in rnn_states:
-            phi_v, rnn_states['critic_arch'] = self.network.critic_body( (phi, rnn_states['critic_arch']) )
+            phi_v, next_rnn_states['critic_arch'] = self.network.critic_body( (phi, rnn_states['critic_arch']) )
         else:
             phi_v = self.network.critic_body(phi)
 
         mean = F.tanh(self.network.fc_action(phi_a))
+        # batch x num_action
         v = self.network.fc_critic(phi_v)
+        # batch x 1
+        
         dist = torch.distributions.Normal(mean, F.softplus(self.std))
         if action is None:
             action = dist.sample()
+        # Log likelyhood of action = sum_i dist.log_prob(action[i])
         log_prob = dist.log_prob(action).sum(-1).unsqueeze(-1)
+        # batch x 1
         entropy = dist.entropy().sum(-1).unsqueeze(-1)
+        # batch x 1
 
         if rnn_states is not None:
             return {'a': action,
                     'log_pi_a': log_prob,
                     'ent': entropy,
                     'v': v,
-                    'rnn_states': rnn_states}
+                    'rnn_states': rnn_states,
+                    'next_rnn_states': next_rnn_states}
         else:
             return {'a': action,
                     'log_pi_a': log_prob,
@@ -232,12 +241,15 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         if action is None:
             action = dist.sample(sample_shape=(logits.size(0),) )
             # batch x 1
+        # estimates the log likelihood of each action against each batched distributions... : 
         log_prob = dist.log_prob(action).unsqueeze(-1)
-        # estimates the log likelihood of each action against each batched distributions... : batch x batch x 1
+        # batch x batch x 1
+        # retrieve the log likelihood of each batched action against its relevant batched distribution:
         log_prob = torch.cat([log_prob[idx][idx].view((1,-1)) for idx in range(log_prob.size(0))], dim=0)
-        # retrieve the log likelihood of each batched action against its relevant batched distribution: batch x 1
+        # batch x 1
+        # retrieve the the entropy of each batched distribution:
         entropy = dist.entropy().unsqueeze(-1)
-        # retrieve the the entropy of each batched distribution: batch x 1
+        # batch x 1
 
         if rnn_states is not None:
             return {'a': action,
