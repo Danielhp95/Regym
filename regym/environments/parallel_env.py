@@ -2,8 +2,12 @@ import gym
 import numpy as np 
 import copy
 import time 
-from torch.multiprocessing import Process, Queue
 from .utils import EnvironmentCreationFunction
+
+import torch
+#torch.multiprocessing.set_sharing_strategy('file_system')
+from torch.multiprocessing import Process, Queue
+
 
 def env_worker(envCreationFunction, queue_in, queue_out):
     continuer = True
@@ -22,6 +26,8 @@ def env_worker(envCreationFunction, queue_in, queue_out):
             obs, r, done, info = env.step( pa_a)
             
             queue_out.put( [obs,r,done,info] )
+
+    env.close()
 
 
 
@@ -88,10 +94,20 @@ class ParallelEnv():
         return per_env_obs, per_env_reward, self.dones, infos
 
     def close(self) :
-        # Tell the process to terminate itself
-        for env_index, p in enumerate(self.env_processes):
+        # Tell the processes to terminate themselves:
+        if self.env_processes is not None:
+            for env_index in range(len(self.env_processes)):
                 self.env_queues[env_index]['in'].put(False)
-                p.join()
+                self.env_processes[env_index].join()
+                self.env_processes[env_index].terminate()
+                
+                self.env_queues[env_index]['in'].close()
+                self.env_queues[env_index]['in'] = None
+                self.env_queues[env_index]['out'].close()
+                self.env_queues[env_index]['out'] = None
+
+        self.env_processes = None
+        self.env_queues = None
         
 
 class ParallelEnvironmentCreationFunction():
