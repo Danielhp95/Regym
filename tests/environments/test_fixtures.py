@@ -41,7 +41,7 @@ def ppo_config_dict_ma():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 1
+    config['nbr_actor'] = 2
     config['horizon'] = 2048
     config['phi_arch'] = 'RNN'
     config['actor_arch'] = 'MLP'

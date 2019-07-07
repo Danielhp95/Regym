@@ -66,6 +66,13 @@ class RoboDohyoZeroAgent:
     def handle_experience(self, s, a, r, succ_s, done):
         pass 
 
+    def reset_actors(self):
+        pass 
+        
+    def update_actors(self, actor_idx):
+        pass 
+
+
 def robodohyo_zero_agent(nbr_actor):
     return RoboDohyoZeroAgent(nbr_actor)
 
@@ -136,5 +143,5 @@ def record_RoboDohyo_ZeroAgent(RoboDohyoTask, ppo_config_dict):
 
 
 if __name__ == "__main__":
-    #test_learns_to_beat_rock_in_RoboSumo(RoboSumoTask(RoboSumoenv()), ddpg_config_dict_ma())
+    #test_learns_to_beat_zero_in_RoboSumo(RoboSumoTask(RoboSumoenv()), ppo_config_dict_ma())
     record_RoboDohyo_ZeroAgent(RoboDohyoTask(RoboDohyoenv()), ppo_config_dict())

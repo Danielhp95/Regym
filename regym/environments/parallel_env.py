@@ -65,7 +65,7 @@ class ParallelEnv():
     	
         batch_env_index = -1
         for env_index in range(len(self.env_queues) ):
-            if self.dones[env_index] and self.previous_dones[env_index]:
+            if self.dones[env_index]:
                 infos.append(None)
                 continue
             batch_env_index += 1
@@ -75,9 +75,8 @@ class ParallelEnv():
             self.env_queues[env_index]['in'].put(pa_a)
 
         for env_index in range(len(self.env_queues) ):
-            if self.dones[env_index] and self.previous_dones[env_index]:
+            if self.dones[env_index]:
                 continue
-            self.previous_dones[env_index] = self.dones[env_index] 
             
             experience = self.env_queues[env_index]['out'].get()
 
@@ -88,6 +87,8 @@ class ParallelEnv():
             self.dones[env_index] = done
             infos.append(info)
         
+        self.previous_dones = copy.deepcopy(self.dones[env_index]) 
+            
         per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1,-1) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]
         per_env_reward = [ np.concatenate( [ np.array(r[idx_agent]).reshape((-1)) for r in rewards], axis=0) for idx_agent in range(len(rewards[0]) ) ]
 

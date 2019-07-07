@@ -71,7 +71,9 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
     :returns: Trajectory (o,a,r,o') of actor 0, if self_play, trajectories for all the actor otherwise.
     '''
     observations = env.reset()
+    for agent in agent_vector: agent.reset_actors()
     nbr_actors = env.get_nbr_envs()
+    not_done_actors = set(range(nbr_actors))
     done = [False]*nbr_actors
     previous_done = copy.deepcopy(done)
 
@@ -83,11 +85,16 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
 
 
         batch_index = -1
+        done_actors = []
         for actor_index in per_actor_trajectories.keys():
             if done[actor_index] and previous_done[actor_index]:
                 continue
             batch_index +=1
-
+            
+            # Bookkeeping of the actors whose episode just ended:
+            if done[actor_index] and not(previous_done[actor_index]):
+                done_actors.append(actor_index)
+                
             pa_obs = [ observations[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
             pa_a = [ action_vector[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
             pa_r = [ reward_vector[idx_agent][batch_index] for idx_agent, agent in enumerate(agent_vector) ]
@@ -98,11 +105,22 @@ def run_episode_parallel(env, agent_vector, training, self_play=True):
             if actor_index == 0 :
                 trajectory.append((pa_obs, pa_a, pa_r, pa_succ_obs, done[actor_index]))
 
-        observations = copy.deepcopy(succ_observations)
+        next_observations = copy.deepcopy(succ_observations)
+        if len(done_actors):
+            # Regularization of the agents' actors:
+            done_actors.sort(reverse=True)
+            for actor_idx in done_actors:
+                for agent in agent_vector: agent.update_actors(actor_idx=actor_idx)
+            # Regularization of the agents' next observations:
+            not_done_actors = not_done_actors-set(done_actors)
+            next_observations = [next_observations[i][list(not_done_actors),...] for i,agent in enumerate(agent_vector)]
+            
+        observations = copy.deepcopy(next_observations)
         previous_done = copy.deepcopy(done)
 
     if training:
         # Let us handle the experience (actor-)sequence by (actor-)sequence, for each agent: 
+        for agent in agent_vector: agent.reset_actors()
         for actor_index in per_actor_trajectories.keys():
             for pa_obs, pa_a, pa_r, pa_succ_obs, pa_done in per_actor_trajectories[actor_index]:
                 for i, agent in enumerate(agent_vector):
