@@ -2,16 +2,16 @@ import gym
 import numpy as np 
 import copy
 import time 
-from .utils import EnvironmentCreationFunction
+from .utils import EnvironmentCreator
 
 import torch
 #torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 
 
-def env_worker(envCreationFunction, queue_in, queue_out):
+def env_worker(envCreator, queue_in, queue_out):
     continuer = True
-    env = envCreationFunction()     
+    env = envCreator()     
     
     while continuer:
         instruction = queue_in.get()
@@ -32,10 +32,11 @@ def env_worker(envCreationFunction, queue_in, queue_out):
 
 
 class ParallelEnv():
-    def __init__(self, envname, nbr_parallel_env):
-        self.envname = envname
+    def __init__(self, env_creator, nbr_parallel_env, single_agent=True):
+        self.env_creator = env_creator
         self.nbr_parallel_env = nbr_parallel_env
         self.env_processes = None
+        self.single_agent = single_agent
 
     def get_nbr_envs(self):
         return self.nbr_parallel_env
@@ -43,7 +44,7 @@ class ParallelEnv():
     def reset(self) :
         if self.env_processes is None :
             self.env_queues = [ {'in':Queue(), 'out':Queue()} for _ in range(self.nbr_parallel_env)]
-            self.env_processes = [ Process(target=env_worker, args=(EnvironmentCreationFunction(self.envname), *queues.values(),) ) for queues in self.env_queues]
+            self.env_processes = [ Process(target=env_worker, args=(self.env_creator, *queues.values(),) ) for queues in self.env_queues]
             
             for idx, p in enumerate(self.env_processes):
                 p.start()
@@ -52,8 +53,12 @@ class ParallelEnv():
             self.env_queues[idx]['in'].put('reset')
 
         observations = [ queues['out'].get() for queues in self.env_queues]
+
+        if self.single_agent:
+            per_env_obs = np.concatenate( [ np.array(obs).reshape(1, *(obs.shape)) for obs in observations], axis=0)
+        else:
+            per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1, *(obs[idx_agent].shape)) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]
         
-        per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1,-1) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]
         self.dones = [False]*self.nbr_parallel_env
         self.previous_dones = copy.deepcopy(self.dones)
         return per_env_obs
@@ -70,7 +75,10 @@ class ParallelEnv():
                 continue
             batch_env_index += 1
             
-            pa_a = [ action_vector[idx_agent][batch_env_index] for idx_agent in range( len(action_vector) ) ]
+            if self.single_agent:
+                pa_a = action_vector[batch_env_index]
+            else:
+                pa_a = [ action_vector[idx_agent][batch_env_index] for idx_agent in range( len(action_vector) ) ]
             
             self.env_queues[env_index]['in'].put(pa_a)
 
@@ -89,8 +97,12 @@ class ParallelEnv():
         
         self.previous_dones = copy.deepcopy(self.dones[env_index]) 
             
-        per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1,-1) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]
-        per_env_reward = [ np.concatenate( [ np.array(r[idx_agent]).reshape((-1)) for r in rewards], axis=0) for idx_agent in range(len(rewards[0]) ) ]
+        if self.single_agent:
+            per_env_obs = np.concatenate( [ np.array(obs).reshape(1, *(obs.shape)) for obs in observations], axis=0)
+            per_env_reward = np.concatenate( [ np.array(r).reshape(-1) for r in rewards], axis=0)
+        else:
+            per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1,-1) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]
+            per_env_reward = [ np.concatenate( [ np.array(r[idx_agent]).reshape((-1)) for r in rewards], axis=0) for idx_agent in range(len(rewards[0]) ) ]
 
         return per_env_obs, per_env_reward, self.dones, infos
 

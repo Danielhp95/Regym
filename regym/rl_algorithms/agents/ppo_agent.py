@@ -19,7 +19,9 @@ class PPOAgent(object):
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
         self.handled_experiences = 0
         self.name = name
+
         self.nbr_actor = self.algorithm.kwargs['nbr_actor']
+        self.previously_done_actors = [False]*self.nbr_actor
 
         self.recurrent = False
         self.rnn_states = None
@@ -29,18 +31,82 @@ class PPOAgent(object):
             self._reset_rnn_states()
 
     def set_nbr_actor(self, nbr_actor):
-        self.nbr_actor = nbr_actor
-        self.algorithm.kwargs['nbr_actor'] = nbr_actor
+        if nbr_actor != self.nbr_actor:
+            self.nbr_actor = nbr_actor
+            self.algorithm.kwargs['nbr_actor'] = self.nbr_actor
+            self.done_actors = [False]*self.nbr_actor
+            self.algorithm.reset_storages()
+
+    def reset_actors(self):
+        '''
+        In case of a multi-actor process, this function is called to reset
+        the actors.
+        '''
+        self.previously_done_actors = [False]*self.nbr_actor
+        if self.recurrent:
+            self._reset_rnn_states()
+
+    def update_actors(self, batch_idx):
+        '''
+        In case of a multi-actor process, this function is called to handle
+        the (dynamic) number of environment that are being used.
+        More specifically, it regularizes the rnn_states when
+        an actor's episode ends.
+        It is assumed that update can only go by removing stuffs...
+        Indeed, actors all start at the same time, and thus self.reset_actors()
+        ought to be called at that time.
+        Note: since the number of environment that are running changes, 
+        the size of the rnn_states on the batch dimension will change too.
+        Therefore, we cannot identify an rnn_state by the actor/environment index.
+        Thus, it is a batch index that is requested, that would truly be in touch
+        with the current batch dimension.
+        :param batch_idx: index of the actor whose episode just finished.
+        '''
+        if self.recurrent:
+            self.remove_from_rnn_states(batch_idx=batch_idx)
 
     def _reset_rnn_states(self):
         self.rnn_states = {k: None for k in self.rnn_keys}
         for k in self.rnn_states:
             if 'phi' in k:
-                self.rnn_states[k] = self.algorithm.model.network.phi_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.phi_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'], repeat=self.nbr_actor)
             if 'critic' in k:
-                self.rnn_states[k] = self.algorithm.model.network.critic_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.critic_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'], repeat=self.nbr_actor)
             if 'actor' in k:
-                self.rnn_states[k] = self.algorithm.model.network.actor_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.actor_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'], repeat=self.nbr_actor)
+
+    def remove_from_rnn_states(self, batch_idx):
+        '''
+        Remove a row(=batch) of data from the rnn_states.
+        :param batch_idx: index on the batch dimension that specifies which row to remove.
+        '''
+        for recurrent_submodule_name in self.rnn_states:
+            for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                self.rnn_states[recurrent_submodule_name]['hidden'][idx] = torch.cat(
+                    [self.rnn_states[recurrent_submodule_name]['hidden'][idx][:batch_idx,...], 
+                     self.rnn_states[recurrent_submodule_name]['hidden'][idx][batch_idx+1:,...]],
+                     dim=0)
+                self.rnn_states[recurrent_submodule_name]['cell'][idx] = torch.cat(
+                    [self.rnn_states[recurrent_submodule_name]['cell'][idx][:batch_idx,...], 
+                     self.rnn_states[recurrent_submodule_name]['cell'][idx][batch_idx+1:,...]],
+                     dim=0)
+    def _pre_process_rnn_states(self):
+        if self.rnn_states is None: self._reset_rnn_states()
+
+        if self.algorithm.kwargs['use_cuda']:
+            for recurrent_submodule_name in self.rnn_states:
+                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
+                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
+
+    @staticmethod
+    def _extract_from_rnn_states(rnn_states_batched: dict, batch_idx: int):
+        rnn_states = {k: {'hidden':[], 'cell':[]} for k in rnn_states_batched}
+        for recurrent_submodule_name in rnn_states_batched:
+            for idx in range(len(rnn_states_batched[recurrent_submodule_name]['hidden'])):
+                rnn_states[recurrent_submodule_name]['hidden'].append( rnn_states_batched[recurrent_submodule_name]['hidden'][idx][batch_idx,...].unsqueeze(0))
+                rnn_states[recurrent_submodule_name]['cell'].append( rnn_states_batched[recurrent_submodule_name]['cell'][idx][batch_idx,...].unsqueeze(0))
+        return rnn_states
 
     def _post_process(self, prediction):
         if self.recurrent:
@@ -64,57 +130,82 @@ class PPOAgent(object):
 
         return prediction
 
-    def _pre_process_rnn_states(self, done=False):
-        if done or self.rnn_states is None: self._reset_rnn_states()
-        if self.algorithm.kwargs['use_cuda']:
-            for recurrent_submodule_name in self.rnn_states:
-                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
-                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
-                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
+    @staticmethod
+    def _extract_from_prediction(prediction: dict, batch_idx: int):
+        out_pred = dict()
+        for k, v in prediction.items():
+            if isinstance(v, dict):
+                continue
+            out_pred[k] = v[batch_idx,...].unsqueeze(0)
+        return out_pred
 
-    def handle_experience(self, s, a, r, succ_s, done=False):
+    def handle_experience(self, s, a, r, succ_s, done):
         '''
-        #to use this line or not to use this line:
-        self.current_prediction = {k: v for k, v in current_prediction.items()}
+        Note: the batch size may differ from the nbr_actor as soon as some
+        actors' episodes end before the others...
 
-        self.current_prediction['a'] = a
+        :param s: numpy tensor of states of shape batch x state_shape.
+        :param a: numpy tensor of actions of shape batch x action_shape.
+        :param r: numpy tensor of rewards of shape batch x reward_shape.
+        :param succ_s: numpy tensor of successive states of shape batch x state_shape.
+        :param done: list of boolean (batch=nbr_actor) x state_shape.
         '''
-        state, r, non_terminal = self.preprocess_environment_signals(s, r, done)
-#       
-        if self.recurrent:
-            self._pre_process_rnn_states(done=done)
-            current_prediction = self.algorithm.model(state, rnn_states=self.rnn_states)
-        else:
-            current_prediction = self.algorithm.model(state)
-        current_prediction = self._post_process(current_prediction)
-        current_prediction['a'] = a
+        state, r, succ_state, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
+        a = torch.from_numpy(a)
+        # batch x ...
 
-        self.algorithm.storage.add(current_prediction)
+        # We assume that this function has been called directly after take_action:
+        # therefore the current prediction correspond to this experience.
 
-        state = state.cpu().view((1,-1))
-        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
+        batch_index = -1
+        done_actors_among_notdone = []
+        for actor_index in range(self.nbr_actor):
+            # If this actor is already done with its episode:  
+            if self.previously_done_actors[actor_index]:
+                continue
+            # Otherwise, there is bookkeeping to do:
+            batch_index +=1
+            
+            # Bookkeeping of the actors whose episode just ended:
+            if done[actor_index] and not(self.previously_done_actors[actor_index]):
+                done_actors_among_notdone.append(batch_index)
+                
+            exp_dict = {}
+            exp_dict['s'] = state[batch_index,...].unsqueeze(0)
+            exp_dict['a'] = a[batch_index,...].unsqueeze(0)
+            exp_dict['r'] = r[batch_index,...].unsqueeze(0)
+            exp_dict['succ_s'] = succ_state[batch_index,...].unsqueeze(0)
+            # Watch out for the miss-match: done is a list of nbr_actor booleans,
+            # which is not sync with batch_index, purposefully...
+            exp_dict['non_terminal'] = non_terminal[actor_index,...].unsqueeze(0)
 
-        self.handled_experiences += 1
-        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
-            next_state = self.state_preprocessing(succ_s, self.algorithm.kwargs['use_cuda'])
-
+            exp_dict.update(PPOAgent._extract_from_prediction(self.current_prediction, batch_index))
+            
             if self.recurrent:
-                self._pre_process_rnn_states(done=done)
-                next_prediction = self.algorithm.model(next_state, rnn_states=self.rnn_states)
-            else:
-                next_prediction = self.algorithm.model(next_state)
-            next_prediction = self._post_process(next_prediction)
+                exp_dict['rnn_states'] = PPOAgent._extract_from_rnn_states(self.current_prediction['rnn_states'],batch_index)
+                exp_dict['next_rnn_states'] = PPOAgent._extract_from_rnn_states(self.current_prediction['next_rnn_states'],batch_index)
+            
+            self.algorithm.storages[actor_index].add(exp_dict)
+            self.previously_done_actors[actor_index] = done[actor_index]
+            self.handled_experiences +=1
 
-            self.algorithm.storage.add(next_prediction)
+        if len(done_actors_among_notdone):
+            # Regularization of the agents' actors:
+            done_actors_among_notdone.sort(reverse=True)
+            for batch_idx in done_actors_among_notdone:
+                self.update_actors(batch_idx=batch_idx)
+        
+        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']*self.nbr_actor:
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def preprocess_environment_signals(self, state, reward, done):
-        non_terminal = torch.ones(1).type(torch.FloatTensor)*(1 - int(done))
-        state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
+    def preprocess_environment_signals(self, state, reward, succ_state, done):
+        non_terminal = torch.from_numpy(1 - np.array(done)).type(torch.FloatTensor)
+        state = self.state_preprocessing(state, use_cuda=False)
+        succ_state = self.state_preprocessing(succ_state, use_cuda=False)
         if isinstance(reward, np.ndarray): r = torch.from_numpy(reward).type(torch.FloatTensor)
         else: r = torch.ones(1).type(torch.FloatTensor)*reward
-        return state, r, non_terminal
+        return state, r, succ_state, non_terminal
 
     def take_action(self, state):
         state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
@@ -126,82 +217,7 @@ class PPOAgent(object):
             self.current_prediction = self.algorithm.model(state)
         self.current_prediction = self._post_process(self.current_prediction)
 
-        if isinstance(self.algorithm.model, GaussianActorCriticNet):
-            return self.current_prediction['a'].numpy()
-
-        return self.current_prediction['a'].item()
-
-    def reset_actors(self):
-        '''
-        In case of a multi-actor process, this function is called to reset
-        the number of environment/actor that are being used.
-        '''
-        if self.recurrent:
-            self._reset_rnn_states()
-
-    def update_actors(self, actor_idx):
-        '''
-        In case of a multi-actor process, this function is called to handle
-        the (dynamic) number of environment that are being used.
-        More specifically, it regularizes the rnn_states when
-        an actor's episode ends.
-        :param actor_idx: index of the actor whose episode just finished.
-        '''
-        if self.recurrent:
-            self.remove_from_rnn_states(batch_idx=actor_idx)
-
-    def remove_from_rnn_states(self, batch_idx):
-        '''
-        Remove a row(=batch) of data from the rnn_states.
-        :param batch_idx: index on the batch dimension that specifies which row to remove.
-        '''
-        for recurrent_submodule_name in self.rnn_states:
-            for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
-                self.rnn_states[recurrent_submodule_name]['hidden'][idx] = torch.cat(
-                    [self.rnn_states[recurrent_submodule_name]['hidden'][idx][:batch_idx,...], 
-                     self.rnn_states[recurrent_submodule_name]['hidden'][idx][batch_idx+1:,...]],
-                     dim=0)
-                self.rnn_states[recurrent_submodule_name]['cell'][idx] = torch.cat(
-                    [self.rnn_states[recurrent_submodule_name]['cell'][idx][:batch_idx,...], 
-                     self.rnn_states[recurrent_submodule_name]['cell'][idx][batch_idx+1:,...]],
-                     dim=0)
-
-    '''
-    def handle_experience(self, s, a, r, succ_s, done=False):
-        non_terminal = torch.ones(1)*(1 - int(done))
-        state = self.state_preprocessing(s)
-        if isinstance(r, np.ndarray):
-            #r = torch.from_numpy(r).float().view((1))
-            r = torch.from_numpy(r).float().view((1,-1))
-        else :
-            r = torch.ones(1)*r
-        #a = torch.from_numpy(a)
-        a = torch.from_numpy(a).view((1,-1))
-
-        self.current_prediction['a'] = a
-
-        self.algorithm.storage.add(self.current_prediction)
-        state = state.cpu().view((1,-1))
-        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
-
-        self.handled_experiences += 1
-        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
-            next_state = self.state_preprocessing(succ_s)
-            next_prediction = self.algorithm.model(next_state)
-            next_prediction = {k: v.detach().cpu() for k, v in next_prediction.items()}
-            #next_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in next_prediction.items()}
-            self.algorithm.storage.add(next_prediction)
-
-            self.algorithm.train()
-            self.handled_experiences = 0
-
-    def take_action(self, state):
-        state = self.state_preprocessing(state)
-        self.current_prediction = self.algorithm.model(state)
-        #self.current_prediction = {k: v.detach().cpu().view((1,-1)) for k, v in self.current_prediction.items()}
-        self.current_prediction = {k: v.detach().cpu() for k, v in self.current_prediction.items()}
-        return self.current_prediction['a'].cpu().numpy()
-    '''
+        return self.current_prediction['a'].numpy()
 
     def clone(self, training=None):
         clone = PPOAgent(name=self.name, algorithm=copy.deepcopy(self.algorithm))
@@ -260,8 +276,6 @@ def build_PPO_Agent(task, config, agent_name):
                                           phi_body=phi_body,
                                           actor_body=actor_body,
                                           critic_body=critic_body)
-
-        kwargs['state_preprocess'] = PreprocessFunctionConcatenate
 
     if task.action_type is 'Continuous' and task.observation_type is 'Continuous':
         model = GaussianActorCriticNet(task.observation_dim, task.action_dim,

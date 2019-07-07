@@ -1,5 +1,5 @@
 class Storage:
-    def __init__(self, size, keys=None):
+    def __init__(self, keys=None):
         if keys is None:
             keys = []
         keys = keys + ['s', 'a', 'r', 'succ_s', 'non_terminal',
@@ -7,7 +7,6 @@ class Storage:
                        'adv', 'ret', 'q_a', 'log_pi_a',
                        'mean', 'action_logits']
         self.keys = keys
-        self.size = size
         self.reset()
 
     def add_key(self, key):
@@ -23,15 +22,22 @@ class Storage:
         for k in self.keys:
             v = getattr(self, k)
             if len(v) == 0:
-                setattr(self, k, [None] * self.size)
+                setattr(self, k, [None] * (len(self)-1))
 
     def reset(self):
         for key in self.keys:
             setattr(self, key, [])
 
     def cat(self, keys):
-        data = [getattr(self, k)[:self.size] for k in keys]
+        data = [getattr(self, k) for k in keys]
         return data
+
+    def __len__(self):
+        lengths = []
+        for k in self.keys:
+            lengths.append(len(getattr(self,k)))
+        max_length = max(lengths)
+        return max_length 
 
     def __repr__(self):
         string_form = 'Storage:\n'

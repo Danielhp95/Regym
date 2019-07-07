@@ -1,9 +1,6 @@
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
-
 import pytest
 from regym.environments.gym_parser import parse_gym_environment
+from regym.environments import parse_environment
 
 @pytest.fixture
 def ppo_config_dict():
@@ -39,10 +36,10 @@ def ppo_config_dict_ma():
     config['optimization_epochs'] = 25
     config['mini_batch_size'] = 1024
     config['ppo_ratio_clip'] = 0.2
-    config['learning_rate'] = 3.0e-4
+    config['learning_rate'] = 1.0e-3
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 2
-    config['horizon'] = 2048
+    config['nbr_actor'] = 128
+    config['horizon'] = 1024
     config['phi_arch'] = 'RNN'
     config['actor_arch'] = 'MLP'
     config['critic_arch'] = 'MLP'

@@ -125,10 +125,10 @@ class LSTMBody(nn.Module):
 
         return x, {'hidden': next_hstates, 'cell': next_cstates}
 
-    def get_reset_states(self, cuda=False):
+    def get_reset_states(self, cuda=False, repeat=1):
         hidden_states, cell_states = [], []
         for layer in self.layers:
-            h = torch.zeros(1, layer.hidden_size)
+            h = torch.zeros(repeat, layer.hidden_size)
             if cuda:
                 h = h.cuda()
             hidden_states.append(h)

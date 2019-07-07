@@ -66,11 +66,16 @@ class RoboDohyoZeroAgent:
     def handle_experience(self, s, a, r, succ_s, done):
         pass 
 
+    def set_nbr_actor(self, nbr_actor):
+        pass
+
     def reset_actors(self):
         pass 
-        
+
     def update_actors(self, actor_idx):
         pass 
+
+
 
 
 def robodohyo_zero_agent(nbr_actor):
@@ -123,7 +128,7 @@ def test_learns_to_beat_zero_in_RoboSumo(RoboSumoWRSTask, ppo_config_dict_ma):
     
     envname = 'RoboschoolSumoWithRewardShaping-v0'
     learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent=opponent,
-                                      total_episodes=200, training_percentage=0.9,
+                                      total_episodes=25, training_percentage=0.9,
                                       reward_threshold_percentage=0.25, envname=envname, nbr_parallel_env=ppo_config_dict_ma['nbr_actor'], save=True)
 
 def record_RoboDohyo_ZeroAgent(RoboDohyoTask, ppo_config_dict):

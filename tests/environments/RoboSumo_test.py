@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import gym
-from regym.environments import ParallelEnv
+from regym.environments import ParallelEnv, EnvironmentCreator
 from regym.rl_loops.multiagent_loops import simultaneous_action_rl_loop
 from regym.rl_algorithms import AgentHook
 
@@ -56,22 +56,23 @@ def learns_against_fixed_opponent_RoboSumo_parallel(agent, fixed_opponent, total
     against an agent that only plays randomly.
     i.e from random, learns to play only (or mostly) paper
     '''
-    env = ParallelEnv(envname, nbr_parallel_env)
     maximum_average_reward = 20.0
 
     training_episodes = int(total_episodes * training_percentage)
     inference_episodes = total_episodes - training_episodes
 
+    env_creator = EnvironmentCreator(envname)
+    env = ParallelEnv(env_creator, nbr_parallel_env)
     training_trajectories = simulate_parallel(env, agent, fixed_opponent, episodes=training_episodes, training=True)
-    
+    env.close()
+
     agent.training = False
     if save:
         agent_hook = AgentHook(agent.clone(), save_path='/tmp/test_{}_{}.agent'.format(agent.name, envname))
-
-    env.close()
     
-    env = gym.make(envname)
-    inference_trajectories = simulate(env, agent, fixed_opponent, episodes=inference_episodes, training=False)
+    env = ParallelEnv(env_creator, 1)
+    inference_trajectories = simulate_parallel(env, agent, fixed_opponent, episodes=inference_episodes, training=False)
+    env.close()
 
     average_inference_rewards = [sum(map(lambda experience: experience[2][0], t)) for t in inference_trajectories]
     average_inference_reward = sum(average_inference_rewards) / len(average_inference_rewards)

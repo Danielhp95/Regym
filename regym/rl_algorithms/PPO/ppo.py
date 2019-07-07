@@ -30,6 +30,7 @@ class PPOAlgorithm():
         model: (Pytorch nn.Module) Used to represent BOTH policy network and value network
         '''
         self.kwargs = deepcopy(kwargs)
+        self.nbr_actor = self.kwargs['nbr_actor']
         self.model = model
         if self.kwargs['use_cuda']:
             self.model = self.model.cuda()
@@ -42,31 +43,45 @@ class PPOAlgorithm():
         # TECHNICAL DEBT: check for recurrent property by looking at the modules in the model rather than relying on the kwargs that may contain
         # elements that do not concern the model trained by this algorithm, given that it is now use-able inside I2A...
         self.recurrent_nn_submodule_names = [hyperparameter for hyperparameter, value in self.kwargs.items() if isinstance(value, str) and 'RNN' in value]
-        if self.recurrent_nn_submodule_names != []: self.recurrent = True
+        if len(self.recurrent_nn_submodule_names): self.recurrent = True
 
-        self.storage = Storage(self.kwargs['horizon'])
-        if self.recurrent:
-            self.storage.add_key('rnn_states')
-            self.storage.add_key('next_rnn_states')
+        self.storages = None
+        self.reset_storages()
+
+    def reset_storages(self):
+        if self.storages is not None:
+            for storage in self.storages: storage.reset()
+
+        self.storages = []
+        for i in range(self.nbr_actor):
+            self.storages.append(Storage())
+            if self.recurrent:
+                self.storages[-1].add_key('rnn_states')
+                self.storages[-1].add_key('next_rnn_states')
 
     def train(self):
-        self.storage.placeholder()
+        for idx, storage in enumerate(self.storages): 
+            storage.placeholder()
+            self.compute_advantages_and_returns(storage_idx=idx)
 
-        self.compute_advantages_and_returns()
-        states, actions, log_probs_old, returns, advantages, rnn_states = self.retrieve_values_from_storage()
+        states, actions, log_probs_old, returns, advantages, rnn_states = self.retrieve_values_from_storages()
 
         if self.recurrent: rnn_states = self.reformat_rnn_states(rnn_states)
 
         for _ in range(self.kwargs['optimization_epochs']):
             self.optimize_model(states, actions, log_probs_old, returns, advantages, rnn_states)
 
-        self.storage.reset()
+        self.reset_storages()
 
     def reformat_rnn_states(self, rnn_states):
         '''
-        TODO for Kevin. Document:
-        1. What are we doing in this function
-        2. Why are we doing it
+        This function reformats the :param rnn_states: into 
+        a dict of dict of list of batched rnn_states.
+        :param rnn_states: list of dict of dict of list: each element is an rnn_state where:
+            - the first dictionnary has the name of the recurrent module in the architecture
+              as keys.
+            - the second dictionnary has the keys 'hidden', 'cell'.
+            - the items of this second dictionnary are lists of actual hidden/cell states for the LSTMBody.
         '''
         reformated_rnn_states = {k: {'hidden': [list()], 'cell': [list()]} for k in rnn_states[0]}
         for rnn_state in rnn_states:
@@ -82,30 +97,52 @@ class PPOAlgorithm():
             reformated_rnn_states[k] = {'hidden': [hstates], 'cell': [cstates]}
         return reformated_rnn_states
 
-    def compute_advantages_and_returns(self):
+    def compute_advantages_and_returns(self, storage_idx):
         advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
-        returns = self.storage.v[-1].detach()
-        for i in reversed(range(self.kwargs['horizon'])):
-            returns = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * returns
+        returns = self.storages[storage_idx].v[-1].detach()
+        for i in reversed(range(len(self.storages[storage_idx])-1)):
+            returns = self.storages[storage_idx].r[i] + self.kwargs['discount'] * self.storages[storage_idx].non_terminal[i] * returns
             if not self.kwargs['use_gae']:
-                advantages = returns - self.storage.v[i].detach()
+                advantages = returns - self.storages[storage_idx].v[i].detach()
             else:
-                td_error = self.storage.r[i] + self.kwargs['discount'] * self.storage.non_terminal[i] * self.storage.v[i + 1].detach() - self.storage.v[i].detach()
-                advantages = advantages * self.kwargs['gae_tau'] * self.kwargs['discount'] * self.storage.non_terminal[i] + td_error
-            self.storage.adv[i] = advantages.detach()
-            self.storage.ret[i] = returns.detach()
+                td_error = self.storages[storage_idx].r[i] 
+                td_error = td_error + self.kwargs['discount'] * self.storages[storage_idx].non_terminal[i] * self.storages[storage_idx].v[i + 1].detach() 
+                td_error = td_error - self.storages[storage_idx].v[i].detach()
+                advantages = advantages * self.kwargs['gae_tau'] * self.kwargs['discount'] * self.storages[storage_idx].non_terminal[i] + td_error
+            self.storages[storage_idx].adv[i] = advantages.detach()
+            self.storages[storage_idx].ret[i] = returns.detach()
 
-    def retrieve_values_from_storage(self):
+    def retrieve_values_from_storages(self):
+        full_states = []
+        full_actions = []
+        full_log_probs_old = []
+        full_returns = []
+        full_advantages = []
         if self.recurrent:
-            cat = self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv', 'rnn_states'])
-            rnn_states = cat[-1]
-            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat[:-1])
+            full_rnn_states = []
         else:
-            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), self.storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']))
-            rnn_states = None
-
-        advantages = self.standardize(advantages)
-        return states, actions, log_probs_old, returns, advantages, rnn_states
+            full_rnn_states = None
+            
+        for storage in self.storages:
+            cat = storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv'])
+            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat)
+            if self.recurrent:
+                rnn_states = storage.cat(['rnn_states'])[0]
+                full_rnn_states += rnn_states
+            full_states.append(states)
+            full_actions.append(actions)
+            full_log_probs_old.append(log_probs_old)
+            full_returns.append(returns)
+            full_advantages.append(advantages)
+        
+        full_states = torch.cat(full_states, dim=0)
+        full_actions = torch.cat(full_actions, dim=0)
+        full_log_probs_old = torch.cat(full_log_probs_old, dim=0)
+        full_returns = torch.cat(full_returns, dim=0)
+        full_advantages = torch.cat(full_advantages, dim=0)
+    
+        full_advantages = self.standardize(full_advantages)
+        return full_states, full_actions, full_log_probs_old, full_returns, full_advantages, full_rnn_states
 
     def standardize(self, x):
         return (x - x.mean()) / x.std()
@@ -117,7 +154,7 @@ class PPOAlgorithm():
             nbr_layers_per_rnn = {recurrent_submodule_name: len(rnn_states[recurrent_submodule_name]['hidden'])
                                   for recurrent_submodule_name in rnn_states}
 
-        sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
+        sampler = random_sample(np.arange(advantages.size(0)), self.kwargs['mini_batch_size'])
         for batch_indices in sampler:
             batch_indices = torch.from_numpy(batch_indices).long()
             sampled_rnn_states = None
