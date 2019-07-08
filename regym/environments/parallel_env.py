@@ -5,6 +5,7 @@ import time
 from .utils import EnvironmentCreator
 
 import torch
+# https://github.com/pytorch/pytorch/issues/11201:
 #torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 

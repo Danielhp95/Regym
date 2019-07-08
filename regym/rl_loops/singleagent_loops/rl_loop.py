@@ -47,8 +47,9 @@ def run_episode_parallel(env, agent, training, max_episode_length=math.inf):
     previous_done = copy.deepcopy(done)
 
     per_actor_trajectories = [list() for i in range(nbr_actors)]
-    generator = tqdm(range(int(max_episode_length))) if max_episode_length != math.inf else range(int(1e20))
-    for step in generator:
+    #generator = tqdm(range(int(max_episode_length))) if max_episode_length != math.inf else range(int(1e20))
+    #for step in generator:
+    for step in range(int(max_episode_length)):
         action = agent.take_action(observations)
         succ_observations, reward, done, info = env.step(action)
 

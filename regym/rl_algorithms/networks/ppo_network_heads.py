@@ -239,18 +239,16 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         v = self.network.fc_critic(phi_v)
         # batch x 1
 
-        dist = torch.distributions.Categorical(logits=logits)
+        batch_size = logits.size(0)
+        dists = [ torch.distributions.Categorical(logits=logits[i]) for i in range(batch_size)]
         if action is None:
-            action = dist.sample(sample_shape=(logits.size(0),) )
+            action = torch.cat([dist.sample().unsqueeze(0) for dist in dists], dim=0)
             # batch x 1
-        # estimates the log likelihood of each action against each batched distributions... : 
-        log_prob = dist.log_prob(action).unsqueeze(-1)
-        # batch x batch x 1
-        # retrieve the log likelihood of each batched action against its relevant batched distribution:
-        log_prob = torch.cat([log_prob[idx][idx].view((1,-1)) for idx in range(log_prob.size(0))], dim=0)
+        log_probs = [dist.log_prob(action[idx]).unsqueeze(0) for idx, dist in enumerate(dists)]
+        log_prob = torch.cat(log_probs, dim=0)
         # batch x 1
-        # retrieve the the entropy of each batched distribution:
-        entropy = dist.entropy().unsqueeze(-1)
+        entropies = [dist.entropy().unsqueeze(0) for idx, dist in enumerate(dists)]
+        entropy = torch.cat(entropies, dim=0)
         # batch x 1
 
         if rnn_states is not None:

@@ -40,7 +40,7 @@ class PPOAgent(object):
     def reset_actors(self):
         '''
         In case of a multi-actor process, this function is called to reset
-        the actors.
+        the actors' internal values.
         '''
         self.previously_done_actors = [False]*self.nbr_actor
         if self.recurrent:

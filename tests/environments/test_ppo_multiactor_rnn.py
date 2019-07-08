@@ -10,14 +10,14 @@ import torch
 
 def test_train_ppo(ppo_config_dict_ma):
     task = parse_environment("Pendulum-v0",nbr_parallel_env=ppo_config_dict_ma['nbr_actor'])
-    logdir = './test_ppo_rnn/'
+    logdir = './test_ppo64_4096_rnn_3e-4_pendulum/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
     save_path = os.path.join(logdir,'./ppo.agent')
 
     agent = build_PPO_Agent(config=ppo_config_dict_ma, task=task, agent_name='TestPPO_RNN')
-    nbr_episodes = 1e3
+    nbr_episodes = 1e4
     max_episode_length = 500
 
     for i in tqdm(range(int(nbr_episodes))):
