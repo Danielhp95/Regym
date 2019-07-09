@@ -3,12 +3,13 @@ import numpy as np
 import copy
 
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
-from ..networks import FCBody, LSTMBody
-from ..networks import PreprocessFunction
+from ..networks import FCBody, LSTMBody, GRUBody, ConvolutionalBody
+from ..networks import PreprocessFunction, ResizeCNNPreprocessFunction
 from ..PPO import PPOAlgorithm
 
 import torch.nn.functional as F
 import numpy as np
+from functools import partial
 
 
 class PPOAgent(object):
@@ -22,6 +23,8 @@ class PPOAgent(object):
 
         self.nbr_actor = self.algorithm.kwargs['nbr_actor']
         self.previously_done_actors = [False]*self.nbr_actor
+
+        self.use_rnd = self.algorithm.use_rnd
 
         self.recurrent = False
         self.rnn_states = None
@@ -181,6 +184,11 @@ class PPOAgent(object):
 
             exp_dict.update(PPOAgent._extract_from_prediction(self.current_prediction, batch_index))
             
+            if self.use_rnd:
+                int_reward, target_int_f = self.algorithm.compute_intrinsic_reward(exp_dict['s'])
+                rnd_dict = {'int_r':int_reward, 'target_int_f':target_int_f}
+                exp_dict.update(rnd_dict)
+
             if self.recurrent:
                 exp_dict['rnn_states'] = PPOAgent._extract_from_rnn_states(self.current_prediction['rnn_states'],batch_index)
                 exp_dict['next_rnn_states'] = PPOAgent._extract_from_rnn_states(self.current_prediction['next_rnn_states'],batch_index)
@@ -208,7 +216,7 @@ class PPOAgent(object):
         return state, r, succ_state, non_terminal
 
     def take_action(self, state):
-        state = self.state_preprocessing(state, self.algorithm.kwargs['use_cuda'])
+        state = self.state_preprocessing(state, use_cuda=self.algorithm.kwargs['use_cuda'])
 
         if self.recurrent:
             self._pre_process_rnn_states()
@@ -235,15 +243,36 @@ def build_PPO_Agent(task, config, agent_name):
     '''
     kwargs = config.copy()
     kwargs['discount'] = float(kwargs['discount'])
-    kwargs['state_preprocess'] = PreprocessFunction
 
-    input_dim = task.observation_dim
+    # Default preprocess function:
+    kwargs['state_preprocess'] = PreprocessFunction
+    
+    
+    input_dim = task.observation_shape
     if kwargs['phi_arch'] != 'None':
-        output_dim = 64
-        if kwargs['phi_arch'] == 'RNN':
+        output_dim = 256
+        if kwargs['phi_arch'] == 'LSTM-RNN':
             phi_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
+        elif kwargs['phi_arch'] == 'GRU-RNN':
+            phi_body = GRUBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif kwargs['phi_arch'] == 'MLP':
             phi_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+        elif kwargs['phi_arch'] == 'CNN':
+            # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
+            kwargs['state_preprocess'] = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
+            kwargs['preprocessed_observation_shape'] = [task.observation_shape[-1], kwargs['observation_resize_dim'], kwargs['observation_resize_dim']]
+            input_shape = kwargs['preprocessed_observation_shape']
+            channels = [task.observation_shape[-1]] + kwargs['phi_arch_channels']
+            kernels = kwargs['phi_arch_kernels']
+            strides = kwargs['phi_arch_strides']
+            paddings = kwargs['phi_arch_paddings']
+            output_dim = kwargs['phi_arch_feature_dim']
+            phi_body = ConvolutionalBody(input_shape=input_shape,
+                                         feature_dim=output_dim,
+                                         channels=channels,
+                                         kernel_sizes=kernels,
+                                         strides=strides,
+                                         paddings=paddings)
         input_dim = output_dim
     else:
         phi_body = None
@@ -266,24 +295,60 @@ def build_PPO_Agent(task, config, agent_name):
     else:
         critic_body = None
 
+    use_rnd = False
+    if 'use_random_network_distillation' in kwargs and kwargs['use_random_network_distillation']:
+        use_rnd = True
+
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
-        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body,
-                                          critic_body=critic_body)
+                                          critic_body=critic_body,
+                                          use_intrinsic_critic=use_rnd)
+    
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
-        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(kwargs['preprocessed_observation_shape'], task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body,
-                                          critic_body=critic_body)
+                                          critic_body=critic_body,
+                                          use_intrinsic_critic=use_rnd)
 
     if task.action_type is 'Continuous' and task.observation_type is 'Continuous':
-        model = GaussianActorCriticNet(task.observation_dim, task.action_dim,
+        model = GaussianActorCriticNet(kwargs['preprocessed_observation_shape'], task.action_dim,
                                        phi_body=phi_body,
                                        actor_body=actor_body,
-                                       critic_body=critic_body)
+                                       critic_body=critic_body,
+                                       use_intrinsic_critic=use_rnd)
+
+    target_intr_model = None
+    predict_intr_model = None
+    if use_rnd:
+        if kwargs['phi_arch'] == 'MLP':
+            target_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
+            predict_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
+        elif kwargs['phi_arch'] == 'CNN':
+            input_shape = kwargs['preprocessed_observation_shape']
+            channels = [task.observation_shape[-1]] + kwargs['phi_arch_channels']
+            kernels = kwargs['phi_arch_kernels']
+            strides = kwargs['phi_arch_strides']
+            paddings = kwargs['phi_arch_paddings']
+            output_dim = kwargs['rnd_feature_net_cnn_arch_feature_dim']
+            target_intr_model = ConvolutionalBody(input_shape=input_shape,
+                                                  feature_dim=output_dim,
+                                                  channels=channels,
+                                                  kernel_sizes=kernels,
+                                                  strides=strides,
+                                                  paddings=paddings)
+            predict_intr_model = ConvolutionalBody(input_shape=input_shape,
+                                                  feature_dim=output_dim,
+                                                  channels=channels,
+                                                  kernel_sizes=kernels,
+                                                  strides=strides,
+                                                  paddings=paddings)
+        target_intr_model.share_memory()
+        predict_intr_model.share_memory()
 
     model.share_memory()
-    ppo_algorithm = PPOAlgorithm(kwargs, model)
+    ppo_algorithm = PPOAlgorithm(kwargs, model, target_intr_model=target_intr_model, predict_intr_model=predict_intr_model)
 
     return PPOAgent(name=agent_name, algorithm=ppo_algorithm)

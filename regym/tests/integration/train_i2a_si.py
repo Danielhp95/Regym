@@ -32,4 +32,5 @@ def test_train_i2a(i2a_config_dict, si_task):
     assert isinstance(trajectory, list)
 
 if __name__ == '__main__':
-    test_train_i2a(i2a_config_dict(),si_task())
+    si_task()
+    #test_train_i2a(i2a_config_dict(),si_task())

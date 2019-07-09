@@ -32,13 +32,25 @@ def ResizeCNNPreprocessFunction(x, size, use_cuda=False, normalize_rgb_values=Tr
     if isinstance(size, int): size = (size,size)
     scaling_operation = T.Compose([T.ToPILImage(),
                                     T.Resize(size=size)])
-    x = scaling_operation(x)
-    x = np.array(x)
-    x = x.transpose((2, 0, 1))
-    x = x / 255. if normalize_rgb_values else x
+    if len(x.shape) == 4:
+        #batch:
+        imgs = []
+        for i in range(x.shape[0]):
+            img = np.array(scaling_operation(x[i]))
+            img = torch.from_numpy(img.transpose((2, 0, 1))).unsqueeze(0)
+            imgs.append(img)
+        x = torch.cat(imgs, dim=0)
+    else:
+        x = scaling_operation(x)
+        x = np.array(x)
+        x = x.transpose((2, 0, 1))
+        x = torch.from_numpy(x).unsqueeze(0)
+    # WATCHOUT: it is necessary to cast the tensor into float before doing
+    # the division, otherwise the result is yielded as a uint8 (full of zeros...)
+    x = x.type(torch.FloatTensor) / 255. if normalize_rgb_values else x
     if use_cuda:
-        return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
-    return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+        return x.type(torch.cuda.FloatTensor)
+    return x.type(torch.FloatTensor)
 
 
 def CNNPreprocessFunction(x, use_cuda=False, normalize_rgb_values=True):

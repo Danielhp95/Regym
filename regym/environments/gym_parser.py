@@ -21,18 +21,18 @@ def parse_gym_environment(env, name=None):
     '''
     name = env.spec.id if name is None else name
     action_dims, action_type = get_action_dimensions_and_type(env)
-    observation_dims, observation_type = get_observation_dimensions_and_type(env)
+    observation_shape, observation_type = get_observation_dimensions_and_type(env)
     state_space_size = env.state_space_size if hasattr(env, 'state_space_size') else None
     action_space_size = env.action_space_size if hasattr(env, 'action_space_size') else None
     hash_function = env.hash_state if hasattr(env, 'hash_state') else None
-    return Task(name, env, state_space_size, action_space_size, observation_dims, observation_type, action_dims, action_type, hash_function)
+    return Task(name, env, state_space_size, action_space_size, observation_shape, observation_type, action_dims, action_type, hash_function)
 
 
 def get_observation_dimensions_and_type(env):
     def parse_dimension_space(space):
         if isinstance(space, OneHotEncoding): return space.size, 'Discrete'
         elif isinstance(space, Discrete): return space.n, 'Discrete'
-        elif isinstance(space, Box): return int(np.prod(space.shape)), 'Continuous'
+        elif isinstance(space, Box): return space.shape, 'Continuous'
         elif isinstance(space, Tuple): return sum([parse_dimension_space(s)[0] for s in space.spaces]), parse_dimension_space(space.spaces[0])[1]
         raise ValueError('Unknown observation space: {}'.format(space))
 

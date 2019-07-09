@@ -30,7 +30,7 @@ def parse_environment(env_name, nbr_parallel_env=1):
 
     task.env.close()
     env_creator = EnvironmentCreator(env_name, is_unity_environment, is_gym_environment)
-    task = Task(task.name, ParallelEnv(env_creator, nbr_parallel_env), task.state_space_size, task.action_space_size, task.observation_dim, task.observation_type, task.action_dim, task.action_type, task.hash_function)
+    task = Task(task.name, ParallelEnv(env_creator, nbr_parallel_env), task.state_space_size, task.action_space_size, task.observation_shape, task.observation_type, task.action_dim, task.action_type, task.hash_function)
     return task
 
 def check_for_unity_executable(env_name):

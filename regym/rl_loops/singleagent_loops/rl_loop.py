@@ -76,7 +76,11 @@ def run_episode_parallel(env, agent, training, max_episode_length=math.inf):
             pa_r = reward[batch_index]
             pa_succ_obs = succ_observations[batch_index]
             pa_done = done[actor_index]
-            per_actor_trajectories[actor_index].append( (pa_obs, pa_a, pa_r, pa_succ_obs, pa_done) )
+            pa_int_r = 0.0
+            if agent.algorithm.use_rnd:
+                if len(agent.algorithm.storages[actor_index].int_r):
+                    pa_int_r = agent.algorithm.storages[actor_index].int_r[-1]
+            per_actor_trajectories[actor_index].append( (pa_obs, pa_a, pa_r, pa_int_r, pa_succ_obs, pa_done) )
 
         observations = copy.deepcopy(succ_observations)
         if len(batch_idx_done_actors_among_not_done):

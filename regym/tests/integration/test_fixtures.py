@@ -99,7 +99,7 @@ def i2a_config_dict():
     # Model Free Path: Fully Connected architecture description
     config['model_free_network_nbr_hidden_units'] = None
     # Actor Critic Head:
-    config['achead_phi_arch'] = 'RNN'
+    config['achead_phi_arch'] = 'GRU-RNN'
     config['achead_phi_nbr_hidden_units'] = (256,)
     config['achead_actor_arch'] = 'MLP'
     config['achead_actor_nbr_hidden_units'] = (128,)

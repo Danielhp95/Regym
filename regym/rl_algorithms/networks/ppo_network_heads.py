@@ -95,19 +95,24 @@ class OptionCriticNet(nn.Module, BaseNet):
 
 
 class ActorCriticNet(nn.Module):
-    def __init__(self, state_dim, action_dim, phi_body, actor_body, critic_body):
+    def __init__(self, state_dim, action_dim, phi_body, actor_body, critic_body, use_intrinsic_critic=False):
         super(ActorCriticNet, self).__init__()
         if phi_body is None: phi_body = DummyBody(state_dim)
-        if actor_body is None: actor_body = DummyBody(phi_body.feature_dim)
-        if critic_body is None: critic_body = DummyBody(phi_body.feature_dim)
+        if actor_body is None: actor_body = DummyBody(phi_body.feature_shape)
+        if critic_body is None: critic_body = DummyBody(phi_body.feature_shape)
         self.phi_body = phi_body
         self.actor_body = actor_body
         self.critic_body = critic_body
         self.fc_action = layer_init(nn.Linear(actor_body.feature_dim, action_dim), 1e-3)
         self.fc_critic = layer_init(nn.Linear(critic_body.feature_dim, 1), 1e-3)
 
+        self.use_intrinsic_critic = use_intrinsic_critic
+        self.fc_int_critic = None
+        if self.use_intrinsic_critic: self.fc_int_critic = layer_init(nn.Linear(critic_body.feature_dim, 1), 1e-3)
+
         self.actor_params = list(self.actor_body.parameters()) + list(self.fc_action.parameters())
         self.critic_params = list(self.critic_body.parameters()) + list(self.fc_critic.parameters())
+        if self.use_intrinsic_critic: self.critic_params += list(self.fc_int_critic.parameters())
         self.phi_params = list(self.phi_body.parameters())
 
 
@@ -148,9 +153,11 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
                  action_dim,
                  phi_body=None,
                  actor_body=None,
-                 critic_body=None):
+                 critic_body=None,
+                 use_intrinsic_critic=False):
         super(GaussianActorCriticNet, self).__init__()
-        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
+        self.use_intrinsic_critic = use_intrinsic_critic
+        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body,use_intrinsic_critic)
         self.std = nn.Parameter(torch.zeros(action_dim))
 
     def forward(self, obs, action=None, rnn_states=None):
@@ -177,6 +184,8 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
         mean = F.tanh(self.network.fc_action(phi_a))
         # batch x num_action
         v = self.network.fc_critic(phi_v)
+        if self.use_intrinsic_critic:
+            int_v = self.network.fc_int_critic(phi_v)
         # batch x 1
         
         dist = torch.distributions.Normal(mean, F.softplus(self.std))
@@ -188,18 +197,19 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
         entropy = dist.entropy().sum(-1).unsqueeze(-1)
         # batch x 1
 
-        if rnn_states is not None:
-            return {'a': action,
-                    'log_pi_a': log_prob,
-                    'ent': entropy,
-                    'v': v,
-                    'rnn_states': rnn_states,
-                    'next_rnn_states': next_rnn_states}
-        else:
-            return {'a': action,
+        prediction = {'a': action,
                     'log_pi_a': log_prob,
                     'ent': entropy,
                     'v': v}
+        
+        if self.use_intrinsic_critic:
+            prediction['int_v'] = int_v
+
+        if rnn_states is not None:
+            prediction.update({'rnn_states': rnn_states,
+                               'next_rnn_states': next_rnn_states})
+
+        return prediction
 
 
 class CategoricalActorCriticNet(nn.Module, BaseNet):
@@ -208,9 +218,11 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                  action_dim,
                  phi_body=None,
                  actor_body=None,
-                 critic_body=None):
+                 critic_body=None,
+                 use_intrinsic_critic=False):
         super(CategoricalActorCriticNet, self).__init__()
-        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
+        self.use_intrinsic_critic = use_intrinsic_critic
+        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body,use_intrinsic_critic)
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
@@ -237,6 +249,8 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         logits = self.network.fc_action(phi_a)
         # batch x action_dim
         v = self.network.fc_critic(phi_v)
+        if self.use_intrinsic_critic:
+            int_v = self.network.fc_int_critic(phi_v)
         # batch x 1
 
         batch_size = logits.size(0)
@@ -251,17 +265,17 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         entropy = torch.cat(entropies, dim=0)
         # batch x 1
 
-        if rnn_states is not None:
-            return {'a': action,
-                    'log_pi_a': log_prob,
-                    'action_logits': logits,
-                    'ent': entropy,
-                    'v': v,
-                    'rnn_states': rnn_states,
-                    'next_rnn_states': next_rnn_states}
-        else:
-            return {'a': action,
+        prediction = {'a': action,
                     'log_pi_a': log_prob,
                     'action_logits': logits,
                     'ent': entropy,
                     'v': v}
+        
+        if self.use_intrinsic_critic:
+            prediction['int_v'] = int_v
+
+        if rnn_states is not None:
+            prediction.update({'rnn_states': rnn_states,
+                               'next_rnn_states': next_rnn_states})
+
+        return prediction
