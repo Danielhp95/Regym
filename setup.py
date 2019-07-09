@@ -38,6 +38,8 @@ setup(
                       'opencv-python',
                       'torch',
                       'torchvision',
+                      'tensorboard',
+                      'tensorflow',
                       'gym-rock-paper-scissors==0.1',
                       'seaborn'] + test_requirements,
 
