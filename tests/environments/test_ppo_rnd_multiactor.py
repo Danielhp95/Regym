@@ -13,8 +13,10 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
     task = parse_environment("Pendulum-v0",nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'])
     logdir = './test_ppo_rnd_normOFFLINE1e15intr_mlpphi256_a64_b1024_h1024_3e-4_pendulum/'
     '''
-    task = parse_environment("Atlantis-v0",nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'])
-    logdir = './test_ppo_rnd_cnn80phi256_a64_b1024_h1024_3e-4_atlantis/'
+    task = parse_environment("Venture-v0",
+                             nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'], 
+                             nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
+    logdir = './test_ppo_rnd256_cnn80phi256_a8_b1024_h1024_3e-4_venture_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -22,7 +24,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
 
     agent = build_PPO_Agent(config=ppo_rnd_config_dict_ma, task=task, agent_name='TestPPO_RND')
     nbr_episodes = 1e4
-    max_episode_length = 500
+    max_episode_length = 1e4
 
     for i in tqdm(range(int(nbr_episodes))):
         trajectory = rl_loop.run_episode_parallel(task.env, agent, training=True, max_episode_length=max_episode_length)

@@ -261,6 +261,8 @@ def build_PPO_Agent(task, config, agent_name):
             # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
             kwargs['state_preprocess'] = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
             kwargs['preprocessed_observation_shape'] = [task.observation_shape[-1], kwargs['observation_resize_dim'], kwargs['observation_resize_dim']]
+            if 'nbr_frame_stacking' in kwargs:
+                kwargs['preprocessed_observation_shape'][-1] *=  kwargs['nbr_frame_stacking']
             input_shape = kwargs['preprocessed_observation_shape']
             channels = [task.observation_shape[-1]] + kwargs['phi_arch_channels']
             kernels = kwargs['phi_arch_kernels']

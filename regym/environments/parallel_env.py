@@ -14,6 +14,11 @@ def env_worker(envCreator, queue_in, queue_out):
     continuer = True
     env = envCreator()     
     
+    obs = None
+    r = None
+    done = None
+    info = None
+
     while continuer:
         instruction = queue_in.get()
 
@@ -21,10 +26,12 @@ def env_worker(envCreator, queue_in, queue_out):
             continuer = False
         elif isinstance(instruction, str):
             observations = env.reset()
+            done = False 
             queue_out.put(observations)
         else :
-            pa_a = instruction
-            obs, r, done, info = env.step( pa_a)
+            if not(done): 
+                pa_a = instruction
+                obs, r, done, info = env.step( pa_a)
             
             queue_out.put( [obs,r,done,info] )
 
@@ -33,9 +40,10 @@ def env_worker(envCreator, queue_in, queue_out):
 
 
 class ParallelEnv():
-    def __init__(self, env_creator, nbr_parallel_env, single_agent=True):
+    def __init__(self, env_creator, nbr_parallel_env, nbr_frame_stacking=1, single_agent=True):
         self.env_creator = env_creator
         self.nbr_parallel_env = nbr_parallel_env
+        self.nbr_frame_stacking = nbr_frame_stacking
         self.env_processes = None
         self.single_agent = single_agent
 
@@ -72,7 +80,6 @@ class ParallelEnv():
         batch_env_index = -1
         for env_index in range(len(self.env_queues) ):
             if self.dones[env_index]:
-                infos.append(None)
                 continue
             batch_env_index += 1
             
@@ -81,15 +88,30 @@ class ParallelEnv():
             else:
                 pa_a = [ action_vector[idx_agent][batch_env_index] for idx_agent in range( len(action_vector) ) ]
             
-            self.env_queues[env_index]['in'].put(pa_a)
+            for i in range(self.nbr_frame_stacking):
+                self.env_queues[env_index]['in'].put(pa_a)
 
         for env_index in range(len(self.env_queues) ):
             if self.dones[env_index]:
+                infos.append(None)
                 continue
             
-            experience = self.env_queues[env_index]['out'].get()
+            obses = []
+            rs = []
+            dones = []
+            infs = []
+            for i in range(self.nbr_frame_stacking):
+                experience = self.env_queues[env_index]['out'].get()
+                obs, r, done, info = experience
+                obses.append(obs)
+                rs.append(r)
+                dones.append(done)
+                infs.append(info)
 
-            obs, r, done, info = experience
+            obs = np.concatenate(obses, axis=-1)
+            r = sum(rs)
+            done = any(dones)
+            info = infs 
 
             observations.append( obs )
             rewards.append( r )

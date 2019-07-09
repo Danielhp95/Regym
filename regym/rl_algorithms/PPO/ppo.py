@@ -85,6 +85,8 @@ class PPOAlgorithm():
 
     def train(self):
         for idx, storage in enumerate(self.storages): 
+            # Check that there is something in the storage 
+            if len(storage) == 0: continue
             storage.placeholder()
             self.compute_advantages_and_returns(storage_idx=idx)
             if self.use_rnd: self.compute_int_advantages_and_int_returns(storage_idx=idx)
@@ -192,6 +194,8 @@ class PPOAlgorithm():
             full_rnn_states = []
             
         for storage in self.storages:
+            # Check that there is something in the storage 
+            if len(storage) == 0: continue
             cat = storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv'])
             states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat)
             full_states.append(states)

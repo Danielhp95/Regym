@@ -26,6 +26,7 @@ def ppo_config_dict():
 @pytest.fixture
 def ppo_rnd_config_dict_ma():
     config = dict()
+    config['nbr_frame_stacking'] = 4
     config['discount'] = 0.999
     config['use_gae'] = True
     config['use_cuda'] = True
@@ -37,7 +38,7 @@ def ppo_rnd_config_dict_ma():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 2
+    config['nbr_actor'] = 8
     config['horizon'] = 1024
     config['phi_arch'] = 'CNN'
     config['actor_arch'] = 'MLP'
@@ -47,7 +48,7 @@ def ppo_rnd_config_dict_ma():
     config['intrinsic_discount'] = 0.99
     config['rnd_loss_int_ratio'] = 0.5
     config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64, 32)
-    config['rnd_feature_net_cnn_arch_feature_dim'] = 32
+    config['rnd_feature_net_cnn_arch_feature_dim'] = 256
     config['rnd_update_period_running_meanstd_int_reward'] = 1e15
     # Convolutional Architecture:
     config['observation_resize_dim'] = 80
