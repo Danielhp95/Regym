@@ -28,7 +28,7 @@ def run_episode(env, agent, training, max_episode_length=math.inf):
 
     return trajectory
 
-def run_episode_parallel(env, agent, training, max_episode_length=math.inf):
+def run_episode_parallel(env, agent, training, max_episode_length=math.inf, env_configs=None):
     '''
     Runs a single multi-agent rl loop until termination.
     The observations vector is of length n, where n is the number of agents
@@ -37,10 +37,12 @@ def run_episode_parallel(env, agent, training, max_episode_length=math.inf):
     :param agent: Agent policy used to take actionsin the environment and to process simulated experiences
     :param training: (boolean) Whether the agents will learn from the experience they recieve
     :param max_episode_length: Maximum expisode duration meassured in steps.
+    :param env_configs: configuration dictionnary to use when resetting the environments.
     :returns: Trajectory (o,a,r,o')
     '''
     nbr_actors = env.get_nbr_envs()
-    observations = env.reset()
+    observations = env.reset(env_configs=env_configs)
+
     agent.set_nbr_actor(nbr_actors)
     agent.reset_actors()
     done = [False]*nbr_actors

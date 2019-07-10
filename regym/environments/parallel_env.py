@@ -6,37 +6,39 @@ from .utils import EnvironmentCreator
 
 import torch
 # https://github.com/pytorch/pytorch/issues/11201:
-#torch.multiprocessing.set_sharing_strategy('file_system')
+torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 
 
-def env_worker(envCreator, queue_in, queue_out):
+def env_worker(env, queue_in, queue_out, worker_id=None):
     continuer = True
-    env = envCreator()     
+    #env = envCreator(worker_id=worker_id)     
     
     obs = None
     r = None
     done = None
     info = None
 
-    while continuer:
-        instruction = queue_in.get()
+    try:
+        while continuer:
+            instruction = queue_in.get()
 
-        if isinstance(instruction,bool):
-            continuer = False
-        elif isinstance(instruction, str):
-            observations = env.reset()
-            done = False 
-            queue_out.put(observations)
-        else :
-            if not(done): 
-                pa_a = instruction
-                obs, r, done, info = env.step( pa_a)
-            
-            queue_out.put( [obs,r,done,info] )
-
-    env.close()
-
+            if isinstance(instruction,bool):
+                continuer = False
+            elif isinstance(instruction, str) or isinstance(instruction, tuple):
+                env_config = instruction[-1]
+                if env_config is None: observations = env.reset()
+                else:  observations = env.reset(env_config) 
+                done = False 
+                queue_out.put(observations)
+            else :
+                if not(done): 
+                    pa_a = instruction
+                    obs, r, done, info = env.step( pa_a)
+                
+                queue_out.put( [obs,r,done,info] )
+    finally:
+        env.close()
 
 
 class ParallelEnv():
@@ -50,20 +52,41 @@ class ParallelEnv():
     def get_nbr_envs(self):
         return self.nbr_parallel_env
 
-    def reset(self) :
+    def reset(self, env_configs=None) :
         if self.env_processes is None :
             self.env_queues = [ {'in':Queue(), 'out':Queue()} for _ in range(self.nbr_parallel_env)]
-            self.env_processes = [ Process(target=env_worker, args=(self.env_creator, *queues.values(),) ) for queues in self.env_queues]
+            worker_ids = [None]*self.nbr_parallel_env
+            if env_configs is not None: 
+                worker_ids = [ env_config.pop('worker_id', None) for env_config in env_configs]
+            
+            '''
+            self.env_processes = [ Process(target=env_worker, args=(self.env_creator, *queues.values(), worker_id) ) for queues, worker_id in zip(self.env_queues, worker_ids)]
             
             for idx, p in enumerate(self.env_processes):
                 p.start()
+                print('Launching environment {}...'.format(idx))
+                time.sleep(2)
+            '''
+            self.env_processes = []
+            for queues, worker_id in zip(self.env_queues, worker_ids):
+                p = Process(target=env_worker, args=(self.env_creator(worker_id=worker_id), *queues.values(), worker_id) )
+                p.start()
+                print('Launching environment ...')
+                time.sleep(2)
+                self.env_processes.append(p)
+
                 
         for idx, p in enumerate(self.env_processes):
-            self.env_queues[idx]['in'].put('reset')
+            if env_configs is None: env_config = None
+            else: 
+                env_config = env_configs[idx] 
+                if 'worker_id' in env_config: env_config.pop('worker_id')
+                self.env_queues[idx]['in'].put( ('reset', env_config))
 
         observations = [ queues['out'].get() for queues in self.env_queues]
-
+        
         if self.single_agent:
+            observations = [ np.concatenate([obs]*self.nbr_frame_stacking, axis=-1) for obs in observations]
             per_env_obs = np.concatenate( [ np.array(obs).reshape(1, *(obs.shape)) for obs in observations], axis=0)
         else:
             per_env_obs = [ np.concatenate( [ np.array(obs[idx_agent]).reshape(1, *(obs[idx_agent].shape)) for obs in observations], axis=0) for idx_agent in range(len(observations[0]) ) ]

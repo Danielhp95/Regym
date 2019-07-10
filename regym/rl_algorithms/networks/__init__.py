@@ -3,7 +3,7 @@ from .networks import LeakyReLU
 from .networks import DQN, DuelingDQN
 from .networks import ActorNN, CriticNN
 from .ppo_network_heads import CategoricalActorCriticNet
-from .ppo_network_bodies import FCBody, LSTMBody, GRUBody, ConvolutionalBody, ConvolutionalLstmBody
+from .ppo_network_bodies import FCBody, LSTMBody, GRUBody, ConvolutionalBody, ConvolutionalLstmBody, ConvolutionalGruBody
 from .ppo_network_heads import GaussianActorCriticNet
 from .utils import PreprocessFunction, CNNPreprocessFunction, ResizeCNNPreprocessFunction
 from .utils import random_sample

@@ -3,7 +3,7 @@ import numpy as np
 import copy
 
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
-from ..networks import FCBody, LSTMBody, GRUBody, ConvolutionalBody
+from ..networks import FCBody, LSTMBody, GRUBody, ConvolutionalBody, ConvolutionalGruBody
 from ..networks import PreprocessFunction, ResizeCNNPreprocessFunction
 from ..PPO import PPOAlgorithm
 
@@ -20,6 +20,7 @@ class PPOAgent(object):
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
         self.handled_experiences = 0
         self.name = name
+        self.save_path = None
 
         self.nbr_actor = self.algorithm.kwargs['nbr_actor']
         self.previously_done_actors = [False]*self.nbr_actor
@@ -206,6 +207,7 @@ class PPOAgent(object):
         if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']*self.nbr_actor:
             self.algorithm.train()
             self.handled_experiences = 0
+            if self.save_path is not None: torch.save(self, self.save_path)
 
     def preprocess_environment_signals(self, state, reward, succ_state, done):
         non_terminal = torch.from_numpy(1 - np.array(done)).type(torch.FloatTensor)
@@ -262,9 +264,9 @@ def build_PPO_Agent(task, config, agent_name):
             kwargs['state_preprocess'] = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
             kwargs['preprocessed_observation_shape'] = [task.observation_shape[-1], kwargs['observation_resize_dim'], kwargs['observation_resize_dim']]
             if 'nbr_frame_stacking' in kwargs:
-                kwargs['preprocessed_observation_shape'][-1] *=  kwargs['nbr_frame_stacking']
+                kwargs['preprocessed_observation_shape'][0] *=  kwargs['nbr_frame_stacking']
             input_shape = kwargs['preprocessed_observation_shape']
-            channels = [task.observation_shape[-1]] + kwargs['phi_arch_channels']
+            channels = [input_shape[0]] + kwargs['phi_arch_channels']
             kernels = kwargs['phi_arch_kernels']
             strides = kwargs['phi_arch_strides']
             paddings = kwargs['phi_arch_paddings']
@@ -275,6 +277,25 @@ def build_PPO_Agent(task, config, agent_name):
                                          kernel_sizes=kernels,
                                          strides=strides,
                                          paddings=paddings)
+        elif kwargs['phi_arch'] == 'CNN-GRU-RNN':
+            # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
+            kwargs['state_preprocess'] = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
+            kwargs['preprocessed_observation_shape'] = [task.observation_shape[-1], kwargs['observation_resize_dim'], kwargs['observation_resize_dim']]
+            if 'nbr_frame_stacking' in kwargs:
+                kwargs['preprocessed_observation_shape'][0] *=  kwargs['nbr_frame_stacking']
+            input_shape = kwargs['preprocessed_observation_shape']
+            channels = [input_shape[0]] + kwargs['phi_arch_channels']
+            kernels = kwargs['phi_arch_kernels']
+            strides = kwargs['phi_arch_strides']
+            paddings = kwargs['phi_arch_paddings']
+            output_dim = kwargs['phi_arch_hidden_units'][-1]
+            phi_body = ConvolutionalGruBody(input_shape=input_shape,
+                                         feature_dim=output_dim,
+                                         channels=channels,
+                                         kernel_sizes=kernels,
+                                         strides=strides,
+                                         paddings=paddings,
+                                         hidden_units=kwargs['phi_arch_hidden_units'])
         input_dim = output_dim
     else:
         phi_body = None
@@ -328,9 +349,9 @@ def build_PPO_Agent(task, config, agent_name):
         if kwargs['phi_arch'] == 'MLP':
             target_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
             predict_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
-        elif kwargs['phi_arch'] == 'CNN':
+        elif 'CNN' in kwargs['phi_arch']:
             input_shape = kwargs['preprocessed_observation_shape']
-            channels = [task.observation_shape[-1]] + kwargs['phi_arch_channels']
+            channels = [input_shape[0]] + kwargs['phi_arch_channels']
             kernels = kwargs['phi_arch_kernels']
             strides = kwargs['phi_arch_strides']
             paddings = kwargs['phi_arch_paddings']

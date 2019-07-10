@@ -74,7 +74,7 @@ class ConvolutionalLstmBody(ConvolutionalBody):
         :param non_linearities: list of non-linear nn.Functional functions to use
                 after each convolutional layer.
         '''
-        super(ConvolutionalBody, self).__init__(input_shape=input_shape,
+        super(ConvolutionalLstmBody, self).__init__(input_shape=input_shape,
                                                 feature_dim=feature_dim,
                                                 channels=channels,
                                                 kernel_sizes=kernel_sizes,
@@ -91,14 +91,62 @@ class ConvolutionalLstmBody(ConvolutionalBody):
         cell_states: list of hidden_state(s) one for each self.layers.
         '''
         x, recurrent_neurons = inputs
-        features = super(ConvolutionalBody,self).forward(x)
+        features = super(ConvolutionalLstmBody,self).forward(x)
         return self.lstm_body( (features, recurrent_neurons))
 
+    def get_reset_states(self, cuda=False, repeat=1):
+        return self.lstm_body.get_reset_states(cuda=cuda, repeat=repeat)
+    
     def get_input_shape(self):
         return self.input_shape
 
     def get_feature_size(self):
         return self.lstm_body.get_feature_size()
+
+
+class ConvolutionalGruBody(ConvolutionalBody):
+    def __init__(self, input_shape, feature_dim=256, channels=[3, 3], kernel_sizes=[1], strides=[1], paddings=[0], non_linearities=[F.relu], hidden_units=(256,), gate=F.relu):
+        '''
+        Default input channels assume a RGB image (3 channels).
+
+        :param input_shape: dimensions of the input.
+        :param feature_dim: integer size of the output.
+        :param channels: list of number of channels for each convolutional layer,
+                with the initial value being the number of channels of the input.
+        :param kernel_sizes: list of kernel sizes for each convolutional layer.
+        :param strides: list of strides for each convolutional layer.
+        :param paddings: list of paddings for each convolutional layer.
+        :param non_linearities: list of non-linear nn.Functional functions to use
+                after each convolutional layer.
+        '''
+        super(ConvolutionalGruBody, self).__init__(input_shape=input_shape,
+                                                feature_dim=feature_dim,
+                                                channels=channels,
+                                                kernel_sizes=kernel_sizes,
+                                                strides=strides,
+                                                paddings=paddings,
+                                                non_linearities=non_linearities)
+
+        self.gru_body = GRUBody( state_dim=self.feature_dim, hidden_units=hidden_units, gate=gate)
+
+    def forward(self, inputs):
+        '''
+        :param inputs: input to GRU cells. Structured as (feed_forward_input, {hidden: hidden_states, cell: cell_states}).
+        hidden_states: list of hidden_state(s) one for each self.layers.
+        cell_states: list of hidden_state(s) one for each self.layers.
+        '''
+        x, recurrent_neurons = inputs
+        features = super(ConvolutionalGruBody,self).forward(x)
+        return self.gru_body( (features, recurrent_neurons))
+
+    def get_reset_states(self, cuda=False, repeat=1):
+        return self.gru_body.get_reset_states(cuda=cuda, repeat=repeat)
+
+    def get_input_shape(self):
+        return self.input_shape
+
+    def get_feature_size(self):
+        return self.gru_body.get_feature_size()
 
 
 class DDPGConvBody(nn.Module):

@@ -36,7 +36,10 @@ def ResizeCNNPreprocessFunction(x, size, use_cuda=False, normalize_rgb_values=Tr
         #batch:
         imgs = []
         for i in range(x.shape[0]):
-            img = np.array(scaling_operation(x[i]))
+            img = x[i]
+            # handled Stacked images...
+            per_image_first_channel_indices = range(0,img.shape[-1]+1,3)
+            img = np.concatenate( [ np.array(scaling_operation(img[...,idx_begin:idx_end])) for idx_begin, idx_end in zip(per_image_first_channel_indices,per_image_first_channel_indices[1:])], axis=-1)
             img = torch.from_numpy(img.transpose((2, 0, 1))).unsqueeze(0)
             imgs.append(img)
         x = torch.cat(imgs, dim=0)
