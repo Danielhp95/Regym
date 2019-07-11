@@ -190,11 +190,11 @@ def build_actor_critic_head(task, input_dim, kwargs: Dict[str, object]) -> nn.Mo
                                       hidden_units_list=kwargs['achead_critic_nbr_hidden_units'])
 
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
-        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=critic_body)
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
-        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=critic_body)
     return model
@@ -261,7 +261,7 @@ def build_aggregator(task):
 
 
 def build_distill_policy(task, kwargs: Dict[str, object]) -> nn.Module:
-    input_dim = task.observation_dim
+    input_dim = task.observation_shape
     if kwargs['distill_policy_arch'] == 'MLP':
         phi_body = FCBody(input_dim, hidden_units=kwargs['distill_policy_nbr_hidden_units'], gate=F.leaky_relu)
         input_dim = kwargs['distill_policy_nbr_hidden_units'][-1]
@@ -284,11 +284,11 @@ def build_distill_policy(task, kwargs: Dict[str, object]) -> nn.Module:
     # TECHNICAL DEBT: The distill policy is only an actor, we shold not be using
     # an actor critic net as we never make use of the critic.
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
-        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=None)
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
-        model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
+        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=None)
     if kwargs['use_cuda']: model = model.cuda()
@@ -317,7 +317,7 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     # the horizon value used by this training algorithm ought to be set by
     # the hyperparamet 'model_update_horizon'...
     config['horizon'] = config['model_update_horizon']
-
+    
     # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
     preprocess_function = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
     config['preprocessed_observation_shape'] = [task.env.observation_space.shape[-1], config['observation_resize_dim'], config['observation_resize_dim']]

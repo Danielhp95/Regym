@@ -249,7 +249,6 @@ def build_PPO_Agent(task, config, agent_name):
     # Default preprocess function:
     kwargs['state_preprocess'] = PreprocessFunction
     
-    
     input_dim = task.observation_shape
     if kwargs['phi_arch'] != 'None':
         output_dim = 256

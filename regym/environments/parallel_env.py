@@ -9,6 +9,23 @@ import torch
 #torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 
+import sys
+import pdb
+
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
+forkedPdb = ForkedPdb()
+
 
 def env_worker(env, queue_in, queue_out, worker_id=None):
     continuer = True
@@ -35,8 +52,9 @@ def env_worker(env, queue_in, queue_out, worker_id=None):
                 if not(done): 
                     pa_a = instruction
                     obs, r, done, info = env.step( pa_a)
-                
                 queue_out.put( [obs,r,done,info] )
+    except Exception as e:
+        forkedPdb.set_trace()
     finally:
         env.close()
 
@@ -49,42 +67,66 @@ class ParallelEnv():
         self.env_processes = None
         self.single_agent = single_agent
 
+        self.env_queues = [ {'in':Queue(), 'out':Queue()} for _ in range(self.nbr_parallel_env)]
+        self.env_configs = [None]*self.nbr_parallel_env
+        self.env_processes = [None]*self.nbr_parallel_env
+        self.worker_ids = [None]*self.nbr_parallel_env
+        self.envs = [None]*self.nbr_parallel_env
+
     def get_nbr_envs(self):
         return self.nbr_parallel_env
 
-    def reset(self, env_configs=None) :
-        if self.env_processes is None :
-            self.env_queues = [ {'in':Queue(), 'out':Queue()} for _ in range(self.nbr_parallel_env)]
-            worker_ids = [None]*self.nbr_parallel_env
-            if env_configs is not None: 
-                worker_ids = [ env_config.pop('worker_id', None) for env_config in env_configs]
-            
-            '''
-            self.env_processes = [ Process(target=env_worker, args=(self.env_creator, *queues.values(), worker_id) ) for queues, worker_id in zip(self.env_queues, worker_ids)]
-            
-            for idx, p in enumerate(self.env_processes):
-                p.start()
-                print('Launching environment {}...'.format(idx))
-                time.sleep(2)
-            '''
-            self.env_processes = []
-            for queues, worker_id in zip(self.env_queues, worker_ids):
-                p = Process(target=env_worker, args=(self.env_creator(worker_id=worker_id), *queues.values(), worker_id) )
-                p.start()
-                print('Launching environment ...')
-                time.sleep(2)
-                self.env_processes.append(p)
+    def launch_env_process(self, idx):
+        self.envs[idx] = self.env_creator(worker_id=self.worker_ids[idx])
+        p = Process(target=env_worker, args=(self.envs[idx], *(self.env_queues[idx].values()), self.worker_ids[idx]) )
+        p.start()
+        self.env_processes[idx] = p
+        time.sleep(2)
 
-                
-        for idx, p in enumerate(self.env_processes):
-            if env_configs is None: env_config = None
-            else: 
-                env_config = env_configs[idx] 
-                if 'worker_id' in env_config: env_config.pop('worker_id')
+    def check_update_reset_env_process(self, idx, env_configs=None, reset=False):
+        p = self.env_processes[idx]
+        if p is None:
+            self.launch_env_process(idx)
+            print('Launching environment {}...'.format(idx))
+        elif not(p.is_alive()):
+            # Cleaning:
+            self.envs[idx].close()
+            # Waiting for the sockets to detach:
+            time.sleep(61)
+            # Relaunching again...
+            self.launch_env_process(idx)
+            print('Reviving environment {}...'.format(idx))
+        
+        if reset:
+            if env_configs is not None: 
+                self.env_configs[idx] = env_configs[idx]
+            env_config = copy.deepcopy(self.env_configs[idx]) 
+            if env_config is not None and 'worker_id' in env_config: env_config.pop('worker_id')
             self.env_queues[idx]['in'].put( ('reset', env_config))
 
-        observations = [ queues['out'].get() for queues in self.env_queues]
-        
+    def get_from_queue(self, idx):
+        out = None
+        while out is None:
+            try:
+                # Block/wait for at most 30 seconds:
+                out = self.env_queues[idx]['out'].get(block=True,timeout=10)
+            except Exception as e:
+                print(e)
+                # Otherwise, we assume that there is an issue with the environment
+                # And thus we relaunch it, after waiting sufficiently to be able to do so:
+                print('Environment {} encountered an issue.\nWAITING 61 SECONDS before relaunching...'.format(idx))
+                self.check_update_reset_env_process(idx=idx, env_configs=None, reset=True)
+        return out
+
+    def reset(self, env_configs=None) :
+        if env_configs is not None: 
+            self.worker_ids = [ env_config.pop('worker_id', None) for env_config in env_configs]
+            
+        for idx, p in enumerate(self.env_processes):
+            self.check_update_reset_env_process(idx, env_configs=env_configs, reset=True)
+
+        observations = [ self.get_from_queue(idx) for idx in range(self.nbr_parallel_env)]  
+
         if self.single_agent:
             observations = [ np.concatenate([obs]*self.nbr_frame_stacking, axis=-1) for obs in observations]
             per_env_obs = np.concatenate( [ np.array(obs).reshape(1, *(obs.shape)) for obs in observations], axis=0)
@@ -124,7 +166,7 @@ class ParallelEnv():
             dones = []
             infs = []
             for i in range(self.nbr_frame_stacking):
-                experience = self.env_queues[env_index]['out'].get()
+                experience = self.get_from_queue(env_index)
                 obs, r, done, info = experience
                 obses.append(obs)
                 rs.append(r)

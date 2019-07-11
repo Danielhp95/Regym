@@ -118,13 +118,13 @@ def ppo_rnd_config_dict_ma():
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
-    config['optimization_epochs'] = 20
-    config['mini_batch_size'] = 512
+    config['optimization_epochs'] = 10
+    config['mini_batch_size'] = 1024
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 16
-    config['horizon'] = 128
+    config['nbr_actor'] = 8
+    config['horizon'] = 1024
     config['phi_arch'] = 'CNN-GRU-RNN'#'CNN'#
     config['actor_arch'] = 'MLP'
     config['critic_arch'] = 'MLP'
@@ -132,8 +132,8 @@ def ppo_rnd_config_dict_ma():
     config['use_random_network_distillation'] = True
     config['intrinsic_discount'] = 0.99
     config['rnd_loss_int_ratio'] = 0.5
-    config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)
-    config['rnd_feature_net_cnn_arch_feature_dim'] = 256
+    config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)  #if arch is MLP
+    config['rnd_feature_net_cnn_arch_feature_dim'] = 64         #if arch is CNN
     config['rnd_update_period_running_meanstd_int_reward'] = 1e5
     # Convolutional Architecture:
     config['observation_resize_dim'] = 60

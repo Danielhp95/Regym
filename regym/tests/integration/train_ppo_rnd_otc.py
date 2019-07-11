@@ -10,7 +10,7 @@ import copy
 import random
 import torch
 
-offset_worker_id = 20
+offset_worker_id = 10
 
 def update_configs(env_param2range, nbr_actors):
     env_configs = list()
@@ -40,7 +40,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                              nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'], 
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
     #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
-    logdir = './test_LABC_gru_ppo_rnd256_normIntrUP1e4_cnn60phi256_a16_b512_h128_3e-4_OTC_frameskip4/'
+    logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
