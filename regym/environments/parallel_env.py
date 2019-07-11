@@ -6,7 +6,7 @@ from .utils import EnvironmentCreator
 
 import torch
 # https://github.com/pytorch/pytorch/issues/11201:
-torch.multiprocessing.set_sharing_strategy('file_system')
+#torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 
 
@@ -81,7 +81,7 @@ class ParallelEnv():
             else: 
                 env_config = env_configs[idx] 
                 if 'worker_id' in env_config: env_config.pop('worker_id')
-                self.env_queues[idx]['in'].put( ('reset', env_config))
+            self.env_queues[idx]['in'].put( ('reset', env_config))
 
         observations = [ queues['out'].get() for queues in self.env_queues]
         

@@ -124,7 +124,7 @@ def ppo_rnd_config_dict_ma():
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
     config['nbr_actor'] = 16
-    config['horizon'] = 1024
+    config['horizon'] = 128
     config['phi_arch'] = 'CNN-GRU-RNN'#'CNN'#
     config['actor_arch'] = 'MLP'
     config['critic_arch'] = 'MLP'

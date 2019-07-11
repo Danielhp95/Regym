@@ -10,7 +10,7 @@ import copy
 import random
 import torch
 
-offset_worker_id = 100
+offset_worker_id = 20
 
 def update_configs(env_param2range, nbr_actors):
     env_configs = list()
@@ -40,7 +40,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                              nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'], 
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
     #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
-    logdir = './test_LABC_gru_ppo_rnd256_normIntrUP1e4_cnn60phi256_a16_b512_h1024_3e-4_OTC_frameskip4/'
+    logdir = './test_LABC_gru_ppo_rnd256_normIntrUP1e4_cnn60phi256_a16_b512_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -75,13 +75,23 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                                                   max_episode_length=max_episode_length,
                                                   env_configs=env_configs)
         
-        total_return = sum( [ sum([ exp[2] for exp in t]) for t in trajectory]) / len(trajectory)
-        total_int_return = sum( [ sum([ exp[3] for exp in t]) for t in trajectory]) / len(trajectory)
+        total_return = [ sum([ exp[2] for exp in t]) for t in trajectory]
+        mean_total_return = sum( total_return) / len(trajectory)
+        
+        total_int_return = [ sum([ exp[3] for exp in t]) for t in trajectory]
+        mean_total_int_return = sum( total_int_return) / len(trajectory)
+        
+        for idx, (ext_ret, int_ret) in enumerate(zip(total_return, total_int_return)):
+            sum_writer.add_scalar('Training/TotalReturn', ext_ret, i*len(trajectory)+idx)
+            sum_writer.add_scalar('Training/TotalIntReturn', int_ret, i*len(trajectory)+idx)
+        
         episode_lengths = [ len(t) for t in trajectory]
         mean_episode_length = sum( episode_lengths) / len(trajectory)
         std_episode_length = math.sqrt( sum( [math.pow( l-mean_episode_length ,2) for l in episode_lengths]) / len(trajectory) )
-        sum_writer.add_scalar('Training/TotalReturn', total_return, i)
-        sum_writer.add_scalar('Training/TotalIntReturn', total_int_return, i)
+        
+        sum_writer.add_scalar('Training/MeanTotalReturn', mean_total_return, i)
+        sum_writer.add_scalar('Training/MeanTotalIntReturn', mean_total_int_return, i)
+        
         sum_writer.add_scalar('Training/MeanEpisodeLength', mean_episode_length, i)
         sum_writer.add_scalar('Training/StdEpisodeLength', std_episode_length, i)
 
