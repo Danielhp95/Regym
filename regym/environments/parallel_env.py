@@ -137,7 +137,8 @@ class ParallelEnv():
                 print('WAITING before relaunching...')
                 self.check_update_reset_env_process(idx=idx, env_configs=None, reset=True)
                 if exhaust_first_when_failure:
-                    exhaust = self.env_queues[idx]['out'].get(block=True,timeout=10)
+                    out = None 
+                    exhaust = self.env_queues[idx]['out'].get(block=True,timeout=None)
                     self.put_action_in_queue(action=self.env_actions[idx], idx=idx)
                     
         return out

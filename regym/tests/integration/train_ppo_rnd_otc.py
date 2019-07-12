@@ -15,12 +15,12 @@ offset_worker_id = 100
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)
     agent = None
-    offset_episode_count = 250
+    offset_episode_count = 0
     if os.path.isfile(filepath):
         print('==> loading checkpoint {}'.format(filepath))
         agent = torch.load(filepath)
-        #offset_episode_count = agent.episode_count
-        setattr(agent, 'episode_count', offset_episode_count)
+        offset_episode_count = agent.episode_count
+        #setattr(agent, 'episode_count', offset_episode_count)
         print('==> loaded checkpoint {}'.format(filepath))
     return agent, offset_episode_count
 
