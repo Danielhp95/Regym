@@ -9,6 +9,8 @@ import torch
 #torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 
+import gc 
+
 import sys
 import pdb
 
@@ -54,7 +56,8 @@ def env_worker(env, queue_in, queue_out, worker_id=None):
                     obs, r, done, info = env.step( pa_a)
                 queue_out.put( [obs,r,done,info] )
     except Exception as e:
-        forkedPdb.set_trace()
+        print(e)
+        #forkedPdb.set_trace()
     finally:
         env.close()
 
@@ -72,12 +75,14 @@ class ParallelEnv():
         self.env_processes = [None]*self.nbr_parallel_env
         self.worker_ids = [None]*self.nbr_parallel_env
         self.envs = [None]*self.nbr_parallel_env
+        self.count_failures = [0]*self.nbr_parallel_env
+        self.env_actions = [None]*self.nbr_parallel_env
 
     def get_nbr_envs(self):
         return self.nbr_parallel_env
 
-    def launch_env_process(self, idx):
-        self.envs[idx] = self.env_creator(worker_id=self.worker_ids[idx])
+    def launch_env_process(self, idx, worker_id_offset=0):
+        self.envs[idx] = self.env_creator(worker_id=self.worker_ids[idx]+worker_id_offset)
         p = Process(target=env_worker, args=(self.envs[idx], *(self.env_queues[idx].values()), self.worker_ids[idx]) )
         p.start()
         self.env_processes[idx] = p
@@ -91,10 +96,24 @@ class ParallelEnv():
         elif not(p.is_alive()):
             # Cleaning:
             self.envs[idx].close()
+            env = self.envs[idx]
+            self.envs[idx] = None
+            del env
+            self.env_processes[idx].terminate()
+            self.env_processes[idx] = None
+            del p 
+            gc.collect()
             # Waiting for the sockets to detach:
-            time.sleep(61)
+            time.sleep(2)
             # Relaunching again...
-            self.launch_env_process(idx)
+            if self.count_failures[idx] == 0:
+                self.count_failures[idx] = 1
+            elif self.count_failures[idx] == 1:
+                self.count_failures[idx] = -1
+            elif self.count_failures[idx] == -1:
+                self.count_failures[idx] = 0
+            worker_id_offset = self.count_failures[idx]*self.nbr_parallel_env
+            self.launch_env_process(idx, worker_id_offset=worker_id_offset)
             print('Reviving environment {}...'.format(idx))
         
         if reset:
@@ -104,19 +123,28 @@ class ParallelEnv():
             if env_config is not None and 'worker_id' in env_config: env_config.pop('worker_id')
             self.env_queues[idx]['in'].put( ('reset', env_config))
 
-    def get_from_queue(self, idx):
+    def get_from_queue(self, idx, exhaust_first_when_failure=False):
         out = None
         while out is None:
             try:
-                # Block/wait for at most 30 seconds:
+                # Block/wait for at most 10 seconds:
                 out = self.env_queues[idx]['out'].get(block=True,timeout=10)
             except Exception as e:
                 print(e)
                 # Otherwise, we assume that there is an issue with the environment
                 # And thus we relaunch it, after waiting sufficiently to be able to do so:
-                print('Environment {} encountered an issue.\nWAITING 61 SECONDS before relaunching...'.format(idx))
+                print('Environment {} encountered an issue.'.format(idx))
+                print('WAITING before relaunching...')
                 self.check_update_reset_env_process(idx=idx, env_configs=None, reset=True)
+                if exhaust_first_when_failure:
+                    exhaust = self.env_queues[idx]['out'].get(block=True,timeout=10)
+                    self.put_action_in_queue(action=self.env_actions[idx], idx=idx)
+                    
         return out
+
+    def put_action_in_queue(self, action, idx):
+        self.env_actions[idx] = action
+        self.env_queues[idx]['in'].put(action)
 
     def reset(self, env_configs=None) :
         if env_configs is not None: 
@@ -154,7 +182,7 @@ class ParallelEnv():
                 pa_a = [ action_vector[idx_agent][batch_env_index] for idx_agent in range( len(action_vector) ) ]
             
             for i in range(self.nbr_frame_stacking):
-                self.env_queues[env_index]['in'].put(pa_a)
+                self.put_action_in_queue(action=pa_a, idx=env_index)
 
         for env_index in range(len(self.env_queues) ):
             if self.dones[env_index]:
@@ -166,7 +194,7 @@ class ParallelEnv():
             dones = []
             infs = []
             for i in range(self.nbr_frame_stacking):
-                experience = self.get_from_queue(env_index)
+                experience = self.get_from_queue(idx=env_index, exhaust_first_when_failure=True)
                 obs, r, done, info = experience
                 obses.append(obs)
                 rs.append(r)

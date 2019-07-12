@@ -21,6 +21,7 @@ class PPOAgent(object):
         self.handled_experiences = 0
         self.name = name
         self.save_path = None
+        self.episode_count = 0
 
         self.nbr_actor = self.algorithm.kwargs['nbr_actor']
         self.previously_done_actors = [False]*self.nbr_actor

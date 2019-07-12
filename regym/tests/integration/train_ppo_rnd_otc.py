@@ -10,7 +10,19 @@ import copy
 import random
 import torch
 
-offset_worker_id = 10
+offset_worker_id = 100
+
+def check_path_for_agent(filepath):
+    #filepath = os.path.join(path,filename)
+    agent = None
+    offset_episode_count = 250
+    if os.path.isfile(filepath):
+        print('==> loading checkpoint {}'.format(filepath))
+        agent = torch.load(filepath)
+        #offset_episode_count = agent.episode_count
+        setattr(agent, 'episode_count', offset_episode_count)
+        print('==> loaded checkpoint {}'.format(filepath))
+    return agent, offset_episode_count
 
 def update_configs(env_param2range, nbr_actors):
     env_configs = list()
@@ -46,7 +58,8 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
     sum_writer = SummaryWriter(logdir)
     save_path = os.path.join(logdir,'./ppo_rnd.agent')
 
-    agent = build_PPO_Agent(config=ppo_rnd_config_dict_ma, task=task, agent_name='PPO_RND_OTC')
+    agent, offset_episode_count = check_path_for_agent(save_path)
+    if agent is None: agent = build_PPO_Agent(config=ppo_rnd_config_dict_ma, task=task, agent_name='PPO_RND_OTC')
     agent.save_path = save_path
     nbr_episodes = 1e6
     max_episode_length = 1e3
@@ -69,7 +82,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
 
     env_configs = update_configs(env_param2range, nbr_actors)
 
-    for i in tqdm(range(int(nbr_episodes))):
+    for i in tqdm(range(offset_episode_count, int(nbr_episodes))):
         trajectory = rl_loop.run_episode_parallel(task.env, agent, 
                                                   training=True, 
                                                   max_episode_length=max_episode_length,
@@ -97,6 +110,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
 
         # Update configs:
         env_configs = update_configs(env_param2range, nbr_actors)
+        agent.episode_count += 1
 
     task.env.close()
 
