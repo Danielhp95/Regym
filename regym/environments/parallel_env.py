@@ -57,7 +57,7 @@ def env_worker(env, queue_in, queue_out, worker_id=None):
                 queue_out.put( [obs,r,done,info] )
     except Exception as e:
         print(e)
-        #forkedPdb.set_trace()
+        forkedPdb.set_trace()
     finally:
         env.close()
 
@@ -70,7 +70,7 @@ class ParallelEnv():
         self.env_processes = None
         self.single_agent = single_agent
 
-        self.env_queues = [ {'in':Queue(), 'out':Queue()} for _ in range(self.nbr_parallel_env)]
+        self.env_queues = [None]*self.nbr_parallel_env
         self.env_configs = [None]*self.nbr_parallel_env
         self.env_processes = [None]*self.nbr_parallel_env
         self.worker_ids = [None]*self.nbr_parallel_env
@@ -82,11 +82,25 @@ class ParallelEnv():
         return self.nbr_parallel_env
 
     def launch_env_process(self, idx, worker_id_offset=0):
+        self.env_queues[idx] = {'in':Queue(), 'out':Queue()}
         self.envs[idx] = self.env_creator(worker_id=self.worker_ids[idx]+worker_id_offset)
         p = Process(target=env_worker, args=(self.envs[idx], *(self.env_queues[idx].values()), self.worker_ids[idx]) )
         p.start()
         self.env_processes[idx] = p
         time.sleep(2)
+
+    def clean(self, idx):
+        self.env_processes[idx].terminate()
+        self.env_processes[idx] = None
+        del p 
+        self.envs[idx].close()
+        env = self.envs[idx]
+        self.envs[idx] = None
+        del env
+        q = self.env_queues[idx]
+        self.env_queues[idx] = None
+        del q
+        gc.collect()
 
     def check_update_reset_env_process(self, idx, env_configs=None, reset=False):
         p = self.env_processes[idx]
@@ -94,15 +108,7 @@ class ParallelEnv():
             self.launch_env_process(idx)
             print('Launching environment {}...'.format(idx))
         elif not(p.is_alive()):
-            # Cleaning:
-            self.envs[idx].close()
-            env = self.envs[idx]
-            self.envs[idx] = None
-            del env
-            self.env_processes[idx].terminate()
-            self.env_processes[idx] = None
-            del p 
-            gc.collect()
+            self.clean(idx)
             # Waiting for the sockets to detach:
             time.sleep(2)
             # Relaunching again...
