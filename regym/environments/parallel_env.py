@@ -5,8 +5,6 @@ import time
 from .utils import EnvironmentCreator
 
 import torch
-# https://pytorch.org/docs/master/multiprocessing.html#multiprocessing-cuda-sharing-details
-torch.multiprocessing.set_start_method('forkserver')
 # https://github.com/pytorch/pytorch/issues/11201:
 torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
@@ -130,7 +128,6 @@ class ParallelEnv():
                 self.env_configs[idx] = env_configs[idx]
             env_config = copy.deepcopy(self.env_configs[idx]) 
             if env_config is not None and 'worker_id' in env_config: env_config.pop('worker_id')
-            print('Resetting environment {}.'.format(idx))
             self.env_queues[idx]['in'].put( ('reset', env_config))
 
     def get_from_queue(self, idx, exhaust_first_when_failure=False):
