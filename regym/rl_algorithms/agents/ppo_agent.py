@@ -39,7 +39,6 @@ class PPOAgent(object):
         if nbr_actor != self.nbr_actor:
             self.nbr_actor = nbr_actor
             self.algorithm.kwargs['nbr_actor'] = self.nbr_actor
-            self.done_actors = [False]*self.nbr_actor
             self.algorithm.reset_storages()
 
     def reset_actors(self):
@@ -95,6 +94,7 @@ class PPOAgent(object):
                     [self.rnn_states[recurrent_submodule_name]['cell'][idx][:batch_idx,...], 
                      self.rnn_states[recurrent_submodule_name]['cell'][idx][batch_idx+1:,...]],
                      dim=0)
+        
     def _pre_process_rnn_states(self):
         if self.rnn_states is None: self._reset_rnn_states()
 
@@ -349,13 +349,13 @@ def build_PPO_Agent(task, config, agent_name):
         if kwargs['phi_arch'] == 'MLP':
             target_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
             predict_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
-        elif 'CNN' in kwargs['phi_arch']:
+        elif 'CNN' in kwargs['rnd_arch']:
             input_shape = kwargs['preprocessed_observation_shape']
-            channels = [input_shape[0]] + kwargs['phi_arch_channels']
-            kernels = kwargs['phi_arch_kernels']
-            strides = kwargs['phi_arch_strides']
-            paddings = kwargs['phi_arch_paddings']
-            output_dim = kwargs['rnd_feature_net_cnn_arch_feature_dim']
+            channels = [input_shape[0]] + kwargs['rnd_arch_channels']
+            kernels = kwargs['rnd_arch_kernels']
+            strides = kwargs['rnd_arch_strides']
+            paddings = kwargs['rnd_arch_paddings']
+            output_dim = kwargs['rnd_arch_feature_dim']
             target_intr_model = ConvolutionalBody(input_shape=input_shape,
                                                   feature_dim=output_dim,
                                                   channels=channels,

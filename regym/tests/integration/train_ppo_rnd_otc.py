@@ -9,6 +9,7 @@ import math
 import copy
 import random
 import torch
+torch.multiprocessing.set_start_method('forkserver')
 
 offset_worker_id = 100
 
@@ -52,7 +53,8 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                              nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'], 
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
     #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
-    logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
+    #logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
+    logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a2_b64_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -61,8 +63,8 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
     agent, offset_episode_count = check_path_for_agent(save_path)
     if agent is None: agent = build_PPO_Agent(config=ppo_rnd_config_dict_ma, task=task, agent_name='PPO_RND_OTC')
     agent.save_path = save_path
-    nbr_episodes = 1e6
-    max_episode_length = 1e3
+    nbr_episodes = 1e7
+    max_episode_length = 1e4
 
     nbr_actors = ppo_rnd_config_dict_ma['nbr_actor']
     env_param2range = { 'tower-seed':       list(range(-1,101)),                #Sets the seed used to generate the tower. -1 corresponds to a random tower on every reset() call.

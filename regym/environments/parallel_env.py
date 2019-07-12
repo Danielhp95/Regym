@@ -5,8 +5,10 @@ import time
 from .utils import EnvironmentCreator
 
 import torch
+# https://pytorch.org/docs/master/multiprocessing.html#multiprocessing-cuda-sharing-details
+torch.multiprocessing.set_start_method('forkserver')
 # https://github.com/pytorch/pytorch/issues/11201:
-#torch.multiprocessing.set_sharing_strategy('file_system')
+torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue
 
 import gc 
@@ -29,10 +31,11 @@ class ForkedPdb(pdb.Pdb):
 forkedPdb = ForkedPdb()
 
 
-def env_worker(env, queue_in, queue_out, worker_id=None):
+#def env_worker(env, queue_in, queue_out, worker_id=None):
+def env_worker(envCreator, queue_in, queue_out, worker_id=None):
     continuer = True
-    #env = envCreator(worker_id=worker_id)     
-    
+    env = envCreator(worker_id=worker_id)
+
     obs = None
     r = None
     done = None
@@ -48,7 +51,7 @@ def env_worker(env, queue_in, queue_out, worker_id=None):
                 env_config = instruction[-1]
                 if env_config is None: observations = env.reset()
                 else:  observations = env.reset(env_config) 
-                done = False 
+                done = False
                 queue_out.put(observations)
             else :
                 if not(done): 
@@ -56,8 +59,8 @@ def env_worker(env, queue_in, queue_out, worker_id=None):
                     obs, r, done, info = env.step( pa_a)
                 queue_out.put( [obs,r,done,info] )
     except Exception as e:
-        print(e)
-        forkedPdb.set_trace()
+        print('Exception from env_worker: {}'.format(e))
+        #forkedPdb.set_trace()
     finally:
         env.close()
 
@@ -74,7 +77,7 @@ class ParallelEnv():
         self.env_configs = [None]*self.nbr_parallel_env
         self.env_processes = [None]*self.nbr_parallel_env
         self.worker_ids = [None]*self.nbr_parallel_env
-        self.envs = [None]*self.nbr_parallel_env
+        #self.envs = [None]*self.nbr_parallel_env
         self.count_failures = [0]*self.nbr_parallel_env
         self.env_actions = [None]*self.nbr_parallel_env
 
@@ -83,8 +86,11 @@ class ParallelEnv():
 
     def launch_env_process(self, idx, worker_id_offset=0):
         self.env_queues[idx] = {'in':Queue(), 'out':Queue()}
+        '''
         self.envs[idx] = self.env_creator(worker_id=self.worker_ids[idx]+worker_id_offset)
         p = Process(target=env_worker, args=(self.envs[idx], *(self.env_queues[idx].values()), self.worker_ids[idx]) )
+        '''
+        p = Process(target=env_worker, args=(self.env_creator, *(self.env_queues[idx].values()), self.worker_ids[idx]+worker_id_offset) )
         p.start()
         self.env_processes[idx] = p
         time.sleep(2)
@@ -92,14 +98,11 @@ class ParallelEnv():
     def clean(self, idx):
         self.env_processes[idx].terminate()
         self.env_processes[idx] = None
-        del p 
+        '''
         self.envs[idx].close()
-        env = self.envs[idx]
         self.envs[idx] = None
-        del env
-        q = self.env_queues[idx]
+        '''
         self.env_queues[idx] = None
-        del q
         gc.collect()
 
     def check_update_reset_env_process(self, idx, env_configs=None, reset=False):
@@ -127,6 +130,7 @@ class ParallelEnv():
                 self.env_configs[idx] = env_configs[idx]
             env_config = copy.deepcopy(self.env_configs[idx]) 
             if env_config is not None and 'worker_id' in env_config: env_config.pop('worker_id')
+            print('Resetting environment {}.'.format(idx))
             self.env_queues[idx]['in'].put( ('reset', env_config))
 
     def get_from_queue(self, idx, exhaust_first_when_failure=False):
@@ -136,7 +140,7 @@ class ParallelEnv():
                 # Block/wait for at most 10 seconds:
                 out = self.env_queues[idx]['out'].get(block=True,timeout=10)
             except Exception as e:
-                print(e)
+                print('Exception: {}'.format(e))
                 # Otherwise, we assume that there is an issue with the environment
                 # And thus we relaunch it, after waiting sufficiently to be able to do so:
                 print('Environment {} encountered an issue.'.format(idx))
@@ -236,11 +240,13 @@ class ParallelEnv():
                 self.env_queues[env_index]['in'].put(False)
                 self.env_processes[env_index].join()
                 self.env_processes[env_index].terminate()
+                self.env_processes[env_index] = None
                 
                 self.env_queues[env_index]['in'].close()
                 self.env_queues[env_index]['in'] = None
                 self.env_queues[env_index]['out'].close()
                 self.env_queues[env_index]['out'] = None
+                gc.collect()
 
         self.env_processes = None
         self.env_queues = None
