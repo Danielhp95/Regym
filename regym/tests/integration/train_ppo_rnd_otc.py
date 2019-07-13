@@ -9,8 +9,6 @@ import math
 import copy
 import random
 import torch
-# https://pytorch.org/docs/master/multiprocessing.html#multiprocessing-cuda-sharing-details
-torch.multiprocessing.set_start_method('forkserver')
 
 offset_worker_id = 100
 
@@ -55,7 +53,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
     #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
     #logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
-    logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a2_b64_h128_3e-4_OTC_frameskip4/'
+    logdir = './test_LABC_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b512_h512_1e-3_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -122,4 +120,6 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
 
 
 if __name__ == '__main__':
+    # https://pytorch.org/docs/master/multiprocessing.html#multiprocessing-cuda-sharing-details
+    torch.multiprocessing.set_start_method('forkserver')
     test_train_ppo_rnd(ppo_rnd_config_dict_ma())
