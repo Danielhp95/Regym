@@ -8,6 +8,10 @@ from ..networks import random_sample
 from ..replay_buffers import Storage
 
 
+def standardize(x):
+    return (x - x.mean()) / x.std()
+
+
 class I2AAlgorithm():
     '''
     Original paper: https://arxiv.org/abs/1707.06203
@@ -22,9 +26,15 @@ class I2AAlgorithm():
                  i2a_model,
                  environment_model,
                  distill_policy,
-                 kwargs):
+                 kwargs, 
+                 target_intr_model=None, 
+                 predict_intr_model=None):
+
+        self.kwargs = kwargs
+        self.nbr_actor = self.kwargs['nbr_actor']
 
         self.i2a_model = i2a_model
+        self.i2a_model._reset_rnn_states()
         self.environment_model = environment_model
         self.distill_policy = distill_policy
 
@@ -34,16 +44,6 @@ class I2AAlgorithm():
         self.distill_policy_update_horizon = kwargs['distill_policy_update_horizon']
         self.model_update_horizon = kwargs['model_update_horizon']
         self.environment_model_update_horizon = kwargs['environment_model_update_horizon']
-
-        self.distill_policy_storage = Storage(size=self.distill_policy_update_horizon)
-        if self.i2a_model.recurrent:
-            self.distill_policy_storage.add_key('rnn_states')
-            self.distill_policy_storage.add_key('next_rnn_states')
-
-        self.environment_model_storage = Storage(size=self.environment_model_update_horizon)
-
-        # Adding successive state key to compute the loss of the environment model
-        self.environment_model_storage.add_key('succ_s')
 
         self.distill_policy_optimizer = optim.Adam(self.distill_policy.parameters(),
                                                    lr=kwargs['policies_adam_learning_rate'],
@@ -60,42 +60,103 @@ class I2AAlgorithm():
                                                                                model=i2a_model,
                                                                                optimizer=self.model_optimizer)
 
+        self.recurrent = self.model_training_algorithm.recurrent
+        self.use_rnd = self.model_training_algorithm.use_rnd 
         self.use_cuda = kwargs['use_cuda']
-        self.kwargs = kwargs
+
+        self.distill_policy_storages = None
+        self.environment_model_storages = None
+        self.reset_storages()
+    
+    def reset_storages(self):
+        if self.distill_policy_storages is not None:
+            for storage in self.distill_policy_storages: storage.reset()
+        if self.environment_model_storages is not None:
+            for storage in self.environment_model_storages: storage.reset()
+
+        self.storages = []
+        for i in range(self.nbr_actor):
+            self.storages.append(Storage())
+            if self.recurrent:
+                self.storages[-1].add_key('rnn_states')
+                self.storages[-1].add_key('next_rnn_states')
+            if self.use_rnd:
+                self.storages[-1].add_key('int_r')
+                self.storages[-1].add_key('int_v')
+                self.storages[-1].add_key('int_ret')
+                self.storages[-1].add_key('int_adv')
+                self.storages[-1].add_key('target_int_f')
+
+        self.distill_policy_storages = []
+        self.environment_model_storages = []
+        for i in range(self.nbr_actor):
+            self.distill_policy_storages.append(Storage())
+            if self.i2a_model.recurrent:
+                self.distill_policy_storages[-1].add_key('rnn_states')
+                self.distill_policy_storages[-1].add_key('next_rnn_states')
+
+            self.environment_model_storages.append(Storage())
+            # Adding successive state key to compute the loss of the environment model
+            self.environment_model_storages[-1].add_key('succ_s')
+
+    def retrieve_values_from_storages(self, storages, value_keys):
+        full_values = [list() for _ in range(len(value_keys))]
+        for storage in storages:
+            # Check that there is something in the storage 
+            if len(storage) == 0: continue
+            cat = storage.cat(value_keys)
+            for idx, (value,key) in enumerate(zip(cat,value_keys)):
+                if 'rnn' in key: full_values[idx]+=value
+                else: full_values[idx].append(torch.cat(value, dim=0))
+        
+        for idx, (values, key) in enumerate(zip(full_values,value_keys)):
+            if 'rnn' in key: continue
+            if 'adv' in key: values = standardize(values)
+            full_values[idx] = torch.cat(values, dim=0)
+            
+        return (*full_values,)
 
     def take_action(self, state):
         return self.i2a_model(state)
 
     def train_distill_policy(self):
-        self.distill_policy_storage.placeholder()
-        self.distill_policy_optimizer.zero_grad()
+        for idx, storage in enumerate(self.distill_policy_storages): 
+            if len(storage) == 0: continue
+            storage.placeholder()
+        states, actions = self.retrieve_values_from_storages(self.distill_policy_storages, ['s', 'a'])
+        rnn_states = None
+        if self.i2a_model.recurrent: 
+            rnn_states = self.retrieve_values_from_storages(self.distill_policy_storages, ['rnn_states'])[0]
+            rnn_states = self.model_training_algorithm.reformat_rnn_states(rnn_states)
 
-        distill_loss = self.compute_distill_policy_loss()
+        for it in range(self.kwargs['distill_policy_optimization_epochs']):
+            self.distill_policy_optimizer.zero_grad()
+            distill_loss = self.compute_distill_policy_loss(states, actions, rnn_states)
+            distill_loss.backward()
+            nn.utils.clip_grad_norm_(self.environment_model.parameters(), self.kwargs['distill_policy_gradient_clip'])
+            self.distill_policy_optimizer.step()
 
-        distill_loss.backward()
-        nn.utils.clip_grad_norm_(self.environment_model.parameters(), self.kwargs['distill_policy_gradient_clip'])
-
-        self.distill_policy_optimizer.step()
-        self.distill_policy_storage.reset()
+        for storage in self.distill_policy_storages: storage.reset()
 
     def train_i2a_model(self):
         self.model_training_algorithm.train()
 
     def train_environment_model(self):
-        self.environment_model_storage.placeholder()
-        self.environment_model_optimizer.zero_grad()
+        for idx, storage in enumerate(self.environment_model_storages): 
+            if len(storage) == 0: continue
+            storage.placeholder()
+        states, actions, rewards, next_states = self.retrieve_values_from_storages(self.environment_model_storages, ['s', 'a', 'r', 'succ_s'])
+        
+        for it in range(self.kwargs['environment_model_optimization_epochs']):
+            self.environment_model_optimizer.zero_grad()
+            model_loss = self.compute_environment_model_loss(states, actions, rewards, next_states)
+            model_loss.backward()
+            nn.utils.clip_grad_norm_(self.environment_model.parameters(), self.kwargs['environment_model_gradient_clip'])
+            self.environment_model_optimizer.step()
 
-        model_loss = self.compute_environment_model_loss()
+        for storage in self.environment_model_storages: storage.reset()
 
-        model_loss.backward()
-        nn.utils.clip_grad_norm_(self.environment_model.parameters(), self.kwargs['environment_model_gradient_clip'])
-
-        self.environment_model_optimizer.step()
-        self.environment_model_storage.reset()
-
-    def compute_environment_model_loss(self):
-        states, actions, rewards, next_states = map(lambda x: torch.cat(x, dim=0), self.environment_model_storage.cat(['s', 'a', 'r', 'succ_s']))
-
+    def compute_environment_model_loss(self, states, actions, rewards, next_states):
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['environment_model_batch_size'])
         loss = 0.0
         for batch_indices in sampler:
@@ -112,14 +173,9 @@ class I2AAlgorithm():
 
         return loss
 
-    def compute_distill_policy_loss(self):
+    def compute_distill_policy_loss(self, states, actions, rnn_states=None):
         # Note: this formula may only work with discrete actions?
         # Formula: cross_entropy_coefficient * softmax_probabilities(actor_critic_logit) * softmax_probabilities(distil_logit)).sum(1).mean()
-        states, actions = map(lambda x: torch.cat(x, dim=0), self.distill_policy_storage.cat(['s', 'a']))
-        if self.i2a_model.recurrent: 
-            rnn_states = self.distill_policy_storage.cat(['rnn_states'])[0]
-            rnn_states = self.model_training_algorithm.reformat_rnn_states(rnn_states)
-
         nbr_layers_per_rnn = None
         if self.i2a_model.recurrent:
             nbr_layers_per_rnn = {recurrent_submodule_name: len(rnn_states[recurrent_submodule_name]['hidden'])
@@ -127,10 +183,12 @@ class I2AAlgorithm():
 
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['distill_policy_batch_size'])
         loss = 0.0
+        sampled_rnn_states = None
+        sampled_states = None
+        sampled_actions = None
         for batch_indices in sampler:
             batch_indices = torch.from_numpy(batch_indices).long()
 
-            sampled_rnn_states = None
             if self.i2a_model.recurrent:
                 sampled_rnn_states = self.model_training_algorithm.calculate_rnn_states_from_batch_indices(rnn_states, batch_indices, nbr_layers_per_rnn)
 

@@ -1,4 +1,5 @@
 from typing import Dict, List
+import numpy as np 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -27,11 +28,19 @@ class I2AAgent():
         '''
         self.name = name
         self.algorithm = algorithm
+        self.use_rnd = self.algorithm.use_rnd
+
         self.training = True
         self.use_cuda = use_cuda
         self.preprocess_function = preprocess_function
 
         self.handled_experiences = 0
+        self.save_path = None 
+        self.episode_count = 0
+
+        self.nbr_actor = self.algorithm.kwargs['nbr_actor']
+        self.previously_done_actors = [False]*self.nbr_actor
+
         # Current_prediction stores information
         # from the last action that was taken
         self.current_prediction: Dict[str, object]
@@ -40,52 +49,214 @@ class I2AAgent():
         self.rnn_keys = rnn_keys
         if len(self.rnn_keys):
             self.recurrent = True
+    
+    def get_intrinsic_reward(self, actor_idx):
+        if len(self.algorithm.model_training_algorithm.storages[actor_idx].int_r):
+            return self.algorithm.model_training_algorithm.storages[actor_idx].int_r[-1]
+        else:
+            return 0.0
 
-    def handle_experience(self, s, a, r, succ_s, done=False):
+    @property
+    def rnn_states(self):
+        return self.algorithm.i2a_model.rnn_states
+
+    def set_nbr_actor(self, nbr_actor):
+        if nbr_actor != self.nbr_actor:
+            self.nbr_actor = nbr_actor
+            self.algorithm.kwargs['nbr_actor'] = self.nbr_actor
+            self.algorithm.reset_storages()
+
+    def reset_actors(self):
+        '''
+        In case of a multi-actor process, this function is called to reset
+        the actors' internal values.
+        '''
+        self.previously_done_actors = [False]*self.nbr_actor
+        if self.recurrent:
+            self._reset_rnn_states()
+
+    def update_actors(self, batch_idx):
+        '''
+        In case of a multi-actor process, this function is called to handle
+        the (dynamic) number of environment that are being used.
+        More specifically, it regularizes the rnn_states when
+        an actor's episode ends.
+        It is assumed that update can only go by removing stuffs...
+        Indeed, actors all start at the same time, and thus self.reset_actors()
+        ought to be called at that time.
+        Note: since the number of environment that are running changes, 
+        the size of the rnn_states on the batch dimension will change too.
+        Therefore, we cannot identify an rnn_state by the actor/environment index.
+        Thus, it is a batch index that is requested, that would truly be in touch
+        with the current batch dimension.
+        :param batch_idx: index of the actor whose episode just finished.
+        '''
+        if self.recurrent:
+            self.remove_from_rnn_states(batch_idx=batch_idx)
+
+    def _reset_rnn_states(self):
+        self.algorithm.i2a_model._reset_rnn_states()
+
+    def remove_from_rnn_states(self, batch_idx):
+        '''
+        Remove a row(=batch) of data from the rnn_states.
+        :param batch_idx: index on the batch dimension that specifies which row to remove.
+        '''
+        for recurrent_submodule_name in self.rnn_states:
+            if self.rnn_states[recurrent_submodule_name] is None: continue
+            for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                self.rnn_states[recurrent_submodule_name]['hidden'][idx] = torch.cat(
+                    [self.rnn_states[recurrent_submodule_name]['hidden'][idx][:batch_idx,...], 
+                     self.rnn_states[recurrent_submodule_name]['hidden'][idx][batch_idx+1:,...]],
+                     dim=0)
+                self.rnn_states[recurrent_submodule_name]['cell'][idx] = torch.cat(
+                    [self.rnn_states[recurrent_submodule_name]['cell'][idx][:batch_idx,...], 
+                     self.rnn_states[recurrent_submodule_name]['cell'][idx][batch_idx+1:,...]],
+                     dim=0)
+                
+    '''
+    def _pre_process_rnn_states(self):
+        if self.rnn_states is None: self._reset_rnn_states()
+
+        if self.algorithm.kwargs['use_cuda']:
+            for recurrent_submodule_name in self.rnn_states:
+                if self.rnn_states[recurrent_submodule_name] is None: continue
+                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
+                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
+    '''
+
+    @staticmethod
+    def _extract_from_rnn_states(rnn_states_batched: dict, batch_idx: int):
+        rnn_states = {k: {'hidden':[], 'cell':[]} for k in rnn_states_batched}
+        for recurrent_submodule_name in rnn_states_batched:
+            if rnn_states[recurrent_submodule_name] is None: continue
+            for idx in range(len(rnn_states_batched[recurrent_submodule_name]['hidden'])):
+                rnn_states[recurrent_submodule_name]['hidden'].append( rnn_states_batched[recurrent_submodule_name]['hidden'][idx][batch_idx,...].unsqueeze(0))
+                rnn_states[recurrent_submodule_name]['cell'].append( rnn_states_batched[recurrent_submodule_name]['cell'][idx][batch_idx,...].unsqueeze(0))
+        return rnn_states
+
+    def _post_process(self, prediction):
+        for k, v in prediction.items():
+            if isinstance(v, dict):
+                for vk in v:
+                    hs, cs = v[vk]['hidden'], v[vk]['cell']
+                    for idx in range(len(hs)):
+                        hs[idx] = hs[idx].detach().cpu()
+                        cs[idx] = cs[idx].detach().cpu()
+                    prediction[k][vk] = {'hidden': hs, 'cell': cs}
+            else:
+                prediction[k] = v.detach().cpu()
+        
+        return prediction
+
+    @staticmethod
+    def _extract_from_prediction(prediction: dict, batch_idx: int):
+        out_pred = dict()
+        for k, v in prediction.items():
+            if isinstance(v, dict):
+                continue
+            out_pred[k] = v[batch_idx,...].unsqueeze(0)
+        return out_pred
+
+    def handle_experience(self, s, a, r, succ_s, done):
+        '''
+        Note: the batch size may differ from the nbr_actor as soon as some
+        actors' episodes end before the others...
+
+        :param s: numpy tensor of states of shape batch x state_shape.
+        :param a: numpy tensor of actions of shape batch x action_shape.
+        :param r: numpy tensor of rewards of shape batch x reward_shape.
+        :param succ_s: numpy tensor of successive states of shape batch x state_shape.
+        :param done: list of boolean (batch=nbr_actor) x state_shape.
+        '''
         if not self.training: return
-        self.handled_experiences += 1
+        
+        state, r, succ_state, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
+        a = torch.from_numpy(a)
+        # batch x ...
 
-        state, reward, succ_s, non_terminal = self.preprocess_environment_signals(s, r, succ_s, done)
-        self.update_experience_storages(state, a, reward, succ_s, non_terminal, self.current_prediction)
+        # We assume that this function has been called directly after take_action:
+        # therefore the current prediction correspond to this experience.
 
-        if (self.handled_experiences % self.algorithm.environment_model_update_horizon) == 0:
-            self.algorithm.train_environment_model()
-        if (self.handled_experiences % self.algorithm.distill_policy_update_horizon) == 0:
-            self.algorithm.train_distill_policy()
-        if (self.handled_experiences % self.algorithm.model_update_horizon) == 0:
-            self.algorithm.train_i2a_model()
+        batch_index = -1
+        done_actors_among_notdone = []
+        for actor_index in range(self.nbr_actor):
+            # If this actor is already done with its episode:  
+            if self.previously_done_actors[actor_index]:
+                continue
+            # Otherwise, there is bookkeeping to do:
+            batch_index +=1
+            
+            # Bookkeeping of the actors whose episode just ended:
+            if done[actor_index] and not(self.previously_done_actors[actor_index]):
+                done_actors_among_notdone.append(batch_index)
+            
+            actor_s = state[batch_index,...].unsqueeze(0)
+            actor_a = a[batch_index,...].unsqueeze(0)
+            actor_r = r[batch_index,...].unsqueeze(0)
+            actor_succ_s = succ_state[batch_index,...].unsqueeze(0)
+            # Watch out for the miss-match: done is a list of nbr_actor booleans,
+            # which is not sync with batch_index, purposefully...
+            actor_non_terminal = non_terminal[actor_index,...].unsqueeze(0)
 
-    def preprocess_environment_signals(self, state, reward, succ_s, done):
+            actor_prediction = I2AAgent._extract_from_prediction(self.current_prediction, batch_index)
+            
+            rnd_dict = dict()
+            if self.use_rnd:
+                int_reward, target_int_f = self.algorithm.compute_intrinsic_reward(actor_s)
+                rnd_dict = {'int_r':int_reward, 'target_int_f':target_int_f}
+
+            if self.recurrent:
+                actor_prediction['rnn_states'] = I2AAgent._extract_from_rnn_states(self.current_prediction['rnn_states'],batch_index)
+                actor_prediction['next_rnn_states'] = I2AAgent._extract_from_rnn_states(self.current_prediction['next_rnn_states'],batch_index)
+            
+            self.update_experience_storage( storage_idx=actor_index, 
+                                            state=actor_s,
+                                            action=actor_a,
+                                            reward=actor_r,
+                                            succ_s=actor_succ_s,
+                                            notdone=actor_non_terminal,
+                                            current_prediction=actor_prediction,
+                                            rnd_dict=rnd_dict)
+            
+            self.previously_done_actors[actor_index] = done[actor_index]
+            self.handled_experiences +=1
+
+        if len(done_actors_among_notdone):
+            # Regularization of the agents' actors:
+            done_actors_among_notdone.sort(reverse=True)
+            for batch_idx in done_actors_among_notdone:
+                self.update_actors(batch_idx=batch_idx)
+        
+        if self.training:
+            if (self.handled_experiences % self.algorithm.environment_model_update_horizon*self.nbr_actor) == 0:
+                self.algorithm.train_environment_model()
+            if (self.handled_experiences % self.algorithm.distill_policy_update_horizon*self.nbr_actor) == 0:
+                self.algorithm.train_distill_policy()
+            if (self.handled_experiences % self.algorithm.model_update_horizon*self.nbr_actor) == 0:
+                self.algorithm.train_i2a_model()
+                if self.save_path is not None: torch.save(self, self.save_path)
+
+    def preprocess_environment_signals(self, state, reward, succ_state, done):
         '''
         Preprocesses the various environment signals collected by the agent,
         and given as :params: to this function, to be used by the agent's learning algorithm.
         :returns: preprocessed state, reward, successor_state and done input paramters
         '''
-        state = self.preprocess_function(state, use_cuda=self.algorithm.use_cuda)
-        succ_s = self.preprocess_function(succ_s, use_cuda=self.algorithm.use_cuda)
-        reward = torch.Tensor([reward])
-        non_terminal = torch.Tensor([1 - int(done)])
-        return state, reward, succ_s, non_terminal
+        non_terminal = torch.from_numpy(1 - np.array(done)).type(torch.FloatTensor)
+        s = self.preprocess_function(state, use_cuda=False)
+        succ_s = self.preprocess_function(succ_state, use_cuda=False)
+        if succ_s.dtype != torch.float32 or s.dtype != torch.float32: raise 
+        if isinstance(reward, np.ndarray): r = torch.from_numpy(reward).type(torch.FloatTensor)
+        else: r = torch.ones(1).type(torch.FloatTensor)*reward
+        return s, r, succ_s, non_terminal
 
-    def _post_process(self, prediction):
-        if self.recurrent:
-            for k, v in prediction.items():
-                if isinstance(v, dict):
-                    for vk in v:
-                        hs, cs = v[vk]['hidden'], v[vk]['cell']
-                        for idx in range(len(hs)):
-                            hs[idx] = hs[idx].detach().cpu()
-                            cs[idx] = cs[idx].detach().cpu()
-                        prediction[k][vk] = {'hidden': hs, 'cell': cs}
-                else:
-                    prediction[k] = v.detach().cpu()
-        else:
-            prediction = {k: v.detach().cpu() for k, v in prediction.items()}
-        return prediction
-
-    def update_experience_storages(self, state: torch.Tensor, action: torch.Tensor,
+    def update_experience_storage(self, storage_idx: int,
+                                   state: torch.Tensor, action: torch.Tensor,
                                    reward: torch.Tensor, succ_s: torch.Tensor,
-                                   done: torch.Tensor, current_prediction: Dict[str, object]):
+                                   notdone: torch.Tensor, current_prediction: Dict[str, object],
+                                   rnd_dict: Dict[str, object]):
         '''
         Adds the already preprocessed state signals to the different storage buffers
         used by the underlying I2AAlgorithm. In the current version a separate storage
@@ -96,29 +267,40 @@ class I2AAgent():
                                            'a': current_prediction['a'],
                                            'r': reward,
                                            'succ_s': succ_s,
-                                           'non_terminal': done}
-        self.algorithm.environment_model_storage.add(environment_model_relevant_info)
+                                           'non_terminal': notdone}
+        if self.use_rnd:
+            int_r = rnd_dict['int_r']*self.algorithm.kwargs['rnd_loss_int_ratio']
+            int_r /= self.algorithm.model_training_algorithm.int_reward_std+1e-8
+            environment_model_relevant_info['r'] += int_r
+        #environment_model_relevant_info.update(rnd_dict)
+        self.algorithm.environment_model_storages[storage_idx].add(environment_model_relevant_info)
 
         distill_policy_relevant_info = {'s': state,
                                         'a': current_prediction['a']}
         distill_policy_relevant_info.update(current_prediction)
-        self.algorithm.distill_policy_storage.add(distill_policy_relevant_info)
+        distill_policy_relevant_info.update(rnd_dict)
+        self.algorithm.distill_policy_storages[storage_idx].add(distill_policy_relevant_info)
 
         model_relevant_info = {'s': state,
                                'r': reward,
                                'succ_s': succ_s,
-                               'non_terminal': done}
+                               'non_terminal': notdone}
         model_relevant_info.update(current_prediction)
-        self.algorithm.model_training_algorithm.storage.add(model_relevant_info)
+        model_relevant_info.update(rnd_dict)
+        self.algorithm.model_training_algorithm.storages[storage_idx].add(model_relevant_info)
+        
+        '''
         if self.training and self.handled_experiences % self.algorithm.kwargs['horizon'] == 0:
             next_prediction = self._post_process(self._make_prediction(succ_s))
-            self.algorithm.model_training_algorithm.storage.add(next_prediction)
+            self.algorithm.model_training_algorithm.storages[storage_idx].add(next_prediction)
+        '''
 
-    def take_action(self, state):
+    def take_action(self, state: np.ndarray) -> np.ndarray:
         preprocessed_state = self.preprocess_function(state, use_cuda=self.use_cuda)
-        self.current_prediction = self._make_prediction(preprocessed_state)
+        # The I2A model will take care of its own rnn state:
+        self.current_prediction = self.algorithm.take_action(preprocessed_state)
         self.current_prediction = self._post_process(self.current_prediction)
-        return self.current_prediction['a'].item()
+        return self.current_prediction['a'].numpy()
 
     def _make_prediction(self, preprocessed_state: torch.Tensor) -> Dict[str, object]:
         prediction = self.algorithm.take_action(preprocessed_state)
@@ -138,7 +320,7 @@ def build_environment_model(task, kwargs: Dict[str, object]) -> EnvironmentModel
 
     :returns: torch.nn.Module which approximates a transition probability function
     '''
-    if kwargs['environment_model_arch'] == 'CNN':
+    if kwargs['environment_model_arch'] == 'Sokoban':
         conv_dim = kwargs['environment_model_channels'][0]
         model = EnvironmentModel(observation_shape=kwargs['preprocessed_observation_shape'],
                                  num_actions=task.action_dim,
@@ -180,7 +362,7 @@ def build_actor_critic_head(task, input_dim, kwargs: Dict[str, object]) -> nn.Mo
     phi_body = choose_architecture(architecture=kwargs['achead_phi_arch'],
                                    input_dim=input_dim,
                                    hidden_units_list=kwargs['achead_phi_nbr_hidden_units'])
-    input_dim = phi_body.get_feature_size()
+    input_dim = phi_body.get_feature_shape()
     actor_body = choose_architecture(architecture=kwargs['achead_actor_arch'],
                                      input_dim=input_dim,
                                      hidden_units_list=kwargs['achead_actor_nbr_hidden_units'])
@@ -226,7 +408,7 @@ def build_rollout_encoder(task, kwargs: Dict[str, object]) -> nn.Module:
                                           kernels=kwargs['rollout_encoder_kernels'],
                                           strides=kwargs['rollout_encoder_strides'],
                                           paddings=kwargs['rollout_encoder_paddings'])
-    rollout_feature_encoder_input_dim = feature_encoder.get_feature_size()+kwargs['reward_size']
+    rollout_feature_encoder_input_dim = feature_encoder.get_feature_shape()+kwargs['reward_size']
     rollout_feature_encoder = nn.LSTM(input_size=rollout_feature_encoder_input_dim,
                                       hidden_size=kwargs['rollout_encoder_nbr_hidden_units'],
                                       num_layers=kwargs['rollout_encoder_nbr_rnn_layers'],
@@ -302,7 +484,8 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     :param agent_name: String identifier for the agent
     :param config: Dictionary whose entries contain hyperparameters for the A2C agents:
         - 'rollout_length': Number of steps to take in every imagined rollout (length of imagined rollouts)
-        - 'imagined_rollouts_per_step': Number of imagined trajectories to compute at each forward pass of the I2A (rephrase)
+        - 'imagined_rollouts_per_step': Number of imagined trajectories to compute at each inference of the I2A model.
+                                        If None (default), it will be replaced by the size of the action space of the task.
         - 'environment_update_horizon': (0, infinity) Number of timesteps that will elapse in between optimization calls.
         - 'policies_update_horizon': (0, infinity) Number of timesteps that will elapse in between optimization calls.
         - 'environment_model_learning_rate':
@@ -317,11 +500,15 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     # the horizon value used by this training algorithm ought to be set by
     # the hyperparamet 'model_update_horizon'...
     config['horizon'] = config['model_update_horizon']
-    
+    if config['imagined_rollouts_per_step'] is None: 
+        config['imagined_rollouts_per_step'] = task.action_dim
+
     # Assuming raw pixels input, the shape is dependant on the observation_resize_dim specified by the user:
     preprocess_function = partial(ResizeCNNPreprocessFunction, size=config['observation_resize_dim'])
-    config['preprocessed_observation_shape'] = [task.env.observation_space.shape[-1], config['observation_resize_dim'], config['observation_resize_dim']]
-
+    config['preprocessed_observation_shape'] = [task.observation_shape[-1], config['observation_resize_dim'], config['observation_resize_dim']]
+    if 'nbr_frame_stacking' in config:
+        config['preprocessed_observation_shape'][0] *= config['nbr_frame_stacking']
+            
     environment_model = build_environment_model(task, config)
 
     distill_policy = build_distill_policy(task, config)

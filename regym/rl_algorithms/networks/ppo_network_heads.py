@@ -14,7 +14,7 @@ from .ppo_network_bodies import DummyBody
 class VanillaNet(nn.Module, BaseNet):
     def __init__(self, output_dim, body):
         super(VanillaNet, self).__init__()
-        self.fc_head = layer_init(nn.Linear(body.feature_dim, output_dim))
+        self.fc_head = layer_init(nn.Linear(body.get_feature_shape(), output_dim))
         self.body = body
         self.to(Config.DEVICE)
 
@@ -27,8 +27,8 @@ class VanillaNet(nn.Module, BaseNet):
 class DuelingNet(nn.Module, BaseNet):
     def __init__(self, action_dim, body):
         super(DuelingNet, self).__init__()
-        self.fc_value = layer_init(nn.Linear(body.feature_dim, 1))
-        self.fc_advantage = layer_init(nn.Linear(body.feature_dim, action_dim))
+        self.fc_value = layer_init(nn.Linear(body.get_feature_shape(), 1))
+        self.fc_advantage = layer_init(nn.Linear(body.get_feature_shape(), action_dim))
         self.body = body
         self.to(Config.DEVICE)
 
@@ -43,7 +43,7 @@ class DuelingNet(nn.Module, BaseNet):
 class CategoricalNet(nn.Module, BaseNet):
     def __init__(self, action_dim, num_atoms, body):
         super(CategoricalNet, self).__init__()
-        self.fc_categorical = layer_init(nn.Linear(body.feature_dim, action_dim * num_atoms))
+        self.fc_categorical = layer_init(nn.Linear(body.get_feature_shape(), action_dim * num_atoms))
         self.action_dim = action_dim
         self.num_atoms = num_atoms
         self.body = body
@@ -60,7 +60,7 @@ class CategoricalNet(nn.Module, BaseNet):
 class QuantileNet(nn.Module, BaseNet):
     def __init__(self, action_dim, num_quantiles, body):
         super(QuantileNet, self).__init__()
-        self.fc_quantiles = layer_init(nn.Linear(body.feature_dim, action_dim * num_quantiles))
+        self.fc_quantiles = layer_init(nn.Linear(body.get_feature_shape(), action_dim * num_quantiles))
         self.action_dim = action_dim
         self.num_quantiles = num_quantiles
         self.body = body
@@ -76,9 +76,9 @@ class QuantileNet(nn.Module, BaseNet):
 class OptionCriticNet(nn.Module, BaseNet):
     def __init__(self, body, action_dim, num_options):
         super(OptionCriticNet, self).__init__()
-        self.fc_q = layer_init(nn.Linear(body.feature_dim, num_options))
-        self.fc_pi = layer_init(nn.Linear(body.feature_dim, num_options * action_dim))
-        self.fc_beta = layer_init(nn.Linear(body.feature_dim, num_options))
+        self.fc_q = layer_init(nn.Linear(body.get_feature_shape(), num_options))
+        self.fc_pi = layer_init(nn.Linear(body.get_feature_shape(), num_options * action_dim))
+        self.fc_beta = layer_init(nn.Linear(body.get_feature_shape(), num_options))
         self.num_options = num_options
         self.action_dim = action_dim
         self.body = body
@@ -98,17 +98,17 @@ class ActorCriticNet(nn.Module):
     def __init__(self, state_dim, action_dim, phi_body, actor_body, critic_body, use_intrinsic_critic=False):
         super(ActorCriticNet, self).__init__()
         if phi_body is None: phi_body = DummyBody(state_dim)
-        if actor_body is None: actor_body = DummyBody(phi_body.feature_shape)
-        if critic_body is None: critic_body = DummyBody(phi_body.feature_shape)
+        if actor_body is None: actor_body = DummyBody(phi_body.get_feature_shape())
+        if critic_body is None: critic_body = DummyBody(phi_body.get_feature_shape())
         self.phi_body = phi_body
         self.actor_body = actor_body
         self.critic_body = critic_body
-        self.fc_action = layer_init(nn.Linear(actor_body.feature_dim, action_dim), 1e-3)
-        self.fc_critic = layer_init(nn.Linear(critic_body.feature_dim, 1), 1e-3)
+        self.fc_action = layer_init(nn.Linear(actor_body.get_feature_shape(), action_dim), 1e-3)
+        self.fc_critic = layer_init(nn.Linear(critic_body.get_feature_shape(), 1), 1e-3)
 
         self.use_intrinsic_critic = use_intrinsic_critic
         self.fc_int_critic = None
-        if self.use_intrinsic_critic: self.fc_int_critic = layer_init(nn.Linear(critic_body.feature_dim, 1), 1e-3)
+        if self.use_intrinsic_critic: self.fc_int_critic = layer_init(nn.Linear(critic_body.get_feature_shape(), 1), 1e-3)
 
         self.actor_params = list(self.actor_body.parameters()) + list(self.fc_action.parameters())
         self.critic_params = list(self.critic_body.parameters()) + list(self.fc_critic.parameters())
@@ -222,6 +222,8 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                  use_intrinsic_critic=False):
         super(CategoricalActorCriticNet, self).__init__()
         self.use_intrinsic_critic = use_intrinsic_critic
+        self.state_dim = state_dim
+        self.action_dim = action_dim
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body,use_intrinsic_critic)
 
     def forward(self, obs, action=None, rnn_states=None):

@@ -1,7 +1,7 @@
-from regym.rl_algorithms.agents import build_PPO_Agent
+from regym.rl_algorithms.agents import build_I2A_Agent
 from regym.rl_loops.singleagent_loops import rl_loop
 from regym.environments import parse_environment
-from test_fixtures import ppo_rnd_config_dict_ma
+from test_fixtures import i2a_rnd_config_dict
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 import os 
@@ -10,7 +10,8 @@ import copy
 import random
 import torch
 
-offset_worker_id = 120
+offset_worker_id = 20
+torch.multiprocessing.set_start_method('forkserver')
 
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)
@@ -23,6 +24,7 @@ def check_path_for_agent(filepath):
         #setattr(agent, 'episode_count', offset_episode_count)
         print('==> loaded checkpoint {}'.format(filepath))
     return agent, offset_episode_count
+
 
 def update_configs(env_param2range, nbr_actors):
     env_configs = list()
@@ -46,26 +48,25 @@ def update_configs(env_param2range, nbr_actors):
         env_configs.append(env_config)
     return env_configs
 
-def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
+
+def test_train_i2a_rnd(i2a_rnd_config_dict):
     here = os.path.abspath(os.path.dirname(__file__))
     task = parse_environment(os.path.join(here, 'ObstacleTower/obstacletower'),
-                             nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'], 
-                             nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
-    #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
-    #logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
-    logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_NonEpisodic_cnn60phi256gru64_a8_b256_h256_3e-4_OTC_frameskip4/'
+                             nbr_parallel_env=i2a_rnd_config_dict['nbr_actor'], 
+                             nbr_frame_stacking=i2a_rnd_config_dict['nbr_frame_stacking'])
+    logdir = './test_i2a_rnd/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
-    save_path = os.path.join(logdir,'./ppo_rnd.agent')
+    save_path = os.path.join(logdir,'./i2a_rnd.agent')
 
     agent, offset_episode_count = check_path_for_agent(save_path)
-    if agent is None: agent = build_PPO_Agent(config=ppo_rnd_config_dict_ma, task=task, agent_name='PPO_RND_OTC')
+    if agent is None: agent = build_I2A_Agent(config=i2a_rnd_config_dict, task=task, agent_name='I2A_RND')
     agent.save_path = save_path
     nbr_episodes = 1e7
-    max_episode_length = 1e4
+    max_episode_length = 1e3
 
-    nbr_actors = ppo_rnd_config_dict_ma['nbr_actor']
+    nbr_actors = i2a_rnd_config_dict['nbr_actor']
     env_param2range = { 'tower-seed':       list(range(-1,101)),                #Sets the seed used to generate the tower. -1 corresponds to a random tower on every reset() call.
                         'starting-floor':   0,      #list(range(100)),          #Sets the starting floor for the agent on reset().
                         'total-floors':     100,    #list(range(1, 100))        #Sets the maximum number of possible floors in the tower.
@@ -100,7 +101,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
         for idx, (ext_ret, int_ret) in enumerate(zip(total_return, total_int_return)):
             sum_writer.add_scalar('Training/TotalReturn', ext_ret, i*len(trajectory)+idx)
             sum_writer.add_scalar('Training/TotalIntReturn', int_ret, i*len(trajectory)+idx)
-        
+
         sum_writer.add_scalar('Training/StdIntReturn', std_int_return, i)
         sum_writer.add_scalar('Training/StdExtReturn', std_ext_return, i)
 
@@ -127,4 +128,4 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
 if __name__ == '__main__':
     # https://pytorch.org/docs/master/multiprocessing.html#multiprocessing-cuda-sharing-details
     torch.multiprocessing.set_start_method('forkserver')
-    test_train_ppo_rnd(ppo_rnd_config_dict_ma())
+    test_train_i2a_rnd(i2a_rnd_config_dict())

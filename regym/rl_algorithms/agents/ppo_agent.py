@@ -35,6 +35,12 @@ class PPOAgent(object):
             self.recurrent = True
             self._reset_rnn_states()
 
+    def get_intrinsic_reward(self, actor_idx):
+        if len(self.algorithm.storages[actor_idx].int_r):
+            return self.algorithm.storages[actor_idx].int_r[-1]
+        else:
+            return 0.0
+
     def set_nbr_actor(self, nbr_actor):
         if nbr_actor != self.nbr_actor:
             self.nbr_actor = nbr_actor

@@ -2,9 +2,8 @@ from .networks import hard_update, soft_update
 from .networks import LeakyReLU
 from .networks import DQN, DuelingDQN
 from .networks import ActorNN, CriticNN
-from .ppo_network_heads import CategoricalActorCriticNet
+from .ppo_network_heads import CategoricalActorCriticNet, GaussianActorCriticNet
 from .ppo_network_bodies import FCBody, LSTMBody, GRUBody, ConvolutionalBody, ConvolutionalLstmBody, ConvolutionalGruBody
-from .ppo_network_heads import GaussianActorCriticNet
 from .utils import PreprocessFunction, CNNPreprocessFunction, ResizeCNNPreprocessFunction
 from .utils import random_sample
 
@@ -18,6 +17,7 @@ def choose_architecture( architecture,input_dim=None, hidden_units_list=None,
         return GRUBody(input_dim, hidden_units=hidden_units_list, gate=F.leaky_relu)
     if architecture == 'MLP':
         return FCBody(input_dim, hidden_units=hidden_units_list, gate=F.leaky_relu)
+    
     if architecture == 'CNN':
         channels = [input_shape[0]] + nbr_channels_list
         phi_body = ConvolutionalBody(input_shape=input_shape,
@@ -26,7 +26,6 @@ def choose_architecture( architecture,input_dim=None, hidden_units_list=None,
                                      kernel_sizes=kernels,
                                      strides=strides,
                                      paddings=paddings)
-
     if architecture == 'CNN-RNN':
         channels = [input_shape[0]] + nbr_channels_list
         phi_body = ConvolutionalLstmBody(input_shape=input_shape,
@@ -36,4 +35,4 @@ def choose_architecture( architecture,input_dim=None, hidden_units_list=None,
                                      strides=strides,
                                      paddings=paddings,
                                      hidden_units=hidden_units_list)
-        return phi_body
+    return phi_body

@@ -2,7 +2,7 @@ from typing import List
 import torch
 import torch.nn as nn
 from regym.rl_algorithms.I2A import ImaginationCore
-
+from regym.rl_algorithms.networks import CategoricalActorCriticNet
 
 class I2AModel(nn.Module):
     '''
@@ -58,6 +58,9 @@ class I2AModel(nn.Module):
         super(I2AModel, self).__init__()
 
         self.actor_critic_head = actor_critic_head
+        self.nbr_actions = None
+        if isinstance(actor_critic_head, CategoricalActorCriticNet):
+          self.nbr_actions = self.actor_critic_head.action_dim
         self.model_free_network = model_free_network
         self.aggregator = aggregator
         self.rollout_encoder = rollout_encoder
@@ -73,7 +76,8 @@ class I2AModel(nn.Module):
             self.recurrent = True
             self._reset_rnn_states()
 
-        if use_cuda: self = self.cuda()
+        self.use_cuda = use_cuda
+        if self.use_cuda: self = self.cuda()
 
     def forward(self, state: torch.Tensor, action=None, rnn_states=None):
         '''
@@ -86,48 +90,72 @@ class I2AModel(nn.Module):
                   :self.actor_critic_head.__forward__(): method
         '''
         rollout_embeddings = []
+        first_action = None
+        batch_size = state.size(0)
         for i in range(self.imagined_rollouts_per_step):
+            # 0. Create the first action batch:
+            if self.nbr_actions is not None and self.nbr_actions==self.imagined_rollouts_per_step: 
+              first_action = i*torch.ones((batch_size,1))
+              if self.use_cuda: first_action = first_action.cuda()
             # 1. Imagine state and reward for self.imagined_rollouts_per_step times
-            rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length)
+            rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length, first_action=first_action)
             # dimensions: self.rollout_length x batch x input_shape / reward-size
             # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
             rollout_embedding = self.rollout_encoder(rollout_states, rollout_rewards)
             # dimensions: batch x rollout_encoder_embedding_size
             rollout_embeddings.append(rollout_embedding.unsqueeze(1))
+            
         rollout_embeddings = torch.cat(rollout_embeddings, dim=1)
         # dimensions: batch x self.imagined_rollouts_per_step x rollout_encoder_embedding_size
         imagination_code = self.aggregator(rollout_embeddings)
+        if self.use_cuda: imagination_code = imagination_code.cuda()
+
         # dimensions: batch x self.imagined_rollouts_per_step*rollout_encoder_embedding_size
         # 3. model free pass
         features = self.model_free_network(state)
+        
         # dimensions: batch x model_free_feature_dim
         # 4. concatenate model free pass and imagination code
         imagination_code_features = torch.cat([imagination_code, features], dim=1)
+
         # 5. Final fully connected layer which turns into action.
         if self.recurrent:
             if rnn_states is None:
+                # Inference
                 self._pre_process_rnn_states()
                 rnn_states4achead, correspondance = self._remove_in_keys('achead_', self.rnn_states)
                 prediction = self.actor_critic_head(imagination_code_features, rnn_states=rnn_states4achead, action=action)
-                self._update_rnn_states(prediction, correspondance=correspondance)
+                prediction = self._regularize_keys(prediction, correspondance)
+                self._update_rnn_states(prediction)
             else:
-                prediction = self.actor_critic_head(imagination_code_features, rnn_states=rnn_states, action=action)
+                rnn_states4achead, correspondance = self._remove_in_keys('achead_', rnn_states)
+                prediction = self.actor_critic_head(imagination_code_features, rnn_states=rnn_states4achead, action=action)
+                prediction = self._regularize_keys(prediction, correspondance)
         else:
             prediction = self.actor_critic_head(imagination_code_features, action=action)
 
         return prediction
 
-    def _update_rnn_states(self, prediction, correspondance=None):
+    def _regularize_keys(self, prediction, correspondance):
         for recurrent_submodule_name in self.rnn_states:
+            if self.rnn_states[recurrent_submodule_name] is None: continue
             corr_name = correspondance[recurrent_submodule_name]
-            for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
-                self.rnn_states[recurrent_submodule_name]['hidden'][idx] = prediction['next_rnn_states'][corr_name]['hidden'][idx].cpu()
-                self.rnn_states[recurrent_submodule_name]['cell'][idx]   = prediction['next_rnn_states'][corr_name]['cell'][idx].cpu()
+            prediction['next_rnn_states'][recurrent_submodule_name] = prediction['next_rnn_states'].pop(corr_name)
+            prediction['rnn_states'][recurrent_submodule_name] = prediction['rnn_states'].pop(corr_name)
+        return prediction
 
+    def _update_rnn_states(self, prediction):
+        for recurrent_submodule_name in self.rnn_states:
+            if self.rnn_states[recurrent_submodule_name] is None: continue
+            for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
+                self.rnn_states[recurrent_submodule_name]['hidden'][idx] = prediction['next_rnn_states'][recurrent_submodule_name]['hidden'][idx].cpu()
+                self.rnn_states[recurrent_submodule_name]['cell'][idx]   = prediction['next_rnn_states'][recurrent_submodule_name]['cell'][idx].cpu()
+    
     def _pre_process_rnn_states(self, done=False):
         if done or self.rnn_states is None: self._reset_rnn_states()
         if self.use_cuda:
             for recurrent_submodule_name in self.rnn_states:
+                if self.rnn_states[recurrent_submodule_name] is None: continue
                 for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
                     self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
                     self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()

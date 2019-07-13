@@ -80,8 +80,9 @@ def run_episode_parallel(env, agent, training, max_episode_length=math.inf, env_
             pa_done = done[actor_index]
             pa_int_r = 0.0
             if agent.algorithm.use_rnd:
-                if len(agent.algorithm.storages[actor_index].int_r):
-                    pa_int_r = agent.algorithm.storages[actor_index].int_r[-1]
+                get_intrinsic_reward = getattr(agent, "get_intrinsic_reward", None)
+                if callable(get_intrinsic_reward):
+                    pa_int_r = agent.get_intrinsic_reward(actor_index)
             per_actor_trajectories[actor_index].append( (pa_obs, pa_a, pa_r, pa_int_r, pa_succ_obs, pa_done) )
 
         observations = copy.deepcopy(succ_observations)

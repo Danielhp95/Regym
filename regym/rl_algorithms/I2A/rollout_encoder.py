@@ -41,15 +41,16 @@ class RolloutEncoder(nn.Module):
         '''
 
         batch_size = states.size(1)
-
         # batching all the states of all the rollouts:
         states2encode = states[-self.nbr_states_to_encode:].view(-1, *(self.input_shape))
         rewards = rewards[-self.nbr_states_to_encode:]
 
+        if self.kwargs['use_cuda']: states2encode = states2encode.cuda()
         features = self.feature_encoder(states2encode)
         # reformating into nbr_states_to_encode x batch x feature_dim:
         features = features.view(self.nbr_states_to_encode, batch_size, -1)
 
+        if self.kwargs['use_cuda']: rewards = rewards.cuda()
         feat_rewards = torch.cat([features, rewards], dim=2)
         # reversing the rollouts:
         reversed_feat_rewards = torch.cat([feat_rewards[i].unsqueeze(0) for i in range(feat_rewards.size(0)-1, -1, -1)], dim=0)
@@ -60,4 +61,38 @@ class RolloutEncoder(nn.Module):
         # rollout_length x batch_size x hidden_size
         rollout_embeddings = self.fc_rollout_embeddings(outputs[-1].view(batch_size, -1))
         # batch x rollout_encoder_embedding_size
+        '''
+        rollout_embeddings = []
+        for b in range(batch_size):
+            states2encode = states[-self.nbr_states_to_encode:,b,...].view(-1, *(self.input_shape))
+            rewards2encode = rewards[-self.nbr_states_to_encode:,b,...].view(-1, 1, rewards.size(-1))
+
+            if self.kwargs['use_cuda']: states2encode = states2encode.cuda()
+            features = self.feature_encoder(states2encode)
+            del states2encode
+
+            # reformating into nbr_states_to_encode x batch=1 x feature_dim:
+            features = features.view(self.nbr_states_to_encode, 1, -1)
+
+            if self.kwargs['use_cuda']: rewards2encode = rewards2encode.cuda()
+            feat_rewards = torch.cat([features, rewards2encode], dim=2)
+            del rewards2encode 
+
+            # reversing the rollouts:
+            reversed_feat_rewards = torch.cat([feat_rewards[i].unsqueeze(0) for i in range(feat_rewards.size(0)-1, -1, -1)], dim=0)
+            del feat_rewards 
+
+            # Forward pass:
+            outputs, next_rnn_states = self.rollout_feature_encoder(reversed_feat_rewards)
+            del reversed_feat_rewards
+
+            # rollout_length x 1 x hidden_size
+            rollout_embedding = self.fc_rollout_embeddings(outputs[-1].view(1, -1))
+            rollout_embeddings.append( rollout_embedding.cpu())
+            # batch=1 x rollout_encoder_embedding_size
+            del rollout_embedding
+
+        rollout_embeddings = torch.cat(rollout_embeddings, dim=0)
+        '''
+                
         return rollout_embeddings

@@ -55,7 +55,7 @@ class ConvolutionalBody(nn.Module):
     def get_input_shape(self):
         return self.input_shape
 
-    def get_feature_size(self):
+    def get_feature_shape(self):
         return self.feature_dim
 
 
@@ -100,8 +100,8 @@ class ConvolutionalLstmBody(ConvolutionalBody):
     def get_input_shape(self):
         return self.input_shape
 
-    def get_feature_size(self):
-        return self.lstm_body.get_feature_size()
+    def get_feature_shape(self):
+        return self.lstm_body.get_feature_shape()
 
 
 class ConvolutionalGruBody(ConvolutionalBody):
@@ -145,8 +145,8 @@ class ConvolutionalGruBody(ConvolutionalBody):
     def get_input_shape(self):
         return self.input_shape
 
-    def get_feature_size(self):
-        return self.gru_body.get_feature_size()
+    def get_feature_shape(self):
+        return self.gru_body.get_feature_shape()
 
 
 class DDPGConvBody(nn.Module):
@@ -176,7 +176,7 @@ class FCBody(nn.Module):
             x = self.gate(layer(x))
         return x
 
-    def get_feature_size(self):
+    def get_feature_shape(self):
         return self.feature_dim
 
 class LSTMBody(nn.Module):
@@ -225,7 +225,7 @@ class LSTMBody(nn.Module):
             cell_states.append(h)
         return {'hidden': hidden_states, 'cell': cell_states}
 
-    def get_feature_size(self):
+    def get_feature_shape(self):
         return self.feature_dim
 
 
@@ -275,7 +275,7 @@ class GRUBody(nn.Module):
             cell_states.append(h)
         return {'hidden': hidden_states, 'cell': cell_states}
 
-    def get_feature_size(self):
+    def get_feature_shape(self):
         return self.feature_dim
 
 
@@ -311,6 +311,9 @@ class DummyBody(nn.Module):
     def __init__(self, state_shape):
         super(DummyBody, self).__init__()
         self.feature_shape = state_shape
+
+    def get_feature_shape(self):
+        return self.feature_shape
 
     def forward(self, x):
         return x

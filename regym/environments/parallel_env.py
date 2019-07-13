@@ -91,7 +91,7 @@ class ParallelEnv():
         p = Process(target=env_worker, args=(self.env_creator, *(self.env_queues[idx].values()), self.worker_ids[idx]+worker_id_offset) )
         p.start()
         self.env_processes[idx] = p
-        time.sleep(2)
+        time.sleep(10)
 
     def clean(self, idx):
         self.env_processes[idx].terminate()

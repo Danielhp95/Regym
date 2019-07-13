@@ -85,17 +85,16 @@ class PPOAlgorithm():
 
     def train(self):
         for idx, storage in enumerate(self.storages): 
-            # Check that there is something in the storage 
             if len(storage) == 0: continue
             storage.placeholder()
             self.compute_advantages_and_returns(storage_idx=idx)
-            if self.use_rnd: self.compute_int_advantages_and_int_returns(storage_idx=idx)
+            if self.use_rnd: self.compute_int_advantages_and_int_returns(storage_idx=idx, non_episodic=self.kwargs['rnd_non_episodic_int_r'])
 
         states, actions, log_probs_old, returns, advantages, ext_v_old, int_v_old, int_returns, int_advantages, target_random_features, rnn_states = self.retrieve_values_from_storages()
 
         if self.recurrent: rnn_states = self.reformat_rnn_states(rnn_states)
 
-        for _ in range(self.kwargs['optimization_epochs']):
+        for it in range(self.kwargs['optimization_epochs']):
             self.optimize_model(states, actions, log_probs_old, returns, advantages, ext_v_old, int_v_old, int_returns, int_advantages, target_random_features, rnn_states)
 
         if self.use_rnd: 
@@ -143,7 +142,7 @@ class PPOAlgorithm():
             self.storages[storage_idx].adv[i] = advantages.detach()
             self.storages[storage_idx].ret[i] = returns.detach()
 
-    def compute_int_advantages_and_int_returns(self, storage_idx):
+    def compute_int_advantages_and_int_returns(self, storage_idx, non_episodic=True):
         '''
         Compute intrinsic returns and advantages from normalized intrinsic rewards.
         Indeed, int_r values in storages have been normalized upon computation.
@@ -154,7 +153,10 @@ class PPOAlgorithm():
         int_returns = self.storages[storage_idx].int_v[-1].detach()
         for i in reversed(range(len(self.storages[storage_idx])-1)):
             #int_returns = self.storages[storage_idx].int_r[i] + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] * int_returns
-            int_returns = norm_int_r[i] + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] * int_returns
+            if non_episodic:
+                int_returns = norm_int_r[i] + self.kwargs['intrinsic_discount'] * int_returns
+            else:
+                int_returns = norm_int_r[i] + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] * int_returns
             if not self.kwargs['use_gae']:
                 int_advantages = int_returns - self.storages[storage_idx].int_v[i].detach()
             else:
