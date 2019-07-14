@@ -27,6 +27,7 @@ class ImaginationCore():
         batch_size = initial_observation.size(0)
         state = initial_observation
         rollout_states  = []
+        rollout_actions  = []
         rollout_rewards = []
         for step in range(num_steps):
             # roll forward using self.distill_policy to act in self.environment_model:
@@ -67,12 +68,14 @@ class ImaginationCore():
             next_state, reward = self.environment_model(state, action)
             next_state = next_state.cpu()
             reward = reward.cpu()
-
+            action = action.cpu()
+            
             # append a new state and reward into rollout_states and rollout_rewards:
             rollout_states.append(next_state.unsqueeze(0))
+            rollout_actions.append(action.unsqueeze(0))
             rollout_rewards.append(reward.unsqueeze(0))
 
             state = next_state
 
         # rollout_length x batch x state_shape / reward_size
-        return torch.cat(rollout_states, dim=0), torch.cat(rollout_rewards, dim=0)
+        return torch.cat(rollout_states, dim=0), torch.cat(rollout_actions, dim=0), torch.cat(rollout_rewards, dim=0)

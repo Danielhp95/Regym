@@ -98,19 +98,24 @@ class I2AModel(nn.Module):
               first_action = i*torch.ones((batch_size,1))
               if self.use_cuda: first_action = first_action.cuda()
             # 1. Imagine state and reward for self.imagined_rollouts_per_step times
-            rollout_states, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length, first_action=first_action)
-            # dimensions: self.rollout_length x batch x input_shape / reward-size
+            rollout_states, rollout_actions, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length, first_action=first_action)
+            # dimensions: self.rollout_length x batch x input_shape / action / reward-size
             # 2. encode them with RolloutEncoder and use aggregator to concatenate them together into imagination code
             rollout_embedding = self.rollout_encoder(rollout_states, rollout_rewards)
             # dimensions: batch x rollout_encoder_embedding_size
-            rollout_embeddings.append(rollout_embedding.unsqueeze(1))
+            firstactions = rollout_actions[0]
+            # (batch x 1)
+            onehot_firstactions = self._onehot_encode_actions(firstactions)
+            # (batch x nbr_actions) 
+            rollout_embedding_firstaction = torch.cat([rollout_embedding, onehot_firstactions], dim=1)
+            # dimensions: batch x (rollout_encoder_embedding_size+nbr_actions)
+            rollout_embeddings.append(rollout_embedding_firstaction.unsqueeze(1))
             
         rollout_embeddings = torch.cat(rollout_embeddings, dim=1)
-        # dimensions: batch x self.imagined_rollouts_per_step x rollout_encoder_embedding_size
+        # dimensions: batch x self.imagined_rollouts_per_step x (rollout_encoder_embedding_size+nbr_actions)
         imagination_code = self.aggregator(rollout_embeddings)
         if self.use_cuda: imagination_code = imagination_code.cuda()
-
-        # dimensions: batch x self.imagined_rollouts_per_step*rollout_encoder_embedding_size
+        # dimensions: batch x self.imagined_rollouts_per_step*(rollout_encoder_embedding_size+nbr_actions)
         # 3. model free pass
         features = self.model_free_network(state)
         
@@ -136,6 +141,17 @@ class I2AModel(nn.Module):
 
         return prediction
 
+    def _onehot_encode_actions(self, action):
+      '''
+      :param action: tensor of shape (batch x 1)
+      '''
+      batch_size = action.size(0)
+      action = action.long()
+      onehot_actions = torch.zeros( batch_size, self.nbr_actions)
+      if self.use_cuda: onehot_actions = onehot_actions.cuda()
+      onehot_actions[range(batch_size), action] = 1
+      return onehot_actions
+      
     def _regularize_keys(self, prediction, correspondance):
         for recurrent_submodule_name in self.rnn_states:
             if self.rnn_states[recurrent_submodule_name] is None: continue

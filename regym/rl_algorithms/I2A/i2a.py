@@ -200,6 +200,6 @@ class I2AAlgorithm():
                                               action=sampled_actions,
                                               rnn_states=sampled_rnn_states)
 
-            loss += 0.01 * (F.softmax(model_prediction['action_logits']).detach() * F.log_softmax(distill_prediction['action_logits'], dim=1)).sum(1).mean()
+            loss += 0.01 * (F.softmax(model_prediction['action_logits'], dim=1).detach() * F.log_softmax(distill_prediction['action_logits'], dim=1)).sum(1).mean()
 
         return loss

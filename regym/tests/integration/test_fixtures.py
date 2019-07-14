@@ -172,11 +172,11 @@ def i2a_config_dict():
 def i2a_rnd_config_dict():
     config = dict()
     config['nbr_frame_stacking'] = 4
-    config['rollout_length'] = 2
+    config['rollout_length'] = 3
     config['rollout_encoder_nbr_state_to_encode'] = 5
     config['reward_size'] = 1
-    config['imagined_rollouts_per_step'] = None
-    config['nbr_actor'] = 2
+    config['imagined_rollouts_per_step'] = 5
+    config['nbr_actor'] = 8
     
     # Assuming CNN task:
     config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
@@ -186,7 +186,7 @@ def i2a_rnd_config_dict():
     
     config['use_cuda'] = True
 
-    config['environment_model_learning_rate'] = 1.0e-3
+    config['environment_model_learning_rate'] = 3.0e-4
     config['environment_model_adam_eps'] = 1.0e-5
     config['policies_adam_learning_rate'] = 3.0e-4
     config['policies_adam_eps'] = 1.0e-5
@@ -206,7 +206,7 @@ def i2a_rnd_config_dict():
     config['adam_eps'] = 1.0e-5
 
     # Environment Model: Architecture description:
-    config['environment_model_update_horizon'] = 256
+    config['environment_model_update_horizon'] = 128
     config['environment_model_gradient_clip'] = 5
     config['environment_model_batch_size'] = 32
     config['environment_model_optimization_epochs'] = 10
@@ -240,9 +240,9 @@ def i2a_rnd_config_dict():
     # Rollout Encoder:
     # Recurrent Convolutional Architecture:
     config['rollout_encoder_model_arch'] = 'CNN-GRU-RNN'
-    config['rollout_encoder_channels'] = [16, 32, 64]
+    config['rollout_encoder_channels'] = [32, 32, 64]
     config['rollout_encoder_kernels'] = [8, 4, 3]
-    config['rollout_encoder_strides'] = [8, 2, 1]
+    config['rollout_encoder_strides'] = [4, 2, 1]
     config['rollout_encoder_paddings'] = [0, 1, 1]
     config['rollout_encoder_feature_dim'] = 512
     config['rollout_encoder_nbr_hidden_units'] = 256
@@ -257,17 +257,17 @@ def i2a_rnd_config_dict():
         
 
     # Distilled Policy:
-    config['distill_policy_update_horizon'] = 256
+    config['distill_policy_update_horizon'] = 128
     config['distill_policy_gradient_clip'] = 5
-    config['distill_policy_batch_size'] = 8
-    config['distill_policy_optimization_epochs'] = 10
+    config['distill_policy_batch_size'] = 32
+    config['distill_policy_optimization_epochs'] = 4
     # Convolutional architecture:
     config['distill_policy_arch'] = 'CNN'
-    config['distill_policy_channels'] = [16, 32, 64]
+    config['distill_policy_channels'] = [32, 32, 64]
     config['distill_policy_kernels'] = [8, 4, 3]
-    config['distill_policy_strides'] = [8, 2, 1]
+    config['distill_policy_strides'] = [4, 2, 1]
     config['distill_policy_paddings'] = [0, 1, 1]
-    config['distill_policy_feature_dim'] = 512
+    config['distill_policy_feature_dim'] = 256
     # Fully-Connected architecture:
     '''
     config['distill_policy_arch'] = 'MLP'
@@ -279,14 +279,14 @@ def i2a_rnd_config_dict():
 
 
     # Model :
-    config['model_update_horizon'] = 256
+    config['model_update_horizon'] = 128
     # Model-Free Path: Convolutional architecture:
     config['model_free_network_arch'] = 'CNN'
-    config['model_free_network_channels'] = [32, 32, 64]
+    config['model_free_network_channels'] = [32, 64, 64]
     config['model_free_network_kernels'] = [8, 4, 3]
-    config['model_free_network_strides'] = [8, 2, 1]
+    config['model_free_network_strides'] = [4, 2, 1]
     config['model_free_network_paddings'] = [0, 1, 1]
-    config['model_free_network_feature_dim'] = 512
+    config['model_free_network_feature_dim'] = 256
     # Model-Free Path: Fully Connected architecture description
     config['model_free_network_nbr_hidden_units'] = None
     # Actor Critic Head:
@@ -304,12 +304,13 @@ def i2a_rnd_config_dict():
     config['rnd_obs_clip'] = 5
     config['rnd_non_episodic_int_r'] = True
     config['rnd_update_period_running_meanstd_int_reward'] = 1e5
-    # Convolutional Architecture:
-    config['rnd_arch_channels'] = [32, 32, 32]
-    config['rnd_arch_kernels'] = [6, 4, 3]
-    config['rnd_arch_strides'] = [6, 2, 1]
+    # RND Convolutional Architecture:
+    config['rnd_arch'] = 'CNN'
+    config['rnd_arch_channels'] = [32, 64, 64]
+    config['rnd_arch_kernels'] = [8, 4, 3]
+    config['rnd_arch_strides'] = [4, 2, 1]
     config['rnd_arch_paddings'] = [0, 1, 1]
-    config['rnd_arch_feature_dim'] = 256
+    config['rnd_arch_feature_dim'] = 512
     # RND Fully-Connected Architecture:
     '''
     config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)

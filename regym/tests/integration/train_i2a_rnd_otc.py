@@ -10,8 +10,35 @@ import copy
 import random
 import torch
 
-offset_worker_id = 20
-torch.multiprocessing.set_start_method('forkserver')
+import numpy as np 
+import matplotlib.pyplot as plt 
+import matplotlib.animation as anim
+import time
+
+offset_worker_id = 80
+gif_interval = 100
+
+
+def make_gif(trajectory, episode=0, actor_idx=0, path='./'):
+    fig = plt.figure()
+    imgs = []
+    for state in trajectory:
+        if state.shape[-1] == 12:
+            # handled Stacked images...
+            per_image_first_channel_indices = range(0,state.shape[-1]+1,3)
+            ims = [ state[...,idx_begin:idx_end] for idx_begin, idx_end in zip(per_image_first_channel_indices,per_image_first_channel_indices[1:])]
+            for img in ims:
+                imgs.append( img)
+        else:
+            imgs.append(state)
+
+    for idx,img in enumerate(imgs):
+        imgs[idx] = [plt.imshow(img, animated=True)]
+        
+    gif = anim.ArtistAnimation(fig, imgs, interval=200, blit=True, repeat_delay=None)
+    path = os.path.join(path, f'./traj-ep{episode}-actor{actor_idx}.gif')
+    gif.save(path, dpi=20, writer='imagemagick')
+
 
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)
@@ -50,11 +77,13 @@ def update_configs(env_param2range, nbr_actors):
 
 
 def test_train_i2a_rnd(i2a_rnd_config_dict):
+    global gif_interval
     here = os.path.abspath(os.path.dirname(__file__))
     task = parse_environment(os.path.join(here, 'ObstacleTower/obstacletower'),
                              nbr_parallel_env=i2a_rnd_config_dict['nbr_actor'], 
                              nbr_frame_stacking=i2a_rnd_config_dict['nbr_frame_stacking'])
-    logdir = './test_i2a_rnd/'
+    #logdir = './test_i2a_rnd/'
+    logdir = './test_10floors0_Theme0_LABC-light_gru_i2a_5rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b32_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -64,12 +93,12 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
     if agent is None: agent = build_I2A_Agent(config=i2a_rnd_config_dict, task=task, agent_name='I2A_RND')
     agent.save_path = save_path
     nbr_episodes = 1e7
-    max_episode_length = 1e3
+    max_episode_length = 1e5
 
     nbr_actors = i2a_rnd_config_dict['nbr_actor']
     env_param2range = { 'tower-seed':       list(range(-1,101)),                #Sets the seed used to generate the tower. -1 corresponds to a random tower on every reset() call.
                         'starting-floor':   0,      #list(range(100)),          #Sets the starting floor for the agent on reset().
-                        'total-floors':     100,    #list(range(1, 100))        #Sets the maximum number of possible floors in the tower.
+                        'total-floors':     10,    #list(range(1, 100))        #Sets the maximum number of possible floors in the tower.
                         'dense-reward':     0,      #(0, 1)                     #Whether to use the sparse (0) or dense (1) reward function.
                         'lighting-type':    [0, 1, 2],                          #Whether to use no realtime light (0), a single realtime light with minimal color variations (1), or a realtime light with large color variations (2).
                         'visual-theme':     0,      #[0, 1, 2],                 #Whether to use only the default-theme (0), the normal ordering or themes (1), or a random theme every floor (2).
@@ -77,7 +106,7 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
                         'allowed-rooms':    2,      #(0, 1, 2),                 #Whether to use only normal rooms (0), normal and key rooms (1), or normal, key, and puzzle rooms (2).
                         'allowed-modules':  2,      #(0, 1, 2),                 #Whether to fill rooms with no modules (0), only easy modules (1), or the full range of modules (2).
                         'allowed-floors':   0,      #[0, 1, 2],                          #Whether to include only straightforward floor layouts (0), layouts that include branching (1), or layouts that include branching and circling (2).
-                        'default-theme':    [0, 1, 2, 3, 4]                     #Whether to set the default theme to Ancient (0), Moorish (1), Industrial (2), Modern (3), or Future (4).
+                        'default-theme':    0 #[0, 1, 2, 3, 4]                     #Whether to set the default theme to Ancient (0), Moorish (1), Industrial (2), Modern (3), or Future (4).
                         }
     
     # PARAMETERS with curriculum since they only include straightforward floors...
@@ -118,6 +147,15 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
         # Update configs:
         env_configs = update_configs(env_param2range, nbr_actors)
         agent.episode_count += 1
+
+        if i%gif_interval == 0:
+            for actor_idx in range(nbr_actors): 
+                gif_traj = [ exp[0] for exp in trajectory[actor_idx]]
+                begin = time.time()
+                make_gif(gif_traj, episode=i, actor_idx=actor_idx, path=logdir)
+                end = time.time()
+                eta = end-begin
+                print(f'Time: {eta} sec.')
 
     task.env.close()
 

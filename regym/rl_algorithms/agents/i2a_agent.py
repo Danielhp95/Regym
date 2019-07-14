@@ -75,6 +75,9 @@ class I2AAgent():
         if self.recurrent:
             self._reset_rnn_states()
 
+    def _reset_rnn_states(self):
+        self.algorithm.i2a_model._reset_rnn_states()
+
     def update_actors(self, batch_idx):
         '''
         In case of a multi-actor process, this function is called to handle
@@ -94,9 +97,6 @@ class I2AAgent():
         if self.recurrent:
             self.remove_from_rnn_states(batch_idx=batch_idx)
 
-    def _reset_rnn_states(self):
-        self.algorithm.i2a_model._reset_rnn_states()
-
     def remove_from_rnn_states(self, batch_idx):
         '''
         Remove a row(=batch) of data from the rnn_states.
@@ -114,18 +114,6 @@ class I2AAgent():
                      self.rnn_states[recurrent_submodule_name]['cell'][idx][batch_idx+1:,...]],
                      dim=0)
                 
-    '''
-    def _pre_process_rnn_states(self):
-        if self.rnn_states is None: self._reset_rnn_states()
-
-        if self.algorithm.kwargs['use_cuda']:
-            for recurrent_submodule_name in self.rnn_states:
-                if self.rnn_states[recurrent_submodule_name] is None: continue
-                for idx in range(len(self.rnn_states[recurrent_submodule_name]['hidden'])):
-                    self.rnn_states[recurrent_submodule_name]['hidden'][idx] = self.rnn_states[recurrent_submodule_name]['hidden'][idx].cuda()
-                    self.rnn_states[recurrent_submodule_name]['cell'][idx]   = self.rnn_states[recurrent_submodule_name]['cell'][idx].cuda()
-    '''
-
     @staticmethod
     def _extract_from_rnn_states(rnn_states_batched: dict, batch_idx: int):
         rnn_states = {k: {'hidden':[], 'cell':[]} for k in rnn_states_batched}
@@ -270,6 +258,7 @@ class I2AAgent():
                                            'non_terminal': notdone}
         if self.use_rnd:
             int_r = rnd_dict['int_r']*self.algorithm.kwargs['rnd_loss_int_ratio']
+            # Normalization of intrinsic reward:
             int_r /= self.algorithm.model_training_algorithm.int_reward_std+1e-8
             environment_model_relevant_info['r'] += int_r
         #environment_model_relevant_info.update(rnd_dict)
@@ -435,7 +424,7 @@ class concat_aggr(object):
 def build_aggregator(task):
     '''
     input dimensions to the aggregator:
-    batch x imagined_rollouts_per_step x rollout_embedding_size
+    batch x imagined_rollouts_per_step x (rollout_embedding_size+nbr_action)
     returns: aggregator class/function to be used as part of a I2AModel
     '''
     aggr_fn = concat_aggr()
@@ -521,7 +510,7 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     aggregator = build_aggregator(task)
     model_free_network = build_model_free_network(config)
 
-    actor_critic_input_dim = config['model_free_network_feature_dim']+config['rollout_encoder_embedding_size']*config['imagined_rollouts_per_step']
+    actor_critic_input_dim = config['model_free_network_feature_dim']+(config['rollout_encoder_embedding_size']+task.action_dim)*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
 
     recurrent_submodule_names = [key for key, value in config.items() if isinstance(value, str) and 'RNN' in value]
