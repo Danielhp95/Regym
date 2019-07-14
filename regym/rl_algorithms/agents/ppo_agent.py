@@ -311,7 +311,7 @@ def build_PPO_Agent(task, config, agent_name):
         if kwargs['actor_arch'] == 'RNN':
             actor_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif kwargs['actor_arch'] == 'MLP':
-            actor_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+            actor_body = FCBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
     else:
         actor_body = None
 
@@ -320,7 +320,7 @@ def build_PPO_Agent(task, config, agent_name):
         if kwargs['critic_arch'] == 'RNN':
             critic_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif kwargs['critic_arch'] == 'MLP':
-            critic_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+            critic_body = FCBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
     else:
         critic_body = None
 
@@ -352,7 +352,7 @@ def build_PPO_Agent(task, config, agent_name):
     target_intr_model = None
     predict_intr_model = None
     if use_rnd:
-        if kwargs['phi_arch'] == 'MLP':
+        if kwargs['rnd_arch'] == 'MLP':
             target_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
             predict_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
         elif 'CNN' in kwargs['rnd_arch']:

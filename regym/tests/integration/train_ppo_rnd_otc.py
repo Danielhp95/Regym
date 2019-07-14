@@ -10,7 +10,7 @@ import copy
 import random
 import torch
 
-offset_worker_id = 120
+offset_worker_id = 110
 
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)
@@ -53,7 +53,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
     #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
     #logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
-    logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_NonEpisodic_cnn60phi256gru64_a8_b256_h256_3e-4_OTC_frameskip4/'
+    logdir = './test_LABC_gru_ppo_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b256_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)

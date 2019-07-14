@@ -5,8 +5,6 @@ import torch
 def compute_loss(states: torch.Tensor, 
                  actions: torch.Tensor,
                  log_probs_old: torch.Tensor, 
-                 ext_v_old: torch.Tensor,
-                 int_v_old: torch.Tensor,
                  ext_returns: torch.Tensor,
                  ext_advantages: torch.Tensor,
                  int_returns: torch.Tensor,
@@ -19,6 +17,7 @@ def compute_loss(states: torch.Tensor,
                  intrinsic_reward_ratio: float,
                  ratio_clip: float, 
                  entropy_weight: float,
+                 rnd_obs_clip: float,
                  rnn_states: Dict[str, Dict[str, List[torch.Tensor]]] = None) -> torch.Tensor:
     '''
     Computes the loss of an actor critic model using the
@@ -66,16 +65,18 @@ def compute_loss(states: torch.Tensor,
 
     prediction = model(states, actions, rnn_states=rnn_states)
     
-    ratio = (prediction['log_pi_a'] - log_probs_old).exp()
+    ratio = (prediction['log_pi_a'] - log_probs_old.detach()).exp()
     obj = ratio * advantages
     obj_clipped = ratio.clamp(1.0 - ratio_clip,
                               1.0 + ratio_clip) * advantages
-    policy_loss = -1. * torch.min(obj, obj_clipped).mean() - entropy_weight * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
+    policy_loss = -torch.min(obj, obj_clipped).mean() - entropy_weight * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
     
     # Random Network Distillation loss:
-    norm_states = (states-states_mean) / states_std
+    norm_states = (states-states_mean) / (states_std+1e-8)
+    if rnd_obs_clip > 1e-1:
+      norm_states = torch.clamp( norm_states, -rnd_obs_clip, rnd_obs_clip)
     pred_random_features = pred_intr_model(norm_states)
-    int_reward_loss = torch.nn.functional.mse_loss(target_random_features, pred_random_features)
+    int_reward_loss = torch.nn.functional.mse_loss(target_random_features.detach(), pred_random_features)
     
     ext_v_loss = torch.nn.functional.mse_loss(ext_returns, prediction['v']) 
     int_v_loss = torch.nn.functional.mse_loss(int_returns, prediction['int_v']) 
@@ -83,6 +84,4 @@ def compute_loss(states: torch.Tensor,
     rnd_loss = int_reward_loss + 0.5*(ext_v_loss + int_v_loss)
     
     total_loss = policy_loss + rnd_loss
-            
-
     return total_loss

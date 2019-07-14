@@ -301,18 +301,19 @@ def i2a_rnd_config_dict():
     config['use_random_network_distillation'] = True
     config['intrinsic_discount'] = 0.99
     config['rnd_loss_int_ratio'] = 0.5
+    config['rnd_obs_clip'] = 5
     config['rnd_non_episodic_int_r'] = True
-    config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)  #if arch is MLP
-    config['rnd_feature_net_cnn_arch_feature_dim'] = 64         #if arch is CNN
     config['rnd_update_period_running_meanstd_int_reward'] = 1e5
     # Convolutional Architecture:
     config['rnd_arch_channels'] = [32, 32, 32]
-    config['phi_arch_kernels'] = [6, 4, 3]
-    config['phi_arch_strides'] = [6, 2, 1]
-    config['phi_arch_paddings'] = [0, 1, 1]
-    config['phi_arch_feature_dim'] = 256
-    config['phi_arch_hidden_units'] = (64,)
-    
+    config['rnd_arch_kernels'] = [6, 4, 3]
+    config['rnd_arch_strides'] = [6, 2, 1]
+    config['rnd_arch_paddings'] = [0, 1, 1]
+    config['rnd_arch_feature_dim'] = 256
+    # RND Fully-Connected Architecture:
+    '''
+    config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)
+    '''
     return config
 
 
@@ -320,47 +321,47 @@ def i2a_rnd_config_dict():
 def ppo_rnd_config_dict_ma():
     config = dict()
     config['nbr_frame_stacking'] = 4
-    config['observation_resize_dim'] = 60
+    config['observation_resize_dim'] = 80
     config['discount'] = 0.999
     config['use_gae'] = True
     config['use_cuda'] = True
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.001
-    config['gradient_clip'] = 5
-    config['optimization_epochs'] = 20
+    config['gradient_clip'] = 0.0
+    config['optimization_epochs'] = 4
     config['mini_batch_size'] = 256
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
     config['nbr_actor'] = 8
-    config['horizon'] = 256
+    config['horizon'] = 128
     config['phi_arch'] = 'CNN-GRU-RNN'#'CNN'#
-    config['actor_arch'] = 'MLP'
-    config['critic_arch'] = 'MLP'
+    config['actor_arch'] = 'None'
+    config['critic_arch'] = 'None'
     
     # Phi Body: Convolutional Architecture:
-    config['phi_arch_channels'] = [32, 32, 32]
-    config['phi_arch_kernels'] = [6, 4, 3]
-    config['phi_arch_strides'] = [6, 2, 1]
+    config['phi_arch_channels'] = [32, 64, 64]
+    config['phi_arch_kernels'] = [8, 4, 3]
+    config['phi_arch_strides'] = [4, 2, 1]
     config['phi_arch_paddings'] = [0, 1, 1]
     config['phi_arch_feature_dim'] = 256
-    config['phi_arch_hidden_units'] = (64,)
+    config['phi_arch_hidden_units'] = (128,)
     
 
     # Random Network Distillation:
     config['use_random_network_distillation'] = True
     config['intrinsic_discount'] = 0.99
     config['rnd_loss_int_ratio'] = 0.5
+    config['rnd_obs_clip'] = 5
     config['rnd_non_episodic_int_r'] = True
     config['rnd_update_period_running_meanstd_int_reward'] = 1e5
     # RND Convolutional Architecture:
     config['rnd_arch'] = 'CNN'
-    config['rnd_arch_channels'] = [32, 32, 32]
-    config['rnd_arch_kernels'] = [6, 4, 3]
-    config['rnd_arch_strides'] = [6, 2, 1]
+    config['rnd_arch_channels'] = [32, 64, 64]
+    config['rnd_arch_kernels'] = [8, 4, 3]
+    config['rnd_arch_strides'] = [4, 2, 1]
     config['rnd_arch_paddings'] = [0, 1, 1]
-    config['rnd_arch_feature_dim'] = 64
-    config['rnd_arch_hidden_units'] = (64,)
+    config['rnd_arch_feature_dim'] = 512
     # RND Fully-Connected Architecture:
     '''
     config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)

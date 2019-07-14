@@ -41,11 +41,11 @@ def compute_loss(states: torch.Tensor, actions: torch.Tensor,
     '''
     prediction = model(states, actions, rnn_states=rnn_states)
     
-    ratio = (prediction['log_pi_a'] - log_probs_old).exp()
+    ratio = (prediction['log_pi_a'] - log_probs_old.detach()).exp()
     obj = ratio * advantages
     obj_clipped = ratio.clamp(1.0 - ratio_clip,
                               1.0 + ratio_clip) * advantages
-    policy_loss = -1. * torch.min(obj, obj_clipped).mean() - entropy_weight * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
+    policy_loss = -torch.min(obj, obj_clipped).mean() - entropy_weight * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
     value_loss = 0.5 * torch.nn.functional.mse_loss(returns, prediction['v'])
     total_loss = (policy_loss + value_loss)
     return total_loss
