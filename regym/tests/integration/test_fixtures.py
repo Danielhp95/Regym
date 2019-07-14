@@ -173,11 +173,11 @@ def i2a_rnd_config_dict():
     config = dict()
     
     config['nbr_frame_stacking'] = 4
-    config['rollout_length'] = 5
+    config['rollout_length'] = 3
     config['rollout_encoder_nbr_state_to_encode'] = 5
     config['reward_size'] = 1
-    config['imagined_rollouts_per_step'] = 5 #None = num_actions
-    config['nbr_actor'] = 8
+    config['imagined_rollouts_per_step'] = 3 #None = num_actions
+    config['nbr_actor'] = 4
     
     # Assuming CNN task:
     config['preprocess_function'] = 'ResizeCNNPreprocessFunction'
@@ -210,7 +210,7 @@ def i2a_rnd_config_dict():
     config['environment_model_update_horizon'] = 128
     config['environment_model_gradient_clip'] = 5
     config['environment_model_batch_size'] = 128
-    config['environment_model_optimization_epochs'] = 10
+    config['environment_model_optimization_epochs'] = 4
     # (Recurrent) Convolutional Architecture:
     '''
     config['environment_model_arch'] = 'CNN' #'CNN-GRU-RNN'
@@ -234,8 +234,8 @@ def i2a_rnd_config_dict():
     '''
     # Fully-Connected Architecture:
     config['environment_model_arch'] = 'MLP'
-    config['environment_model_enc_nbr_hidden_units'] = (512, 256, 128,)
-    config['environment_model_dec_nbr_hidden_units'] = (256, 512,)
+    config['environment_model_enc_nbr_hidden_units'] = (128,)
+    config['environment_model_dec_nbr_hidden_units'] = (128,)
         
 
     # Rollout Encoder:
@@ -260,7 +260,7 @@ def i2a_rnd_config_dict():
         
 
     # Distilled Policy:
-    config['distill_policy_update_horizon'] = 128
+    config['distill_policy_update_horizon'] = 512
     config['distill_policy_gradient_clip'] = 5
     config['distill_policy_batch_size'] = 32
     config['distill_policy_optimization_epochs'] = 4
@@ -294,10 +294,10 @@ def i2a_rnd_config_dict():
     config['model_free_network_feature_dim'] = 256
     # Model-Free Path: Fully Connected architecture description
     config['model_free_network_arch'] = 'MLP'
-    config['model_free_network_nbr_hidden_units'] = (512,)
+    config['model_free_network_nbr_hidden_units'] = (128,)
     # Actor Critic Head:
     config['achead_phi_arch'] = 'GRU-RNN'
-    config['achead_phi_nbr_hidden_units'] = (256,)
+    config['achead_phi_nbr_hidden_units'] = (128,)
     config['achead_actor_arch'] = 'MLP'
     config['achead_actor_nbr_hidden_units'] = (128,)
     config['achead_critic_arch'] = 'MLP'

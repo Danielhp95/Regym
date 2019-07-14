@@ -85,7 +85,7 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
     #logdir = './test_i2a_rnd/'
     #logdir = './test_10floors0_Theme0_LABC-light_gru_i2a_5rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b32_h128_3e-4_OTC_frameskip4/'
     #logdir = './test_li2a_rnd/'
-    logdir = './test_10floors0_Theme0_LABC-light_gru_li2a_5rollouts5steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
+    logdir = './test_10floors0_Theme0_LABC-light_gru_li2a_3rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
