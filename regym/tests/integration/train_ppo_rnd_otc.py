@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
 
-offset_worker_id = 100
+offset_worker_id = 110
 gif_interval = 100
 
 
@@ -39,6 +39,7 @@ def make_gif(trajectory, episode=0, actor_idx=0, path='./'):
     path = os.path.join(path, f'./traj-ep{episode}-actor{actor_idx}.gif')
     gif.save(path, dpi=20, writer='imagemagick')
     #plt.show()
+    plt.close(fig)
 
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)

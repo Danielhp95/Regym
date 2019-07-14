@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from functools import partial
 
 from regym.rl_algorithms.networks import ResizeCNNPreprocessFunction
-from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentModel, RolloutEncoder, I2AModel
+from regym.rl_algorithms.I2A import I2AAlgorithm, ImaginationCore, EnvironmentModel, AutoEncoderEnvironmentModel, RolloutEncoder, I2AModel
 from regym.rl_algorithms.networks import CategoricalActorCriticNet, FCBody, LSTMBody, ConvolutionalBody, choose_architecture
 
 
@@ -259,15 +259,16 @@ class I2AAgent():
         if self.use_rnd:
             int_r = rnd_dict['int_r']*self.algorithm.kwargs['rnd_loss_int_ratio']
             # Normalization of intrinsic reward:
-            int_r /= self.algorithm.model_training_algorithm.int_reward_std+1e-8
-            environment_model_relevant_info['r'] += int_r
+            int_r = int_r+self.algorithm.model_training_algorithm.int_reward_std+1e-8
+            environment_model_relevant_info['r'] = environment_model_relevant_info['r'] + int_r
         #environment_model_relevant_info.update(rnd_dict)
         self.algorithm.environment_model_storages[storage_idx].add(environment_model_relevant_info)
 
         distill_policy_relevant_info = {'s': state,
                                         'a': current_prediction['a']}
         distill_policy_relevant_info.update(current_prediction)
-        distill_policy_relevant_info.update(rnd_dict)
+        if self.use_rnd:
+            distill_policy_relevant_info.pop('int_v')
         self.algorithm.distill_policy_storages[storage_idx].add(distill_policy_relevant_info)
 
         model_relevant_info = {'s': state,
@@ -316,6 +317,19 @@ def build_environment_model(task, kwargs: Dict[str, object]) -> EnvironmentModel
                                  reward_size=kwargs['reward_size'],
                                  conv_dim=conv_dim,
                                  use_cuda=kwargs['use_cuda'])
+    elif kwargs['environment_model_arch'] == 'MLP':
+        enc_input_dim = kwargs['latent_emb_nbr_variables']+task.action_dim
+        encoder = FCBody(enc_input_dim, hidden_units=kwargs['environment_model_enc_nbr_hidden_units'], gate=F.leaky_relu)
+        dec_hidden_units = kwargs['environment_model_dec_nbr_hidden_units']+(kwargs['latent_emb_nbr_variables'],)
+        dec_input_dim = kwargs['environment_model_enc_nbr_hidden_units'][-1]
+        decoder = FCBody(dec_input_dim, hidden_units=dec_hidden_units, gate=F.leaky_relu)
+        model = AutoEncoderEnvironmentModel(encoder=encoder,
+                                            decoder=decoder,
+                                            observation_shape=[kwargs['latent_emb_nbr_variables']],
+                                            num_actions=task.action_dim,
+                                            reward_size=kwargs['reward_size'],
+                                            use_cuda=kwargs['use_cuda'])
+    
     else:
         raise NotImplementedError('Environment model: only the CNN architecture has been implemented.')
 
@@ -330,9 +344,11 @@ def build_model_free_network(kwargs: Dict[str, object]) -> nn.Module:
     Refer to original paper Figure (1).
     :returns: torch.nn.Module used as part of I2A's policy model
     '''
+    input_shape = kwargs['preprocessed_observation_shape']
+    if kwargs['use_latent_embedding']: input_shape = [kwargs['latent_emb_nbr_variables']]
     model = choose_architecture(architecture=kwargs['model_free_network_arch'],
-                                input_dim=kwargs['observation_resize_dim'],
-                                input_shape=kwargs['preprocessed_observation_shape'],
+                                input_shape=input_shape,
+                                hidden_units_list=kwargs['model_free_network_nbr_hidden_units'],
                                 feature_dim=kwargs['model_free_network_feature_dim'],
                                 nbr_channels_list=kwargs['model_free_network_channels'],
                                 kernels=kwargs['model_free_network_kernels'],
@@ -349,25 +365,27 @@ def build_actor_critic_head(task, input_dim, kwargs: Dict[str, object]) -> nn.Mo
     :returns: torch.nn.Module used as part of I2A's policy model
     '''
     phi_body = choose_architecture(architecture=kwargs['achead_phi_arch'],
-                                   input_dim=input_dim,
+                                   input_shape=[input_dim],
                                    hidden_units_list=kwargs['achead_phi_nbr_hidden_units'])
     input_dim = phi_body.get_feature_shape()
     actor_body = choose_architecture(architecture=kwargs['achead_actor_arch'],
-                                     input_dim=input_dim,
+                                     input_shape=[input_dim],
                                      hidden_units_list=kwargs['achead_actor_nbr_hidden_units'])
     critic_body = choose_architecture(architecture=kwargs['achead_critic_arch'],
-                                      input_dim=input_dim,
+                                      input_shape=[input_dim],
 
                                       hidden_units_list=kwargs['achead_critic_nbr_hidden_units'])
 
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
         model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
-                                          actor_body=actor_body, critic_body=critic_body)
+                                          actor_body=actor_body, critic_body=critic_body,
+                                          use_intrinsic_critic=kwargs['use_random_network_distillation'])
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
         model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
                                           phi_body=phi_body,
-                                          actor_body=actor_body, critic_body=critic_body)
+                                          actor_body=actor_body, critic_body=critic_body,
+                                          use_intrinsic_critic=kwargs['use_random_network_distillation'])
     return model
 
 
@@ -383,33 +401,67 @@ def choose_model_training_algorithm(model_training_algorithm: str, kwargs: Dict[
     if 'PPO' in model_training_algorithm:
         from regym.rl_algorithms.PPO import PPOAlgorithm
         PPOAlgorithm.check_mandatory_kwarg_arguments(kwargs)
-        return PPOAlgorithm
+
+        target_intr_model = None
+        predict_intr_model = None
+        if kwargs['use_random_network_distillation']:
+            if kwargs['rnd_arch'] == 'MLP':
+                target_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
+                predict_intr_model = FCBody(task.observation_shape, hidden_units=kwargs['rnd_feature_net_fc_arch_hidden_units'], gate=F.leaky_relu)
+            elif 'CNN' in kwargs['rnd_arch']:
+                input_shape = kwargs['preprocessed_observation_shape']
+                channels = [input_shape[0]] + kwargs['rnd_arch_channels']
+                kernels = kwargs['rnd_arch_kernels']
+                strides = kwargs['rnd_arch_strides']
+                paddings = kwargs['rnd_arch_paddings']
+                output_dim = kwargs['rnd_arch_feature_dim']
+                target_intr_model = ConvolutionalBody(input_shape=input_shape,
+                                                      feature_dim=output_dim,
+                                                      channels=channels,
+                                                      kernel_sizes=kernels,
+                                                      strides=strides,
+                                                      paddings=paddings)
+                predict_intr_model = ConvolutionalBody(input_shape=input_shape,
+                                                      feature_dim=output_dim,
+                                                      channels=channels,
+                                                      kernel_sizes=kernels,
+                                                      strides=strides,
+                                                      paddings=paddings)
+            target_intr_model.share_memory()
+            predict_intr_model.share_memory()
+
+        return partial(PPOAlgorithm, target_intr_model=target_intr_model, predict_intr_model=predict_intr_model)
     raise ValueError(f"I2A agent currently only supports 'PPO' \
                       as a training algorithm. Given {model_training_algorithm}")
 
 
 def build_rollout_encoder(task, kwargs: Dict[str, object]) -> nn.Module:
-    feature_encoder = choose_architecture(architecture='CNN',
-                                          input_shape=kwargs['preprocessed_observation_shape'],
-                                          hidden_units_list=None,
-                                          feature_dim=kwargs['rollout_encoder_feature_dim'],
-                                          nbr_channels_list=kwargs['rollout_encoder_channels'],
-                                          kernels=kwargs['rollout_encoder_kernels'],
-                                          strides=kwargs['rollout_encoder_strides'],
-                                          paddings=kwargs['rollout_encoder_paddings'])
+    input_shape = kwargs['preprocessed_observation_shape']
+    if kwargs['use_latent_embedding']: input_shape = [kwargs['latent_emb_nbr_variables']]
+
+    if kwargs['rollout_encoder_model_arch'] == 'CNN-GRU-RNN':
+        feature_encoder = choose_architecture(architecture='CNN',
+                                              input_shape=input_shape,
+                                              hidden_units_list=None,
+                                              feature_dim=kwargs['rollout_encoder_feature_dim'],
+                                              nbr_channels_list=kwargs['rollout_encoder_channels'],
+                                              kernels=kwargs['rollout_encoder_kernels'],
+                                              strides=kwargs['rollout_encoder_strides'],
+                                              paddings=kwargs['rollout_encoder_paddings'])
+    elif kwargs['rollout_encoder_model_arch'] == 'MLP-GRU-RNN':
+        feature_encoder = choose_architecture(architecture='MLP',
+                                              input_shape=input_shape,
+                                              hidden_units_list=kwargs['rollout_encoder_nbr_hidden_units'])
+
     rollout_feature_encoder_input_dim = feature_encoder.get_feature_shape()+kwargs['reward_size']
     rollout_feature_encoder = nn.LSTM(input_size=rollout_feature_encoder_input_dim,
-                                      hidden_size=kwargs['rollout_encoder_nbr_hidden_units'],
+                                      hidden_size=kwargs['rollout_encoder_encoder_nbr_hidden_units'],
                                       num_layers=kwargs['rollout_encoder_nbr_rnn_layers'],
                                       batch_first=False,
                                       dropout=0.0,
                                       bidirectional=False)
-    '''
-    rollout_feature_encoder = choose_architecture(architecture='RNN',
-                                                  input_dim=rollout_feature_encoder_input_dim,
-                                                  hidden_units_list=kwargs['rollout_encoder_nbr_hidden_units'])
-    '''
-    rollout_encoder = RolloutEncoder(input_shape=kwargs['preprocessed_observation_shape'],
+    
+    rollout_encoder = RolloutEncoder(input_shape=input_shape,
                                      nbr_states_to_encode=min(kwargs['rollout_length'], kwargs['rollout_encoder_nbr_state_to_encode']),
                                      feature_encoder=feature_encoder,
                                      rollout_feature_encoder=rollout_feature_encoder,
@@ -433,9 +485,11 @@ def build_aggregator(task):
 
 def build_distill_policy(task, kwargs: Dict[str, object]) -> nn.Module:
     input_dim = task.observation_shape
+    if kwargs['use_latent_embedding']: input_dim = kwargs['latent_emb_nbr_variables']
+
     if kwargs['distill_policy_arch'] == 'MLP':
         phi_body = FCBody(input_dim, hidden_units=kwargs['distill_policy_nbr_hidden_units'], gate=F.leaky_relu)
-        input_dim = kwargs['distill_policy_nbr_hidden_units'][-1]
+        phi_body_output_dim = kwargs['distill_policy_nbr_hidden_units'][-1]
     elif kwargs['distill_policy_arch'] == 'CNN':
         # Technical debt add shape of env.observation_space to environment parser
         channels = [kwargs['preprocessed_observation_shape'][0]] + kwargs['distill_policy_channels']
@@ -445,26 +499,47 @@ def build_distill_policy(task, kwargs: Dict[str, object]) -> nn.Module:
                                      kernel_sizes=kwargs['distill_policy_kernels'],
                                      strides=kwargs['distill_policy_strides'],
                                      paddings=kwargs['distill_policy_paddings'])
-        input_dim = kwargs['distill_policy_feature_dim']
+        phi_body_output_dim = kwargs['distill_policy_feature_dim']
+    else:
+        phi_body = None 
+        phi_body_output_dim = input_dim
 
-    if kwargs['distill_policy_head_arch'] == 'RNN':
-        actor_body = LSTMBody(input_dim, hidden_units=kwargs['distill_policy_head_nbr_hidden_units'], gate=F.leaky_relu)
+    if kwargs['distill_policy_head_arch'] == 'LSTM-RNN':
+        actor_body = LSTMBody(phi_body_output_dim, hidden_units=kwargs['distill_policy_head_nbr_hidden_units'], gate=F.leaky_relu)
     elif kwargs['distill_policy_head_arch'] == 'MLP':
-        actor_body = FCBody(input_dim, hidden_units=kwargs['distill_policy_head_nbr_hidden_units'], gate=F.leaky_relu)
+        actor_body = FCBody(phi_body_output_dim, hidden_units=kwargs['distill_policy_head_nbr_hidden_units'], gate=F.leaky_relu)
 
     # TECHNICAL DEBT: The distill policy is only an actor, we shold not be using
     # an actor critic net as we never make use of the critic.
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
-        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
+        model = CategoricalActorCriticNet(input_dim, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=None)
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
-        model = CategoricalActorCriticNet(task.observation_shape, task.action_dim,
+        model = CategoricalActorCriticNet(input_dim, task.action_dim,
                                           phi_body=phi_body,
                                           actor_body=actor_body, critic_body=None)
     if kwargs['use_cuda']: model = model.cuda()
 
     return model
+
+
+def build_latent_encoder(task, kwargs: Dict[str, object]) -> nn.Module:
+    observation_shape = kwargs['preprocessed_observation_shape']
+    channels = [observation_shape[0]] + kwargs['latent_encoder_channels']
+    latent_encoder = ConvolutionalBody(input_shape=observation_shape,
+                                 feature_dim=kwargs['latent_encoder_feature_dim'],
+                                 channels=channels,
+                                 kernel_sizes=kwargs['latent_encoder_kernels'],
+                                 strides=kwargs['latent_encoder_strides'],
+                                 paddings=kwargs['latent_encoder_paddings'])
+
+    '''
+    latent_encoder = BroadcastBetaVAE(encoder=encoder,
+                                      decoder=decoder,
+                                      observation_shape=observation_shape)
+    '''
+    return latent_encoder
 
 
 def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgent:
@@ -510,8 +585,12 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
     aggregator = build_aggregator(task)
     model_free_network = build_model_free_network(config)
 
-    actor_critic_input_dim = config['model_free_network_feature_dim']+(config['rollout_encoder_embedding_size']+task.action_dim)*config['imagined_rollouts_per_step']
+    actor_critic_input_dim = model_free_network.get_feature_shape()+(config['rollout_encoder_embedding_size']+task.action_dim)*config['imagined_rollouts_per_step']
     actor_critic_head = build_actor_critic_head(task, input_dim=actor_critic_input_dim, kwargs=config)
+
+    latent_encoder = None
+    if config['use_latent_embedding']:
+        latent_encoder = build_latent_encoder(task,config)
 
     recurrent_submodule_names = [key for key, value in config.items() if isinstance(value, str) and 'RNN' in value]
     i2a_model = I2AModel(actor_critic_head=actor_critic_head,
@@ -521,14 +600,17 @@ def build_I2A_Agent(task, config: Dict[str, object], agent_name: str) -> I2AAgen
                          imagination_core=imagination_core,
                          imagined_rollouts_per_step=config['imagined_rollouts_per_step'],
                          rollout_length=config['rollout_length'],
+                         latent_encoder=latent_encoder,
                          rnn_keys=recurrent_submodule_names,
-                         use_cuda=config['use_cuda'])
+                         kwargs=config)
 
     algorithm = I2AAlgorithm(model_training_algorithm_init_function=model_training_algorithm_class,
                              i2a_model=i2a_model,
                              environment_model=environment_model,
                              distill_policy=distill_policy,
-                             kwargs=config)
+                             kwargs=config,
+                             latent_encoder=latent_encoder)
+
     return I2AAgent(algorithm=algorithm, name=agent_name,
                     preprocess_function=preprocess_function,
                     rnn_keys=recurrent_submodule_names,

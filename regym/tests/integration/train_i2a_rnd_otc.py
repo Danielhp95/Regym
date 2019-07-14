@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
 
-offset_worker_id = 80
+offset_worker_id = 50
 gif_interval = 100
 
 
@@ -38,7 +38,7 @@ def make_gif(trajectory, episode=0, actor_idx=0, path='./'):
     gif = anim.ArtistAnimation(fig, imgs, interval=200, blit=True, repeat_delay=None)
     path = os.path.join(path, f'./traj-ep{episode}-actor{actor_idx}.gif')
     gif.save(path, dpi=20, writer='imagemagick')
-
+    plt.close(fig)
 
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)
@@ -83,7 +83,9 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
                              nbr_parallel_env=i2a_rnd_config_dict['nbr_actor'], 
                              nbr_frame_stacking=i2a_rnd_config_dict['nbr_frame_stacking'])
     #logdir = './test_i2a_rnd/'
-    logdir = './test_10floors0_Theme0_LABC-light_gru_i2a_5rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b32_h128_3e-4_OTC_frameskip4/'
+    #logdir = './test_10floors0_Theme0_LABC-light_gru_i2a_5rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b32_h128_3e-4_OTC_frameskip4/'
+    #logdir = './test_li2a_rnd/'
+    logdir = './test_10floors0_Theme0_LABC-light_gru_li2a_5rollouts5steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)

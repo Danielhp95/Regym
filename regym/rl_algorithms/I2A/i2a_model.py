@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import torch
 import torch.nn as nn
 from regym.rl_algorithms.I2A import ImaginationCore
@@ -19,7 +19,8 @@ class I2AModel(nn.Module):
                  imagined_rollouts_per_step: int,
                  rollout_length: int,
                  rnn_keys: List[str],
-                 use_cuda: bool):
+                 latent_encoder: nn.Module,
+                 kwargs: Dict[str, object]):
         '''
         :param actor_critic_head: nn.Module: Head of the model which outputs a
                                   distribution over actions and an estimation
@@ -53,7 +54,8 @@ class I2AModel(nn.Module):
                                by the :param imagination_core:
         :param rnn_keys: List of names of the submodules of this model which
                          feature recurrent models (LSTMs)
-        :param use_cuda: Bool: Whether or not to use CUDA for this model's computation
+        :param kwargs: 
+                      use_cuda: Bool: Whether or not to use CUDA for this model's computation
         '''
         super(I2AModel, self).__init__()
 
@@ -67,7 +69,10 @@ class I2AModel(nn.Module):
         self.imagination_core = imagination_core
         self.imagined_rollouts_per_step = imagined_rollouts_per_step
         self.rollout_length = rollout_length
-        self.use_cuda = use_cuda
+        self.latent_encoder = latent_encoder
+        self.embedded_state = None 
+        self.kwargs = kwargs
+        self.use_cuda = kwargs['use_cuda']
         self.rnn_keys = rnn_keys
 
         self.recurrent = False
@@ -76,7 +81,6 @@ class I2AModel(nn.Module):
             self.recurrent = True
             self._reset_rnn_states()
 
-        self.use_cuda = use_cuda
         if self.use_cuda: self = self.cuda()
 
     def forward(self, state: torch.Tensor, action=None, rnn_states=None):
@@ -89,13 +93,17 @@ class I2AModel(nn.Module):
         :returns: the prediction dictionary returned from the
                   :self.actor_critic_head.__forward__(): method
         '''
+        if self.kwargs['use_latent_embedding']:
+          state = self.latent_encoder(state)
+          self.embedded_state = state 
+
         rollout_embeddings = []
         first_action = None
         batch_size = state.size(0)
         for i in range(self.imagined_rollouts_per_step):
             # 0. Create the first action batch:
             if self.nbr_actions is not None and self.nbr_actions==self.imagined_rollouts_per_step: 
-              first_action = i*torch.ones((batch_size,1))
+              first_action = i*torch.ones((batch_size)).long()
               if self.use_cuda: first_action = first_action.cuda()
             # 1. Imagine state and reward for self.imagined_rollouts_per_step times
             rollout_states, rollout_actions, rollout_rewards = self.imagination_core.imagine_rollout(state, self.rollout_length, first_action=first_action)

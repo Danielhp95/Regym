@@ -26,7 +26,7 @@ class RolloutEncoder(nn.Module):
         self.kwargs = kwargs
         self.feature_encoder = feature_encoder
         self.rollout_feature_encoder = rollout_feature_encoder
-        self.fc_rollout_embeddings = nn.Linear(self.kwargs['rollout_encoder_nbr_hidden_units'], self.kwargs['rollout_encoder_embedding_size'])
+        self.fc_rollout_embeddings = nn.Linear(self.kwargs['rollout_encoder_encoder_nbr_hidden_units'], self.kwargs['rollout_encoder_embedding_size'])
 
     def forward(self, states: torch.Tensor, rewards: torch.Tensor):
         '''

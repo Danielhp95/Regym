@@ -27,8 +27,7 @@ class I2AAlgorithm():
                  environment_model,
                  distill_policy,
                  kwargs, 
-                 target_intr_model=None, 
-                 predict_intr_model=None):
+                 latent_encoder=None):
 
         self.kwargs = kwargs
         self.nbr_actor = self.kwargs['nbr_actor']
@@ -37,6 +36,7 @@ class I2AAlgorithm():
         self.i2a_model._reset_rnn_states()
         self.environment_model = environment_model
         self.distill_policy = distill_policy
+        self.latent_encoder = latent_encoder
 
         self.rollout_length = kwargs['rollout_length']
         self.imagined_rollouts_per_step = kwargs['imagined_rollouts_per_step']
@@ -49,7 +49,18 @@ class I2AAlgorithm():
                                                    lr=kwargs['policies_adam_learning_rate'],
                                                    eps=kwargs['policies_adam_eps'])
 
-        self.environment_model_optimizer = optim.Adam(self.environment_model.parameters(),
+        env_model_param = self.environment_model.parameters()
+        '''
+        # If we had the latent_encoder to the list of parameter to optimize
+        # when optimizing the environment, there is a risk that they will 
+        # entire in synergy that make them both collapse into something easy to predict.
+        # Unless there is something to prevent the latent_encoder from collapsing, 
+        # maybe a VAE-based latent_encoder could be useful.
+        # Otherwise, the latent_encoder is only optimized by the RL algorithm...
+        if self.kwargs['use_latent_embedding']:
+            env_model_param = list(env_model_param)+list(self.latent_encoder.parameters())
+        '''
+        self.environment_model_optimizer = optim.Adam(env_model_param,
                                                       lr=kwargs['environment_model_learning_rate'],
                                                       eps=kwargs['environment_model_adam_eps'])
 
@@ -69,36 +80,23 @@ class I2AAlgorithm():
         self.reset_storages()
     
     def reset_storages(self):
-        if self.distill_policy_storages is not None:
-            for storage in self.distill_policy_storages: storage.reset()
-        if self.environment_model_storages is not None:
-            for storage in self.environment_model_storages: storage.reset()
+        if self.distill_policy_storages is None and self.environment_model_storages is None:
+            self.distill_policy_storages = []
+            self.environment_model_storages = []
+            for i in range(self.nbr_actor):
+                self.distill_policy_storages.append(Storage())
+                if self.i2a_model.recurrent:
+                    self.distill_policy_storages[-1].add_key('rnn_states')
+                    self.distill_policy_storages[-1].add_key('next_rnn_states')
 
-        self.storages = []
-        for i in range(self.nbr_actor):
-            self.storages.append(Storage())
-            if self.recurrent:
-                self.storages[-1].add_key('rnn_states')
-                self.storages[-1].add_key('next_rnn_states')
-            if self.use_rnd:
-                self.storages[-1].add_key('int_r')
-                self.storages[-1].add_key('int_v')
-                self.storages[-1].add_key('int_ret')
-                self.storages[-1].add_key('int_adv')
-                self.storages[-1].add_key('target_int_f')
+                self.environment_model_storages.append(Storage())
+                # Adding successive state key to compute the loss of the environment model
+                self.environment_model_storages[-1].add_key('succ_s')
 
-        self.distill_policy_storages = []
-        self.environment_model_storages = []
-        for i in range(self.nbr_actor):
-            self.distill_policy_storages.append(Storage())
-            if self.i2a_model.recurrent:
-                self.distill_policy_storages[-1].add_key('rnn_states')
-                self.distill_policy_storages[-1].add_key('next_rnn_states')
+        for storage in self.distill_policy_storages: storage.reset()
+        for storage in self.environment_model_storages: storage.reset()
 
-            self.environment_model_storages.append(Storage())
-            # Adding successive state key to compute the loss of the environment model
-            self.environment_model_storages[-1].add_key('succ_s')
-
+        
     def retrieve_values_from_storages(self, storages, value_keys):
         full_values = [list() for _ in range(len(value_keys))]
         for storage in storages:
@@ -115,6 +113,9 @@ class I2AAlgorithm():
             full_values[idx] = torch.cat(values, dim=0)
             
         return (*full_values,)
+
+    def compute_intrinsic_reward(self, state):
+        return self.model_training_algorithm.compute_intrinsic_reward(state)
 
     def take_action(self, state):
         return self.i2a_model(state)
@@ -167,6 +168,10 @@ class I2AAlgorithm():
             sampled_rewards = rewards[batch_indices].cuda() if self.kwargs['use_cuda'] else rewards[batch_indices]
             sampled_next_sates = next_states[batch_indices].cuda() if self.kwargs['use_cuda'] else next_states[batch_indices]
 
+            if self.kwargs['use_latent_embedding']:
+                sampled_states = self.latent_encoder(sampled_states)
+                sampled_next_sates = self.latent_encoder(sampled_next_sates)
+
             predicted_next_states, predicted_rewards = self.environment_model(sampled_states, sampled_actions)
             loss += 0.5 * (predicted_next_states - sampled_next_sates).pow(2).mean()
             loss += 0.5 * (predicted_rewards - sampled_rewards).pow(2).mean()
@@ -195,11 +200,14 @@ class I2AAlgorithm():
             sampled_states = states[batch_indices].cuda() if self.kwargs['use_cuda'] else states[batch_indices]
             sampled_actions = actions[batch_indices].cuda() if self.kwargs['use_cuda'] else actions[batch_indices]
 
-            distill_prediction = self.distill_policy(sampled_states,sampled_actions)
             model_prediction = self.i2a_model(state=sampled_states, 
                                               action=sampled_actions,
                                               rnn_states=sampled_rnn_states)
+            if self.kwargs['use_latent_embedding']:
+                sampled_states = self.i2a_model.embedded_state
 
+            distill_prediction = self.distill_policy(sampled_states,sampled_actions)
+            
             loss += 0.01 * (F.softmax(model_prediction['action_logits'], dim=1).detach() * F.log_softmax(distill_prediction['action_logits'], dim=1)).sum(1).mean()
 
         return loss

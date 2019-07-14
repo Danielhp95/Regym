@@ -171,11 +171,12 @@ def i2a_config_dict():
 @pytest.fixture
 def i2a_rnd_config_dict():
     config = dict()
+    
     config['nbr_frame_stacking'] = 4
-    config['rollout_length'] = 3
+    config['rollout_length'] = 5
     config['rollout_encoder_nbr_state_to_encode'] = 5
     config['reward_size'] = 1
-    config['imagined_rollouts_per_step'] = 5
+    config['imagined_rollouts_per_step'] = 5 #None = num_actions
     config['nbr_actor'] = 8
     
     # Assuming CNN task:
@@ -208,7 +209,7 @@ def i2a_rnd_config_dict():
     # Environment Model: Architecture description:
     config['environment_model_update_horizon'] = 128
     config['environment_model_gradient_clip'] = 5
-    config['environment_model_batch_size'] = 32
+    config['environment_model_batch_size'] = 128
     config['environment_model_optimization_epochs'] = 10
     # (Recurrent) Convolutional Architecture:
     '''
@@ -227,33 +228,35 @@ def i2a_rnd_config_dict():
     config['environment_model_dec_hidden_units'] = (64,)    # recurrent cells
     '''
     # Sokoban Architecture:
+    '''
     config['environment_model_arch'] = 'Sokoban'
     config['environment_model_channels'] = [32]
+    '''
     # Fully-Connected Architecture:
-    '''
     config['environment_model_arch'] = 'MLP'
-    config['environment_model_enc_nbr_hidden_units'] = [512, 256, 128]
-    config['environment_model_dec_nbr_hidden_units'] = [256, 512]
-    '''
+    config['environment_model_enc_nbr_hidden_units'] = (512, 256, 128,)
+    config['environment_model_dec_nbr_hidden_units'] = (256, 512,)
         
 
     # Rollout Encoder:
     # Recurrent Convolutional Architecture:
+    '''
     config['rollout_encoder_model_arch'] = 'CNN-GRU-RNN'
     config['rollout_encoder_channels'] = [32, 32, 64]
     config['rollout_encoder_kernels'] = [8, 4, 3]
     config['rollout_encoder_strides'] = [4, 2, 1]
     config['rollout_encoder_paddings'] = [0, 1, 1]
     config['rollout_encoder_feature_dim'] = 512
-    config['rollout_encoder_nbr_hidden_units'] = 256
+    config['rollout_encoder_encoder_nbr_hidden_units'] = 256
     config['rollout_encoder_nbr_rnn_layers'] = 1
     config['rollout_encoder_embedding_size'] = 256
+    '''
     # Recurrent Fully-Connected Architecture:
-    '''
-    config['rollout_encoder_model_arch'] = 'GRU-RNN'
+    config['rollout_encoder_model_arch'] = 'MLP-GRU-RNN'
+    config['rollout_encoder_nbr_hidden_units'] = (256,)
+    config['rollout_encoder_encoder_nbr_hidden_units'] = 128
     config['rollout_encoder_nbr_rnn_layers'] = 1
-    config['rollout_encoder_embedding_size'] = 32
-    '''
+    config['rollout_encoder_embedding_size'] = 128
         
 
     # Distilled Policy:
@@ -262,33 +265,36 @@ def i2a_rnd_config_dict():
     config['distill_policy_batch_size'] = 32
     config['distill_policy_optimization_epochs'] = 4
     # Convolutional architecture:
+    '''
     config['distill_policy_arch'] = 'CNN'
     config['distill_policy_channels'] = [32, 32, 64]
     config['distill_policy_kernels'] = [8, 4, 3]
     config['distill_policy_strides'] = [4, 2, 1]
     config['distill_policy_paddings'] = [0, 1, 1]
     config['distill_policy_feature_dim'] = 256
+    '''
     # Fully-Connected architecture:
-    '''
     config['distill_policy_arch'] = 'MLP'
-    config['distill_policy_nbr_hidden_units'] = [128]
-    '''
+    config['distill_policy_nbr_hidden_units'] = (128,)
     # Distilled Policy: Actor Head architecture:
-    config['distill_policy_head_arch'] = 'MLP'
+    config['distill_policy_head_arch'] = 'MLP'#'GRU/LSTM-RNN'
     config['distill_policy_head_nbr_hidden_units'] = (128,)
 
 
     # Model :
     config['model_update_horizon'] = 128
     # Model-Free Path: Convolutional architecture:
+    '''
     config['model_free_network_arch'] = 'CNN'
+    '''
     config['model_free_network_channels'] = [32, 64, 64]
     config['model_free_network_kernels'] = [8, 4, 3]
     config['model_free_network_strides'] = [4, 2, 1]
     config['model_free_network_paddings'] = [0, 1, 1]
     config['model_free_network_feature_dim'] = 256
     # Model-Free Path: Fully Connected architecture description
-    config['model_free_network_nbr_hidden_units'] = None
+    config['model_free_network_arch'] = 'MLP'
+    config['model_free_network_nbr_hidden_units'] = (512,)
     # Actor Critic Head:
     config['achead_phi_arch'] = 'GRU-RNN'
     config['achead_phi_nbr_hidden_units'] = (256,)
@@ -314,6 +320,28 @@ def i2a_rnd_config_dict():
     # RND Fully-Connected Architecture:
     '''
     config['rnd_feature_net_fc_arch_hidden_units'] = (128, 64)
+    '''
+
+    # Latent Embedding:
+    config['use_latent_embedding'] = True
+    config['latent_emb_nbr_variables'] = 128
+    # Latent Encoder:
+
+    # Latent Encoder: Convolutional architecture:
+    config['latent_encoder_arch'] = 'CNN'
+    config['latent_encoder_channels'] = [32, 32, 64]
+    config['latent_encoder_kernels'] = [8, 4, 3]
+    config['latent_encoder_strides'] = [4, 2, 1]
+    config['latent_encoder_paddings'] = [0, 1, 1]
+    config['latent_encoder_feature_dim'] = config['latent_emb_nbr_variables']
+    # Latent Decoder: Broadcast Convolutional architecture:
+    '''
+    config['latent_decoder_arch'] = 'BroadcastCNN'
+    config['latent_decoder_channels'] = [64, 32, 16]
+    config['latent_decoder_kernels'] = [4, 4, 3]
+    config['latent_decoder_strides'] = [4, 2, 1]
+    config['latent_decoder_paddings'] = [0, 1, 1]
+    config['latent_decoder_feature_dim'] = config['latent_emb_nbr_variables']
     '''
     return config
 
