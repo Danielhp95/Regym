@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
 
-offset_worker_id = 50
+offset_worker_id = 80
 gif_interval = 100
 
 
@@ -72,7 +72,7 @@ def make_gif_with_graph(trajectory, data, episode=0, actor_idx=0, path='./'):
     gif.save(path, dpi=None, writer='imagemagick')
     #plt.show()
     plt.close(fig)
-    
+
 def check_path_for_agent(filepath):
     #filepath = os.path.join(path,filename)
     agent = None
@@ -118,7 +118,7 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
     #logdir = './test_i2a_rnd/'
     #logdir = './test_10floors0_Theme0_LABC-light_gru_i2a_5rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b32_h128_3e-4_OTC_frameskip4/'
     #logdir = './test_li2a_rnd/'
-    logdir = './test_10floors0_Theme0_LABC-light_gru_li2a_3rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
+    logdir = './test_10floors0_LABC-light-theme_gru_li2a_3rollouts3steps_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -141,7 +141,7 @@ def test_train_i2a_rnd(i2a_rnd_config_dict):
                         'allowed-rooms':    2,      #(0, 1, 2),                 #Whether to use only normal rooms (0), normal and key rooms (1), or normal, key, and puzzle rooms (2).
                         'allowed-modules':  2,      #(0, 1, 2),                 #Whether to fill rooms with no modules (0), only easy modules (1), or the full range of modules (2).
                         'allowed-floors':   0,      #[0, 1, 2],                          #Whether to include only straightforward floor layouts (0), layouts that include branching (1), or layouts that include branching and circling (2).
-                        'default-theme':    0 #[0, 1, 2, 3, 4]                     #Whether to set the default theme to Ancient (0), Moorish (1), Industrial (2), Modern (3), or Future (4).
+                        'default-theme':    [0, 1, 2, 3, 4]                     #Whether to set the default theme to Ancient (0), Moorish (1), Industrial (2), Modern (3), or Future (4).
                         }
     
     # PARAMETERS with curriculum since they only include straightforward floors...

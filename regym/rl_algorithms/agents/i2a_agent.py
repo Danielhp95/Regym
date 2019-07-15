@@ -192,7 +192,7 @@ class I2AAgent():
             
             rnd_dict = dict()
             if self.use_rnd:
-                int_reward, target_int_f = self.algorithm.compute_intrinsic_reward(actor_s)
+                int_reward, target_int_f = self.algorithm.compute_intrinsic_reward(actor_succ_s)
                 rnd_dict = {'int_r':int_reward, 'target_int_f':target_int_f}
 
             if self.recurrent:

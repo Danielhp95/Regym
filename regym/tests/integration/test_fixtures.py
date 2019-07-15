@@ -357,13 +357,13 @@ def ppo_rnd_config_dict_ma():
     config['use_cuda'] = True
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.001
-    config['gradient_clip'] = 0.0
+    config['gradient_clip'] = 5e-1
     config['optimization_epochs'] = 4
-    config['mini_batch_size'] = 256
+    config['mini_batch_size'] = 128
     config['ppo_ratio_clip'] = 0.2
-    config['learning_rate'] = 3.0e-4
+    config['learning_rate'] = 1.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 8
+    config['nbr_actor'] = 4
     config['horizon'] = 128
     config['phi_arch'] = 'CNN-GRU-RNN'#'CNN'#
     config['actor_arch'] = 'None'

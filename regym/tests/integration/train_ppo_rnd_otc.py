@@ -1,3 +1,4 @@
+import regym
 from regym.rl_algorithms.agents import build_PPO_Agent
 from regym.rl_loops.singleagent_loops import rl_loop
 from regym.environments import parse_environment
@@ -15,8 +16,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
 
-offset_worker_id = 10
-gif_interval = 50
+offset_worker_id = 20
+gif_interval = 100
 
 
 def make_gif(trajectory, episode=0, actor_idx=0, path='./'):
@@ -118,8 +119,9 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
     #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
     #logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
     #logdir = './test_10floors0_Theme0_LABC-light_gru_ppo_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b256_h128_3e-4_OTC_frameskip4/'
-    #logdir = './test_10floors0_Theme0_LABC-light_gru_ppo_rnd512_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b256_h128_3e-4_OTC_frameskip4/'
-    logdir = './test_gif'
+    #logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b256_h128_1e-3_OTC_frameskip4/'
+    logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512++_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a4_b256_h128_1e-4_OTC_frameskip4/'
+    #logdir = './test_gif'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
     sum_writer = SummaryWriter(logdir)
@@ -127,6 +129,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
 
     agent, offset_episode_count = check_path_for_agent(save_path)
     if agent is None: agent = build_PPO_Agent(config=ppo_rnd_config_dict_ma, task=task, agent_name='PPO_RND_OTC')
+    regym.rl_algorithms.PPO.ppo.summary_writer = sum_writer
     agent.save_path = save_path
     nbr_episodes = 1e7
     max_episode_length = 1e5
@@ -142,7 +145,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                         'allowed-rooms':    2,      #(0, 1, 2),                 #Whether to use only normal rooms (0), normal and key rooms (1), or normal, key, and puzzle rooms (2).
                         'allowed-modules':  2,      #(0, 1, 2),                 #Whether to fill rooms with no modules (0), only easy modules (1), or the full range of modules (2).
                         'allowed-floors':   0,      #[0, 1, 2],                          #Whether to include only straightforward floor layouts (0), layouts that include branching (1), or layouts that include branching and circling (2).
-                        'default-theme':    0 #[0, 1, 2, 3, 4]                     #Whether to set the default theme to Ancient (0), Moorish (1), Industrial (2), Modern (3), or Future (4).
+                        'default-theme':    1 #[0, 1, 2, 3, 4]                     #Whether to set the default theme to Ancient (0), Moorish (1), Industrial (2), Modern (3), or Future (4).
                         }
     
     # PARAMETERS with curriculum since they only include straightforward floors...
@@ -184,7 +187,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
         env_configs = update_configs(env_param2range, nbr_actors)
         agent.episode_count += 1
 
-        if (i)%gif_interval == 0:
+        if (i-nbr_actors)%gif_interval == 0:
             for actor_idx in range(nbr_actors): 
                 gif_traj = [ exp[0] for exp in trajectory[actor_idx]]
                 gif_data = [ exp[3] for exp in trajectory[actor_idx]]

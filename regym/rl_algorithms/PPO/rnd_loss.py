@@ -18,6 +18,8 @@ def compute_loss(states: torch.Tensor,
                  ratio_clip: float, 
                  entropy_weight: float,
                  rnd_obs_clip: float,
+                 summary_writer: object = None,
+                 iteration_count: int = 0,
                  rnn_states: Dict[str, Dict[str, List[torch.Tensor]]] = None) -> torch.Tensor:
     '''
     Computes the loss of an actor critic model using the
@@ -61,27 +63,58 @@ def compute_loss(states: torch.Tensor,
                        the LSTM submodules. These tensors are used by the
                        :param model: when calculating the policy probability ratio.
     '''
+    int_advantages = torch.clamp(ext_advantages, -1e3, 1e3)
+    ext_advantages = torch.clamp(int_advantages, -1e3, 1e3)
     advantages = ext_advantages + intrinsic_reward_ratio*int_advantages
+    advantages = torch.clamp(advantages, -1e6, 1e6)
 
     prediction = model(states, actions, rnn_states=rnn_states)
     
     ratio = (prediction['log_pi_a'] - log_probs_old.detach()).exp()
+    ratio = torch.clamp(ratio, -1e3, 1e3)
+
     obj = ratio * advantages
     obj_clipped = ratio.clamp(1.0 - ratio_clip,
                               1.0 + ratio_clip) * advantages
-    policy_loss = -torch.min(obj, obj_clipped).mean() - entropy_weight * prediction['ent'].mean() # L^{clip} and L^{S} from original paper
+    policy_val = -torch.min(obj, obj_clipped).mean()
+    entropy_val = -entropy_weight * prediction['ent'].mean()
+    policy_loss = policy_val + entropy_val # L^{clip} and L^{S} from original paper
     
     # Random Network Distillation loss:
     norm_states = (states-states_mean) / (states_std+1e-8)
     if rnd_obs_clip > 1e-1:
       norm_states = torch.clamp( norm_states, -rnd_obs_clip, rnd_obs_clip)
     pred_random_features = pred_intr_model(norm_states)
-    int_reward_loss = torch.nn.functional.mse_loss(target_random_features.detach(), pred_random_features)
     
-    ext_v_loss = torch.nn.functional.mse_loss(ext_returns, prediction['v']) 
-    int_v_loss = torch.nn.functional.mse_loss(int_returns, prediction['int_v']) 
+    pred_random_features = torch.clamp(pred_random_features, -1e6, 1e6)
+    target_random_features = torch.clamp(target_random_features, -1e6, 1e6)
+    int_reward_loss = torch.nn.functional.smooth_l1_loss(target_random_features.detach(), pred_random_features)
+    
+    ext_returns = torch.clamp(ext_returns, -1e3, 1e3)
+    int_returns = torch.clamp(int_returns, -1e3, 1e3)
+    prediction['v'] = torch.clamp(prediction['v'], -1e3, 1e3)
+    prediction['int_v'] = torch.clamp(prediction['int_v'], -1e3, 1e3)
+    ext_v_loss = torch.nn.functional.smooth_l1_loss(ext_returns, prediction['v']) 
+    int_v_loss = torch.nn.functional.smooth_l1_loss(int_returns, prediction['int_v']) 
     
     rnd_loss = int_reward_loss + 0.5*(ext_v_loss + int_v_loss)
     
     total_loss = policy_loss + rnd_loss
+
+    if summary_writer is not None:
+        summary_writer.add_scalar('Training/RatioMean', ratio.mean().cpu().item(), iteration_count)
+        summary_writer.add_histogram('Training/Ratio', ratio.cpu(), iteration_count)
+        summary_writer.add_scalar('Training/ExtAdvantageMean', ext_advantages.mean().cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/IntAdvantageMean', int_advantages.mean().cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/AdvantageMean', advantages.mean().cpu().item(), iteration_count)
+        summary_writer.add_histogram('Training/ExtAdvantage', ext_advantages.cpu(), iteration_count)
+        summary_writer.add_histogram('Training/IntAdvantage', int_advantages.cpu(), iteration_count)
+        summary_writer.add_histogram('Training/Advantage', advantages.cpu(), iteration_count)
+        summary_writer.add_scalar('Training/RNDLoss', int_reward_loss.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/ExtVLoss', ext_v_loss.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/IntVLoss', int_v_loss.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/PolicyVal', policy_val.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/EntropyVal', entropy_val.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/PolicyLoss', policy_loss.cpu().item(), iteration_count)
+        
     return total_loss

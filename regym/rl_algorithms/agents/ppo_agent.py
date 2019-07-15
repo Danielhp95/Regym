@@ -193,7 +193,7 @@ class PPOAgent(object):
             exp_dict.update(PPOAgent._extract_from_prediction(self.current_prediction, batch_index))
             
             if self.use_rnd:
-                int_reward, target_int_f = self.algorithm.compute_intrinsic_reward(exp_dict['s'])
+                int_reward, target_int_f = self.algorithm.compute_intrinsic_reward(exp_dict['succ_s'])
                 rnd_dict = {'int_r':int_reward, 'target_int_f':target_int_f}
                 exp_dict.update(rnd_dict)
 
@@ -368,6 +368,7 @@ def build_PPO_Agent(task, config, agent_name):
                                                   kernel_sizes=kernels,
                                                   strides=strides,
                                                   paddings=paddings)
+            output_dim = (256,256,)+(output_dim,)
             predict_intr_model = ConvolutionalBody(input_shape=input_shape,
                                                   feature_dim=output_dim,
                                                   channels=channels,

@@ -4,6 +4,7 @@
 # declaration at the top                                              #
 #######################################################################
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,7 +13,7 @@ from regym.rl_algorithms.networks.ppo_network_utils import layer_init, layer_ini
 
 
 class ConvolutionalBody(nn.Module):
-    def __init__(self, input_shape, feature_dim=256, channels=[3, 3], kernel_sizes=[1], strides=[1], paddings=[0], non_linearities=[F.relu]):
+    def __init__(self, input_shape, feature_dim=256, channels=[3, 3], kernel_sizes=[1], strides=[1], paddings=[0], non_linearities=[F.leaky_relu]):
         '''
         Default input channels assume a RGB image (3 channels).
 
@@ -35,21 +36,38 @@ class ConvolutionalBody(nn.Module):
                 self.non_linearities.append(self.non_linearities[0])
 
         self.feature_dim = feature_dim
+        if isinstance(feature_dim, tuple):
+            self.feature_dim = feature_dim[-1]
+
         self.convs = nn.ModuleList()
         dim = input_shape[1] # height
         for in_ch, out_ch, k, s, p in zip(channels, channels[1:], kernel_sizes, strides, paddings):
             self.convs.append( layer_init(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=k, stride=s, padding=p)))
             # Update of the shape of the input-image, following Conv:
             dim = (dim-k+2*p)//s+1
-        self.fc = layer_init(nn.Linear(dim * dim * channels[-1], self.feature_dim))
+
+        hidden_units = (dim * dim * channels[-1],)
+        if isinstance(feature_dim, tuple):
+            hidden_units = hidden_units + feature_dim
+        else:
+            hidden_units = hidden_units + (self.feature_dim,)
+
+        self.fcs = nn.ModuleList()
+        for nbr_in, nbr_out in zip(hidden_units, hidden_units[1:]):
+            self.fcs.append( layer_init(nn.Linear(nbr_in, nbr_out), w_scale=1.0/math.sqrt(nbr_in)))
+
 
     def forward(self, x):
         conv_map = x
         for conv_layer, non_lin in zip(self.convs, self.non_linearities):
             conv_map = non_lin(conv_layer(conv_map))
 
-        flatten = conv_map.view(conv_map.size(0), -1)
-        features = F.relu(self.fc(flatten))
+        features = conv_map.view(conv_map.size(0), -1)
+        for idx, fc in enumerate(self.fcs):
+            features = fc(features)
+            if idx != len(self.fcs)-1:
+                features = F.leaky_relu(features)
+
         return features
 
     def get_input_shape(self):

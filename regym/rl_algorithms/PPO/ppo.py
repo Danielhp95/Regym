@@ -8,10 +8,11 @@ from ..networks import random_sample
 from ..replay_buffers import Storage
 from . import ppo_loss, rnd_loss
 
+summary_writer = None 
 
 class PPOAlgorithm():
 
-    def __init__(self, kwargs, model, optimizer=None, target_intr_model=None, predict_intr_model=None):
+    def __init__(self, kwargs, model, optimizer=None, target_intr_model=None, predict_intr_model=None, summary_writer=None):
         '''
         TODO specify which values live inside of kwargs
         Refer to original paper for further explanation: https://arxiv.org/pdf/1707.06347.pdf
@@ -67,6 +68,9 @@ class PPOAlgorithm():
 
         self.storages = None
         self.reset_storages()
+
+        self.summary_writer = summary_writer
+        self.param_update_counter = 0
 
     def reset_storages(self):
         if self.storages is not None:
@@ -275,6 +279,7 @@ class PPOAlgorithm():
           self.running_counter_obs = 0
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states=None):
+        global summary_writer
         # What is this: create dictionary to store length of each part of the recurrent submodules of the current model
         nbr_layers_per_rnn = None
         if self.recurrent:
@@ -328,7 +333,9 @@ class PPOAlgorithm():
                                              model=self.model,
                                              rnd_obs_clip=self.kwargs['rnd_obs_clip'],
                                              pred_intr_model=self.predict_intr_model,
-                                             intrinsic_reward_ratio=self.kwargs['rnd_loss_int_ratio'] )
+                                             intrinsic_reward_ratio=self.kwargs['rnd_loss_int_ratio'],
+                                             iteration_count=self.param_update_counter,
+                                             summary_writer=summary_writer )
             else:
                 loss = ppo_loss.compute_loss(sampled_states, sampled_actions, sampled_log_probs_old,
                                              sampled_returns, sampled_advantages, 
@@ -340,6 +347,11 @@ class PPOAlgorithm():
             if self.kwargs['gradient_clip'] > 1e-3:
                 nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
+
+            if summary_writer is not None:
+                self.param_update_counter += 1 
+    
+        
 
     def calculate_rnn_states_from_batch_indices(self, rnn_states, batch_indices, nbr_layers_per_rnn):
         sampled_rnn_states = {k: {'hidden': [None]*nbr_layers_per_rnn[k], 'cell': [None]*nbr_layers_per_rnn[k]} for k in rnn_states}

@@ -249,6 +249,9 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
         #logits = F.softmax( self.network.fc_action(phi_a), dim=1 )
         logits = self.network.fc_action(phi_a)
+        #https://github.com/pytorch/pytorch/issues/7014
+        logits = torch.clamp(logits, -1e10, 1e10)
+        
         # batch x action_dim
         v = self.network.fc_critic(phi_v)
         if self.use_intrinsic_critic:
