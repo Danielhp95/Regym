@@ -36,8 +36,10 @@ class PPOAlgorithm():
             self.use_rnd = True
             self.target_intr_model = target_intr_model
             self.predict_intr_model = predict_intr_model
-            self.states_mean = 0.0
-            self.states_std = 1.0
+            self.obs_mean = 0.0
+            self.obs_std = 1.0
+            self.running_counter_obs = 0
+            self.update_period_obs = self.kwargs['rnd_update_period_running_meanstd_obs']
             self.int_reward_mean = 0.0
             self.int_reward_std = 1.0
             self.running_counter_intrinsic_reward = 0
@@ -88,7 +90,9 @@ class PPOAlgorithm():
             if len(storage) == 0: continue
             storage.placeholder()
             self.compute_advantages_and_returns(storage_idx=idx)
-            if self.use_rnd: self.compute_int_advantages_and_int_returns(storage_idx=idx, non_episodic=self.kwargs['rnd_non_episodic_int_r'])
+            if self.use_rnd: 
+                self.compute_int_advantages_and_int_returns(storage_idx=idx, non_episodic=self.kwargs['rnd_non_episodic_int_r'])
+                for ob in storage.s: self.update_obs_mean_std(ob)
 
         states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states = self.retrieve_values_from_storages()
 
@@ -96,10 +100,6 @@ class PPOAlgorithm():
 
         for it in range(self.kwargs['optimization_epochs']):
             self.optimize_model(states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states)
-
-        if self.use_rnd: 
-            # Compute states_mean and states_std to be reused on the next optimization call:
-            self.compute_states_mean_std(states)
 
         self.reset_storages()
 
@@ -230,7 +230,7 @@ class PPOAlgorithm():
         return (x - x.mean()) / x.std()
 
     def compute_intrinsic_reward(self, states):
-        normalized_states = (states-self.states_mean) / self.states_std 
+        normalized_states = (states-self.obs_mean) / self.obs_std 
         if self.kwargs['rnd_obs_clip'] > 1e-3:
           normalized_states = torch.clamp( normalized_states, -self.kwargs['rnd_obs_clip'], self.kwargs['rnd_obs_clip'])
         if self.kwargs['use_cuda']: normalized_states = normalized_states.cuda()
@@ -248,10 +248,6 @@ class PPOAlgorithm():
 
         return int_reward, target_features.detach().cpu()
 
-    def compute_states_mean_std(self,states):
-        self.states_mean = states.mean()
-        self.states_std = states.std() + 1e-5
-
     def update_int_reward_mean_std(self, unnormalized_ir):
         rmean = self.int_reward_mean
         rstd = self.int_reward_std
@@ -264,6 +260,19 @@ class PPOAlgorithm():
         
         if self.running_counter_intrinsic_reward >= self.update_period_intrinsic_reward:
           self.running_counter_intrinsic_reward = 0
+
+    def update_obs_mean_std(self, unnormalized_obs):
+        rmean = self.obs_mean
+        rstd = self.obs_std
+        rc = self.running_counter_obs
+
+        self.running_counter_obs += 1
+        
+        self.obs_mean = (self.obs_mean*rc+unnormalized_obs)/self.running_counter_obs
+        self.obs_std = np.sqrt( ( np.power(self.obs_std,2)*rc+np.power(unnormalized_obs-rmean, 2) ) / self.running_counter_obs )
+        
+        if self.running_counter_obs >= self.update_period_obs:
+          self.running_counter_obs = 0
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states=None):
         # What is this: create dictionary to store length of each part of the recurrent submodules of the current model
@@ -298,6 +307,8 @@ class PPOAlgorithm():
                 sampled_int_returns = sampled_int_returns.detach()
                 sampled_int_advantages = sampled_int_advantages.detach()
                 sampled_target_random_features = sampled_target_random_features.detach()
+                states_mean = self.obs_mean.cuda() if self.kwargs['use_cuda'] else self.obs_mean
+                states_std = self.obs_std.cuda() if self.kwargs['use_cuda'] else self.obs_std
 
             self.optimizer.zero_grad()
             if self.use_rnd:
@@ -309,8 +320,8 @@ class PPOAlgorithm():
                                              int_returns=sampled_int_returns, 
                                              int_advantages=sampled_int_advantages, 
                                              target_random_features=sampled_target_random_features,
-                                             states_mean=self.states_mean, 
-                                             states_std=self.states_std,
+                                             states_mean=states_mean, 
+                                             states_std=states_std,
                                              rnn_states=sampled_rnn_states,
                                              ratio_clip=self.kwargs['ppo_ratio_clip'], 
                                              entropy_weight=self.kwargs['entropy_weight'],

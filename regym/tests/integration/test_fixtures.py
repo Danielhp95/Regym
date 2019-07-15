@@ -310,6 +310,7 @@ def i2a_rnd_config_dict():
     config['rnd_obs_clip'] = 5
     config['rnd_non_episodic_int_r'] = True
     config['rnd_update_period_running_meanstd_int_reward'] = 1e5
+    config['rnd_update_period_running_meanstd_obs'] = config['rnd_update_period_running_meanstd_int_reward']
     # RND Convolutional Architecture:
     config['rnd_arch'] = 'CNN'
     config['rnd_arch_channels'] = [32, 64, 64]
@@ -384,6 +385,7 @@ def ppo_rnd_config_dict_ma():
     config['rnd_obs_clip'] = 5
     config['rnd_non_episodic_int_r'] = True
     config['rnd_update_period_running_meanstd_int_reward'] = 1e5
+    config['rnd_update_period_running_meanstd_obs'] = config['rnd_update_period_running_meanstd_int_reward']
     # RND Convolutional Architecture:
     config['rnd_arch'] = 'CNN'
     config['rnd_arch_channels'] = [32, 64, 64]

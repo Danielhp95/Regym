@@ -52,7 +52,7 @@ class I2AAgent():
     
     def get_intrinsic_reward(self, actor_idx):
         if len(self.algorithm.model_training_algorithm.storages[actor_idx].int_r):
-            return self.algorithm.model_training_algorithm.storages[actor_idx].int_r[-1]
+            return self.algorithm.model_training_algorithm.storages[actor_idx].int_r[-1] / (self.algorithm.model_training_algorithm.int_reward_std+1e-8)
         else:
             return 0.0
 

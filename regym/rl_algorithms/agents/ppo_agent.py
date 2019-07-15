@@ -37,7 +37,7 @@ class PPOAgent(object):
 
     def get_intrinsic_reward(self, actor_idx):
         if len(self.algorithm.storages[actor_idx].int_r):
-            return self.algorithm.storages[actor_idx].int_r[-1]
+            return self.algorithm.storages[actor_idx].int_r[-1] / (self.algorithm.int_reward_std+1e-8) 
         else:
             return 0.0
 
