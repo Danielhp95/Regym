@@ -42,7 +42,7 @@ class ConvolutionalBody(nn.Module):
         self.convs = nn.ModuleList()
         dim = input_shape[1] # height
         for in_ch, out_ch, k, s, p in zip(channels, channels[1:], kernel_sizes, strides, paddings):
-            self.convs.append( layer_init(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=k, stride=s, padding=p)))
+            self.convs.append( layer_init(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=k, stride=s, padding=p), w_scale=math.sqrt(2)))
             # Update of the shape of the input-image, following Conv:
             dim = (dim-k+2*p)//s+1
 
@@ -54,10 +54,10 @@ class ConvolutionalBody(nn.Module):
 
         self.fcs = nn.ModuleList()
         for nbr_in, nbr_out in zip(hidden_units, hidden_units[1:]):
-            self.fcs.append( layer_init(nn.Linear(nbr_in, nbr_out), w_scale=1.0/math.sqrt(nbr_in)))
+            self.fcs.append( layer_init(nn.Linear(nbr_in, nbr_out), w_scale=math.sqrt(2)))#1e-2))#1.0/math.sqrt(nbr_in*nbr_out)))
 
 
-    def forward(self, x):
+    def forward(self, x, non_lin_output=True):
         conv_map = x
         for conv_layer, non_lin in zip(self.convs, self.non_linearities):
             conv_map = non_lin(conv_layer(conv_map))
@@ -65,8 +65,8 @@ class ConvolutionalBody(nn.Module):
         features = conv_map.view(conv_map.size(0), -1)
         for idx, fc in enumerate(self.fcs):
             features = fc(features)
-            if idx != len(self.fcs)-1:
-                features = F.leaky_relu(features)
+            if idx != len(self.fcs)-1 or non_lin_output:
+                features = F.relu(features)
 
         return features
 

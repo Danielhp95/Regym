@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
 
-offset_worker_id = 20
+offset_worker_id = 10
 gif_interval = 100
 
 
@@ -116,11 +116,8 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
     task = parse_environment(os.path.join(here, 'ObstacleTower/obstacletower'),
                              nbr_parallel_env=ppo_rnd_config_dict_ma['nbr_actor'], 
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
-    #logdir = './test_ppo_rnd256_normintrUP1e4_cnn60phi256_a1_b256_h1024_3e-4_OTC_frameskip4/'
-    #logdir = './test_LABC_gru_ppo_rnd64_normIntrUP1e4_cnn60phi256gru64_a8_b1024_h1024_3e-4_OTC_frameskip4/'
-    #logdir = './test_10floors0_Theme0_LABC-light_gru_ppo_rnd512_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b256_h128_3e-4_OTC_frameskip4/'
-    #logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b256_h128_1e-3_OTC_frameskip4/'
-    logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512++_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a4_b256_h128_1e-4_OTC_frameskip4/'
+    #logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a4_b256_h128_1e-4_OTC_frameskip4/'
+    logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
     #logdir = './test_gif'
     if not os.path.exists(logdir):
         os.mkdir(logdir)
@@ -187,7 +184,7 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
         env_configs = update_configs(env_param2range, nbr_actors)
         agent.episode_count += 1
 
-        if (i-nbr_actors)%gif_interval == 0:
+        if (i+nbr_actors)%gif_interval == 0:
             for actor_idx in range(nbr_actors): 
                 gif_traj = [ exp[0] for exp in trajectory[actor_idx]]
                 gif_data = [ exp[3] for exp in trajectory[actor_idx]]

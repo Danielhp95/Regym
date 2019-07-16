@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F 
 
 from ..networks import random_sample
 from ..replay_buffers import Storage
@@ -231,16 +232,30 @@ class PPOAlgorithm():
         return full_states, full_actions, full_log_probs_old, full_returns, full_advantages, full_int_returns, full_int_advantages, full_target_random_features, full_rnn_states
 
     def standardize(self, x):
-        return (x - x.mean()) / x.std()
+        return (x - x.mean()) / (x.std()+1e-8)
 
     def compute_intrinsic_reward(self, states):
-        normalized_states = (states-self.obs_mean) / self.obs_std 
+        normalized_states = (states-self.obs_mean) / (self.obs_std+1e-8) 
         if self.kwargs['rnd_obs_clip'] > 1e-3:
           normalized_states = torch.clamp( normalized_states, -self.kwargs['rnd_obs_clip'], self.kwargs['rnd_obs_clip'])
         if self.kwargs['use_cuda']: normalized_states = normalized_states.cuda()
+        
         pred_features = self.predict_intr_model(normalized_states)
         target_features = self.target_intr_model(normalized_states)
+        
+        # Clamping:
+        #pred_features = torch.clamp(pred_features, -1e20, 1e20)
+        #target_features = torch.clamp(target_features, -1e20, 1e20)
+        
+        # Softmax:
+        #pred_features = F.softmax(pred_features)
+        #softmax_target_features = F.softmax(target_features)
+        if torch.isnan(pred_features).long().sum().item() or torch.isnan(target_features).long().sum().item():
+            import ipdb; ipdb.set_trace()
+        #int_reward = torch.nn.functional.smooth_l1_loss(target_features,pred_features)
         int_reward = torch.nn.functional.mse_loss(target_features,pred_features)
+        #int_reward = torch.nn.functional.mse_loss(softmax_target_features,pred_features)
+        
         # No clipping on the intrinsic reward in the original paper:
         #int_reward = torch.clamp(int_reward, -1, 1)
         int_reward = int_reward.detach().cpu()

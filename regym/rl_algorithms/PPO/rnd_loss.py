@@ -1,5 +1,6 @@
 from typing import Dict, List
 import torch
+import torch.nn.functional as F 
 
 
 def compute_loss(states: torch.Tensor, 
@@ -63,15 +64,15 @@ def compute_loss(states: torch.Tensor,
                        the LSTM submodules. These tensors are used by the
                        :param model: when calculating the policy probability ratio.
     '''
-    int_advantages = torch.clamp(ext_advantages, -1e3, 1e3)
-    ext_advantages = torch.clamp(int_advantages, -1e3, 1e3)
+    #int_advantages = torch.clamp(int_advantages, -1e3, 1e3)
+    #ext_advantages = torch.clamp(ext_advantages, -1e3, 1e3)
     advantages = ext_advantages + intrinsic_reward_ratio*int_advantages
-    advantages = torch.clamp(advantages, -1e6, 1e6)
+    #advantages = torch.clamp(advantages, -1e6, 1e6)
 
     prediction = model(states, actions, rnn_states=rnn_states)
     
     ratio = (prediction['log_pi_a'] - log_probs_old.detach()).exp()
-    ratio = torch.clamp(ratio, -1e3, 1e3)
+    #ratio = torch.clamp(ratio, -1e3, 1e3)
 
     obj = ratio * advantages
     obj_clipped = ratio.clamp(1.0 - ratio_clip,
@@ -86,14 +87,21 @@ def compute_loss(states: torch.Tensor,
       norm_states = torch.clamp( norm_states, -rnd_obs_clip, rnd_obs_clip)
     pred_random_features = pred_intr_model(norm_states)
     
-    pred_random_features = torch.clamp(pred_random_features, -1e6, 1e6)
-    target_random_features = torch.clamp(target_random_features, -1e6, 1e6)
-    int_reward_loss = torch.nn.functional.smooth_l1_loss(target_random_features.detach(), pred_random_features)
+    # Clamping:
+    #pred_random_features = torch.clamp(pred_random_features, -1e20, 1e20)
+    #target_random_features = torch.clamp(target_random_features, -1e20, 1e20)
     
-    ext_returns = torch.clamp(ext_returns, -1e3, 1e3)
-    int_returns = torch.clamp(int_returns, -1e3, 1e3)
-    prediction['v'] = torch.clamp(prediction['v'], -1e3, 1e3)
-    prediction['int_v'] = torch.clamp(prediction['int_v'], -1e3, 1e3)
+    # Softmax:
+    #pred_random_features = F.softmax(pred_random_features)
+    
+    # Losses:
+    #int_reward_loss = torch.nn.functional.smooth_l1_loss(target_random_features.detach(), pred_random_features)
+    int_reward_loss = torch.nn.functional.mse_loss(target_random_features.detach(), pred_random_features)
+    
+    #ext_returns = torch.clamp(ext_returns, -1e10, 1e10)
+    #int_returns = torch.clamp(int_returns, -1e10, 1e10)
+    #prediction['v'] = torch.clamp(prediction['v'], -1e10, 1e10)
+    #prediction['int_v'] = torch.clamp(prediction['int_v'], -1e10, 1e10)
     ext_v_loss = torch.nn.functional.smooth_l1_loss(ext_returns, prediction['v']) 
     int_v_loss = torch.nn.functional.smooth_l1_loss(int_returns, prediction['int_v']) 
     
