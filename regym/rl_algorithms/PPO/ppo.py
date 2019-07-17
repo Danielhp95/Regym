@@ -44,8 +44,12 @@ class PPOAlgorithm():
             self.update_period_obs = self.kwargs['rnd_update_period_running_meanstd_obs']
             self.int_reward_mean = 0.0
             self.int_reward_std = 1.0
+            self.int_return_mean = 0.0
+            self.int_return_std = 1.0
             self.running_counter_intrinsic_reward = 0
             self.update_period_intrinsic_reward = self.kwargs['rnd_update_period_running_meanstd_int_reward']
+            self.running_counter_intrinsic_return = 0
+            self.update_period_intrinsic_return = self.kwargs['rnd_update_period_running_meanstd_int_reward']
 
         self.model = model
         if self.kwargs['use_cuda']:
@@ -174,10 +178,13 @@ class PPOAlgorithm():
             self.storages[storage_idx].int_adv[i] = int_advantages.detach()
             self.storages[storage_idx].int_ret[i] = int_returns.detach()
 
+        self.update_int_return_mean_std(int_returns.detach().cpu())
+
     def normalize_int_rewards(self, storage_idx):
         normalized_int_rewards = []
         for i in range(len(self.storages[storage_idx])):
-            normalized_int_rewards.append(self.storages[storage_idx].int_r[i] / (self.int_reward_std+1e-8))
+            #normalized_int_rewards.append(self.storages[storage_idx].int_r[i] / (self.int_reward_std+1e-8))
+            normalized_int_rewards.append(self.storages[storage_idx].int_r[i] / (self.int_return_std+1e-8))
         return normalized_int_rewards
 
     def retrieve_values_from_storages(self):
@@ -280,6 +287,20 @@ class PPOAlgorithm():
         if self.running_counter_intrinsic_reward >= self.update_period_intrinsic_reward:
           self.running_counter_intrinsic_reward = 0
 
+    def update_int_return_mean_std(self, unnormalized_ir):
+        rmean = self.int_return_mean
+        rstd = self.int_return_std
+        rc = self.running_counter_intrinsic_return
+
+        self.running_counter_intrinsic_return += 1
+        
+        self.int_return_mean = (self.int_return_mean*rc+unnormalized_ir)/self.running_counter_intrinsic_return
+        self.int_return_std = np.sqrt( ( np.power(self.int_return_std,2)*rc+np.power(unnormalized_ir-rmean, 2) ) / self.running_counter_intrinsic_return )
+        
+        if self.running_counter_intrinsic_return >= self.update_period_intrinsic_return:
+          self.running_counter_intrinsic_return = 0
+
+    
     def update_obs_mean_std(self, unnormalized_obs):
         rmean = self.obs_mean
         rstd = self.obs_std
@@ -365,6 +386,8 @@ class PPOAlgorithm():
 
             if summary_writer is not None:
                 self.param_update_counter += 1 
+                summary_writer.add_scalar('Training/IntReturnMean', self.int_return_mean.cpu().item(), self.param_update_counter)
+                summary_writer.add_scalar('Training/IntReturnStd', self.int_return_std.cpu().item(), self.param_update_counter)
     
         
 
