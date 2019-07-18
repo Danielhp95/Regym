@@ -88,7 +88,9 @@ class ParallelEnv():
         self.envs[idx] = self.env_creator(worker_id=self.worker_ids[idx]+worker_id_offset)
         p = Process(target=env_worker, args=(self.envs[idx], *(self.env_queues[idx].values()), self.worker_ids[idx]) )
         '''
-        p = Process(target=env_worker, args=(self.env_creator, *(self.env_queues[idx].values()), self.worker_ids[idx]+worker_id_offset) )
+        wid = self.worker_ids[idx]
+        if wid is not None: wid += worker_id_offset
+        p = Process(target=env_worker, args=(self.env_creator, *(self.env_queues[idx].values()), wid) )
         p.start()
         self.env_processes[idx] = p
         time.sleep(10)

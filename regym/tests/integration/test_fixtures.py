@@ -363,7 +363,7 @@ def ppo_rnd_config_dict_ma():
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 8
+    config['nbr_actor'] = 64
     config['horizon'] = 128
     config['phi_arch'] = 'CNN-GRU-RNN'#'CNN'#
     config['actor_arch'] = 'None'
