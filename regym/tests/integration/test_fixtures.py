@@ -357,17 +357,17 @@ def ppo_rnd_config_dict_ma():
     config['use_cuda'] = True
     config['gae_tau'] = 0.95
     config['entropy_weight'] = 0.001
-    config['gradient_clip'] = 5e-1
-    config['optimization_epochs'] = 10
-    config['mini_batch_size'] = 128
+    config['gradient_clip'] = 0.0
+    config['optimization_epochs'] = 4
+    config['mini_batch_size'] = 1024
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['nbr_actor'] = 64
+    config['nbr_actor'] = 32
     config['horizon'] = 128
     config['phi_arch'] = 'CNN-GRU-RNN'#'CNN'#
-    config['actor_arch'] = 'None'
-    config['critic_arch'] = 'None'
+    config['actor_arch'] = 'MLP'
+    config['critic_arch'] = 'MLP'
     
     # Phi Body: Convolutional Architecture:
     config['phi_arch_channels'] = [32, 64, 64]
@@ -375,7 +375,7 @@ def ppo_rnd_config_dict_ma():
     config['phi_arch_strides'] = [4, 2, 1]
     config['phi_arch_paddings'] = [0, 1, 1]
     config['phi_arch_feature_dim'] = 256
-    config['phi_arch_hidden_units'] = (128,)
+    config['phi_arch_hidden_units'] = (256,)
     
 
     # Random Network Distillation:

@@ -95,20 +95,27 @@ class PPOAlgorithm():
                 self.storages[-1].add_key('target_int_f')
 
     def train(self):
+        # Compute Returns and Advantages:
         for idx, storage in enumerate(self.storages): 
             if len(storage) == 0: continue
             storage.placeholder()
             self.compute_advantages_and_returns(storage_idx=idx)
             if self.use_rnd: 
                 self.compute_int_advantages_and_int_returns(storage_idx=idx, non_episodic=self.kwargs['rnd_non_episodic_int_r'])
+        
+        # Update observations running mean and std: 
+        if self.use_rnd: 
+            for idx, storage in enumerate(self.storages): 
+                if len(storage) == 0: continue
                 for ob in storage.s: self.update_obs_mean_std(ob)
-
-        states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states = self.retrieve_values_from_storages()
+        
+                
+        states, actions, next_states, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states = self.retrieve_values_from_storages()
 
         if self.recurrent: rnn_states = self.reformat_rnn_states(rnn_states)
 
         for it in range(self.kwargs['optimization_epochs']):
-            self.optimize_model(states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states)
+            self.optimize_model(states, actions, next_states, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states)
 
         self.reset_storages()
 
@@ -136,18 +143,22 @@ class PPOAlgorithm():
             reformated_rnn_states[k] = {'hidden': [hstates], 'cell': [cstates]}
         return reformated_rnn_states
 
-    def compute_advantages_and_returns(self, storage_idx):
+    def compute_advantages_and_returns(self, storage_idx, non_episodic=False):
         advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
         returns = self.storages[storage_idx].v[-1].detach()
+        gae = 0.0
         for i in reversed(range(len(self.storages[storage_idx])-1)):
-            returns = self.storages[storage_idx].r[i] + self.kwargs['discount'] * self.storages[storage_idx].non_terminal[i] * returns
             if not self.kwargs['use_gae']:
+                if non_episodic:    notdone = 1.0
+                else:               notdone = self.storages[storage_idx].non_terminal[i]
+                returns = self.storages[storage_idx].r[i] + self.kwargs['discount'] * notdone * returns
                 advantages = returns - self.storages[storage_idx].v[i].detach()
             else:
-                td_error = self.storages[storage_idx].r[i] 
-                td_error = td_error + self.kwargs['discount'] * self.storages[storage_idx].non_terminal[i] * self.storages[storage_idx].v[i + 1].detach() 
-                td_error = td_error - self.storages[storage_idx].v[i].detach()
-                advantages = advantages * self.kwargs['gae_tau'] * self.kwargs['discount'] * self.storages[storage_idx].non_terminal[i] + td_error
+                if non_episodic:    notdone = 1.0
+                else:               notdone = self.storages[storage_idx].non_terminal[i]
+                td_error = self.storages[storage_idx].r[i]  + self.kwargs['discount'] * notdone * self.storages[storage_idx].v[i + 1].detach() - self.storages[storage_idx].v[i].detach()
+                advantages = gae = td_error + self.kwargs['discount'] * self.kwargs['gae_tau'] * notdone * gae 
+                returns = advantages + self.storages[storage_idx].v[i].detach()
             self.storages[storage_idx].adv[i] = advantages.detach()
             self.storages[storage_idx].ret[i] = returns.detach()
 
@@ -160,21 +171,19 @@ class PPOAlgorithm():
         norm_int_r = self.normalize_int_rewards(storage_idx)
         int_advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32))
         int_returns = self.storages[storage_idx].int_v[-1].detach()
+        gae = 0.0
         for i in reversed(range(len(self.storages[storage_idx])-1)):
-            #int_returns = self.storages[storage_idx].int_r[i] + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] * int_returns
-            if non_episodic:
-                int_returns = norm_int_r[i] + self.kwargs['intrinsic_discount'] * int_returns
-            else:
-                int_returns = norm_int_r[i] + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] * int_returns
             if not self.kwargs['use_gae']:
+                if non_episodic:    notdone = 1.0
+                else:               notdone = self.storages[storage_idx].non_terminal[i]
+                int_returns = norm_int_r[i] + self.kwargs['intrinsic_discount'] * notdone * int_returns
                 int_advantages = int_returns - self.storages[storage_idx].int_v[i].detach()
             else:
-                #td_error = self.storages[storage_idx].int_r[i] 
-                td_error = norm_int_r[i] 
-                if non_episodic: td_error = td_error + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].int_v[i + 1].detach() 
-                else: td_error = td_error + self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] * self.storages[storage_idx].int_v[i + 1].detach() 
-                td_error = td_error - self.storages[storage_idx].int_v[i].detach()
-                int_advantages = int_advantages * self.kwargs['gae_tau'] * self.kwargs['intrinsic_discount'] * self.storages[storage_idx].non_terminal[i] + td_error
+                if non_episodic:    notdone = 1.0
+                else:               notdone = self.storages[storage_idx].non_terminal[i]
+                td_error = norm_int_r[i]  + self.kwargs['intrinsic_discount'] * notdone * self.storages[storage_idx].int_v[i + 1].detach() - self.storages[storage_idx].int_v[i].detach()
+                int_advantages = gae = td_error + self.kwargs['intrinsic_discount'] * self.kwargs['gae_tau'] * notdone * gae 
+                int_returns = int_advantages + self.storages[storage_idx].int_v[i].detach()
             self.storages[storage_idx].int_adv[i] = int_advantages.detach()
             self.storages[storage_idx].int_ret[i] = int_returns.detach()
 
@@ -194,10 +203,12 @@ class PPOAlgorithm():
         full_returns = []
         full_advantages = []
         full_rnn_states = None
+        full_next_states = None
         full_int_returns = None
         full_int_advantages = None
         full_target_random_features = None
         if self.use_rnd:
+            full_next_states = []
             full_int_returns = []
             full_int_advantages = []
             full_target_random_features = []
@@ -215,8 +226,9 @@ class PPOAlgorithm():
             full_returns.append(returns)
             full_advantages.append(advantages)
             if self.use_rnd:
-                cat = storage.cat(['int_ret', 'int_adv', 'target_int_f'])
-                int_returns, int_advantages, target_random_features = map(lambda x: torch.cat(x, dim=0), cat)
+                cat = storage.cat(['succ_s', 'int_ret', 'int_adv', 'target_int_f'])
+                next_states, int_returns, int_advantages, target_random_features = map(lambda x: torch.cat(x, dim=0), cat)
+                full_next_states.append(next_states)
                 full_int_returns.append(int_returns)
                 full_int_advantages.append(int_advantages)
                 full_target_random_features.append(target_random_features)
@@ -231,12 +243,13 @@ class PPOAlgorithm():
         full_advantages = torch.cat(full_advantages, dim=0)
         full_advantages = self.standardize(full_advantages)
         if self.use_rnd:
+            full_next_states = torch.cat(full_next_states, dim=0)
             full_int_returns = torch.cat(full_int_returns, dim=0)
             full_int_advantages = torch.cat(full_int_advantages, dim=0)
             full_target_random_features = torch.cat(full_target_random_features, dim=0)
             full_int_advantages = self.standardize(full_int_advantages)
             
-        return full_states, full_actions, full_log_probs_old, full_returns, full_advantages, full_int_returns, full_int_advantages, full_target_random_features, full_rnn_states
+        return full_states, full_actions, full_next_states, full_log_probs_old, full_returns, full_advantages, full_int_returns, full_int_advantages, full_target_random_features, full_rnn_states
 
     def standardize(self, x):
         return (x - x.mean()) / (x.std()+1e-8)
@@ -314,7 +327,7 @@ class PPOAlgorithm():
         if self.running_counter_obs >= self.update_period_obs:
           self.running_counter_obs = 0
 
-    def optimize_model(self, states, actions, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states=None):
+    def optimize_model(self, states, actions, next_states, log_probs_old, returns, advantages, int_returns, int_advantages, target_random_features, rnn_states=None):
         global summary_writer
         # What is this: create dictionary to store length of each part of the recurrent submodules of the current model
         nbr_layers_per_rnn = None
@@ -342,6 +355,8 @@ class PPOAlgorithm():
             sampled_advantages = sampled_advantages.detach()
 
             if self.use_rnd:
+                sampled_next_states = next_states[batch_indices].cuda() if self.kwargs['use_cuda'] else next_states[batch_indices]
+                sampled_next_states = sampled_next_states.detach()
                 sampled_int_returns = int_returns[batch_indices].cuda() if self.kwargs['use_cuda'] else int_returns[batch_indices]
                 sampled_int_advantages = int_advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else int_advantages[batch_indices]
                 sampled_target_random_features = target_random_features[batch_indices].cuda() if self.kwargs['use_cuda'] else target_random_features[batch_indices]
@@ -355,6 +370,7 @@ class PPOAlgorithm():
             if self.use_rnd:
                 loss = rnd_loss.compute_loss(sampled_states, 
                                              sampled_actions, 
+                                             sampled_next_states,
                                              sampled_log_probs_old,
                                              ext_returns=sampled_returns, 
                                              ext_advantages=sampled_advantages,

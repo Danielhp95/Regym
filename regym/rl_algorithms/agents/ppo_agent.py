@@ -308,7 +308,7 @@ def build_PPO_Agent(task, config, agent_name):
         phi_body = None
 
     if kwargs['actor_arch'] != 'None':
-        output_dim = 64
+        output_dim = 128
         if kwargs['actor_arch'] == 'RNN':
             actor_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif kwargs['actor_arch'] == 'MLP':
@@ -317,7 +317,7 @@ def build_PPO_Agent(task, config, agent_name):
         actor_body = None
 
     if kwargs['critic_arch'] != 'None':
-        output_dim = 64
+        output_dim = 128
         if kwargs['critic_arch'] == 'RNN':
             critic_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif kwargs['critic_arch'] == 'MLP':

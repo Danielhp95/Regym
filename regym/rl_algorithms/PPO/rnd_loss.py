@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 def compute_loss(states: torch.Tensor, 
                  actions: torch.Tensor,
+                 next_states: torch.Tensor,
                  log_probs_old: torch.Tensor, 
                  ext_returns: torch.Tensor,
                  ext_advantages: torch.Tensor,
@@ -82,10 +83,10 @@ def compute_loss(states: torch.Tensor,
     policy_loss = policy_val + entropy_val # L^{clip} and L^{S} from original paper
     
     # Random Network Distillation loss:
-    norm_states = (states-states_mean) / (states_std+1e-8)
+    norm_next_states = (next_states-states_mean) / (states_std+1e-8)
     if rnd_obs_clip > 1e-1:
-      norm_states = torch.clamp( norm_states, -rnd_obs_clip, rnd_obs_clip)
-    pred_random_features = pred_intr_model(norm_states)
+      norm_next_states = torch.clamp( norm_next_states, -rnd_obs_clip, rnd_obs_clip)
+    pred_random_features = pred_intr_model(norm_next_states)
     
     # Clamping:
     #pred_random_features = torch.clamp(pred_random_features, -1e20, 1e20)
@@ -96,15 +97,18 @@ def compute_loss(states: torch.Tensor,
     
     # Losses:
     #int_reward_loss = torch.nn.functional.smooth_l1_loss(target_random_features.detach(), pred_random_features)
-    int_reward_loss = torch.nn.functional.mse_loss(target_random_features.detach(), pred_random_features)
+    int_reward_loss = torch.nn.functional.mse_loss( pred_random_features, target_random_features.detach())
     
     #ext_returns = torch.clamp(ext_returns, -1e10, 1e10)
     #int_returns = torch.clamp(int_returns, -1e10, 1e10)
     #prediction['v'] = torch.clamp(prediction['v'], -1e10, 1e10)
     #prediction['int_v'] = torch.clamp(prediction['int_v'], -1e10, 1e10)
-    ext_v_loss = torch.nn.functional.smooth_l1_loss(ext_returns, prediction['v']) 
-    int_v_loss = torch.nn.functional.smooth_l1_loss(int_returns, prediction['int_v']) 
     
+    #ext_v_loss = torch.nn.functional.smooth_l1_loss(ext_returns, prediction['v']) 
+    #int_v_loss = torch.nn.functional.smooth_l1_loss(int_returns, prediction['int_v']) 
+    ext_v_loss = torch.nn.functional.mse_loss(prediction['v'], ext_returns.detach() ) 
+    int_v_loss = torch.nn.functional.mse_loss(prediction['int_v'], int_returns.detach()) 
+     
     rnd_loss = int_reward_loss + 0.5*(ext_v_loss + int_v_loss)
     
     total_loss = policy_loss + rnd_loss

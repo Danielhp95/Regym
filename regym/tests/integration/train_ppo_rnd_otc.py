@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
 
-offset_worker_id = 30
+offset_worker_id = 50
 gif_interval = 100
 
 

@@ -117,7 +117,8 @@ def test_train_ppo_rnd(ppo_rnd_config_dict_ma):
                              nbr_frame_stacking=ppo_rnd_config_dict_ma['nbr_frame_stacking'])
     #logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a4_b256_h128_1e-4_OTC_frameskip4/'
     #logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_cnn80phi256gru128_a8_b128_h128_3e-4_OTC_frameskip4/'
-    logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_NormRetMeanStd_cnn80phi256gru128_a8_b128_h128_3e-4_MZ_frameskip4/'
+    #logdir = './test_10floors0_Theme1_LABC-light_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicGAE_NormRetMeanStd_cnn80phi256gru128_a8_b128_h128_3e-4_MZ_frameskip4/'
+    logdir = './test_gru_ppo_rnd512-InitSqrt2_ObsUP1e5_IntrUP1e5_NonEpisodicTrueGAE_NormRetMeanStd_cnn80phi256gru256_ac128_a32_b1024_h128_3e-4_MZ_frameskip4/'
     #logdir = './test_gif'
     if not os.path.exists(logdir):
         os.mkdir(logdir)

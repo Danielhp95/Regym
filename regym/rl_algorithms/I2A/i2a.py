@@ -64,6 +64,8 @@ class I2AAlgorithm():
                                                       lr=kwargs['environment_model_learning_rate'],
                                                       eps=kwargs['environment_model_adam_eps'])
 
+        # TODO: for the predict_network of RND to be optimized along with the model,
+        # it is important to rely on the ppo algorithm instantiating the model optimizer.
         self.model_optimizer = optim.Adam(self.i2a_model.parameters(),
                                           lr=kwargs['policies_adam_learning_rate'],
                                           eps=kwargs['policies_adam_eps'])
