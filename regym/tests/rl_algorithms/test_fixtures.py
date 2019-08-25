@@ -80,7 +80,7 @@ def tabular_q_learning_config_dict():
 def reinforce_config_dict():
     config = dict()
     config['learning_rate'] = 1.0e-3
-    config['episodes_before_update'] = 5 # Do not make less than 2, for reinforce_test.py
+    config['episodes_before_update'] = 20 # Do not make less than 2, for reinforce_test.py
     config['adam_eps'] = 1.0e-5
     return config
 
@@ -89,7 +89,7 @@ def reinforce_config_dict():
 def a2c_config_dict():
     config = dict()
     config['discount_factor'] = 0.9
-    config['k_steps'] = 5
+    config['n_steps'] = 5
     config['samples_before_update'] = 30
     config['learning_rate'] = 1.0e-3
     config['adam_eps'] = 1.0e-5
