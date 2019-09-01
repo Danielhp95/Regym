@@ -1,5 +1,5 @@
 import pytest
-from regym.environments import parse_environment
+from regym.environments import generate_task
 
 
 @pytest.fixture
@@ -98,19 +98,19 @@ def a2c_config_dict():
 
 @pytest.fixture
 def FrozenLakeTask(): # Discrete Action / Observation space
-    return parse_environment('FrozenLake-v0')
+    return generate_task('FrozenLake-v0')
 
 
 @pytest.fixture
 def CartPoleTask(): # Discrete Action / Continuous Observation space
-    return parse_environment('CartPole-v0')
+    return generate_task('CartPole-v0')
 
 
 @pytest.fixture
 def PendulumTask(): # Continuous Action / Observation space
-    return parse_environment('Pendulum-v0')
+    return generate_task('Pendulum-v0')
 
 
 @pytest.fixture
 def RPSTask():
-    return parse_environment('RockPaperScissors-v0')
+    return generate_task('RockPaperScissors-v0')

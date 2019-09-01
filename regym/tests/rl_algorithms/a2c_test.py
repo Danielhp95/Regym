@@ -16,4 +16,4 @@ def test_learns_to_solve_cartpole(CartPoleTask, a2c_config_dict):
     progress_bar = tqdm.tqdm(range(20000))
     for _ in progress_bar:
         trajectory = run_episode(CartPoleTask.env, agent, training=True)
-        progress_bar.set_description(f'{agent.name} in {CartPoleTask.env.spec.id}. PL: {agent.algorithm.policy_loss}. VL: {agent.algorithm.value_loss}. Episode length: {len(trajectory)}')
+        progress_bar.set_description(f'{agent.name} in {CartPoleTask.env.spec.id}. Episode length: {len(trajectory)}')

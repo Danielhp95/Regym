@@ -4,7 +4,7 @@ from .gym_parser import parse_gym_environment
 from .unity_parser import parse_unity_environment
 
 
-def parse_environment(env_name):
+def generate_task(env_name):
     '''
     Returns a regym.environments.Task by creating an environment derived from :param: env_name
     and extracting relevant information used to build regym.rl_algorithms.agents from the Task.
