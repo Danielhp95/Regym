@@ -39,6 +39,7 @@ setup(
                       'torch',
                       'torchvision',
                       'gym-rock-paper-scissors==0.1',
+                      'cvxopt',
                       'seaborn'] + test_requirements,
 
     python_requires=">=3.6",
