@@ -8,7 +8,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as readme:
     long_description = readme.read()
 
-test_requirements = ['dill', 'tqdm', 'pytest']
+test_requirements = ['dill', 'tqdm', 'pytest', 'gym-rock-paper-scissors==0.1']
 
 setup(
     name='regym',
@@ -38,8 +38,8 @@ setup(
                       'opencv-python',
                       'torch',
                       'torchvision',
-                      'gym-rock-paper-scissors==0.1',
                       'cvxopt',
+                      'scipy',
                       'seaborn'] + test_requirements,
 
     python_requires=">=3.6",

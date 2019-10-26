@@ -1,1 +1,2 @@
 from .solve_zero_sum_game import solve_zero_sum_game
+from .compute_nash_averaging import compute_nash_averaging
