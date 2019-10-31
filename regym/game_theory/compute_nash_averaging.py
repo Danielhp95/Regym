@@ -22,10 +22,10 @@ def compute_nash_averaging(payoff_matrix: np.ndarray, perform_logodds_transforma
     '''
     game_matrix = preprocess_matrix(payoff_matrix, perform_logodds_transformation)
     check_validity(game_matrix, perform_logodds_transformation)
-    compute_nash_average(game_matrix)
-    pass
+    maxent_nash, nash_averaging = compute_nash_average(game_matrix, steps=2**10)
+    return maxent_nash, nash_averaging
 
-def compute_nash_average(payoff_matrix: np.ndarray, method: str = "ortiz_ce", **method_kwargs):
+def compute_nash_average(payoff_matrix: np.ndarray, **method_kwargs):
     """ Computes the maxent Nash/Correlated Equilibrium and the associated nash average ranking
         Arguments
             - `payoff_matrix`:

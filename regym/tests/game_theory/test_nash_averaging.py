@@ -30,7 +30,7 @@ class NashAveragingTest(unittest.TestCase):
 
     def test_redundancy_invariance(self):
         payoff_matrix = np.array([[0, 1, -1, -1], [-1, 0, 1, 1], [1, -1, 0, 0], [1, -1, 0, 0]])
-        ne, rating = compute_nash_average(4.6 * payoff_matrix, method="ortiz_ce", steps=2**10)
+        ne, rating = compute_nash_average(4.6 * payoff_matrix, steps=2**10)
         np.testing.assert_array_almost_equal(ne, np.array([1 / 3, 1 / 3, 1 / 6, 1 / 6]))
         np.testing.assert_array_almost_equal(rating, np.zeros(4), decimal=4)
 
@@ -40,7 +40,7 @@ class NashAveragingTest(unittest.TestCase):
 
         for e in [0.25, 0.75]:
             payoff = C + e * T
-            ne, rating = compute_nash_average(payoff, method="ortiz_ce", steps=2**10)
+            ne, rating = compute_nash_average(payoff, steps=2**10)
             if e <= 0.5:
                 np.testing.assert_array_almost_equal(ne,
                                                      np.array([(1 + e) / 3, (1 - 2 * e) / 3,
