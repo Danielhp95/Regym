@@ -53,7 +53,6 @@ def compute_maxent_correlated_equilibrium(payoff_matrix: np.ndarray, steps: int,
     return strategy
 
 
-
 def solve_maxent_ce(payoffs: np.ndarray, steps: int, eps: Optional[float] = None,
                     tol: float = 1e-8) -> np.ndarray:
     """Solves for the MaxEntropy Correlated Equilibrium given the payoff matrices
@@ -84,6 +83,7 @@ def solve_maxent_ce(payoffs: np.ndarray, steps: int, eps: Optional[float] = None
     action_counts = payoffs.shape[1:]
 
     c = sum(np.abs(payoff_gain(payoffs[i].swapaxes(0, i))).sum(axis=0).max() for i in range(N))
+    c = max(c, 1) # Just in case that c is 0
 
     lr = 0.9 / c
 
@@ -185,7 +185,15 @@ def get_regret(policy: np.ndarray, payoffs: np.ndarray, positive: bool = True) -
 def preprocess_matrix(payoff_matrix, perform_logodds_transformation):
     game_matrix = payoff_matrix
     if not isinstance(game_matrix, np.ndarray): game_matrix = np.array(game_matrix)
-    if perform_logodds_transformation: game_matrix = np.log(game_matrix/(1 - game_matrix))
+    if perform_logodds_transformation:
+        epsilon = 1e-15
+        # Modyfing values near 0 and 1 to prevent
+        # infinities after log-odds operation
+        game_matrix = np.where(np.isclose(game_matrix, 0),
+                               game_matrix + epsilon, game_matrix)
+        game_matrix = np.where(np.isclose(game_matrix, 1),
+                               game_matrix - epsilon, game_matrix)
+        game_matrix = np.log(game_matrix/(1 - game_matrix))
     return game_matrix
 
 
