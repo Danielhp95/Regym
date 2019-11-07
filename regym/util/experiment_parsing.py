@@ -1,11 +1,11 @@
-from ..training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
+from regym.training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
 
-from ..rl_algorithms import build_DQN_Agent
-from ..rl_algorithms import build_TabularQ_Agent
-from ..rl_algorithms import build_PPO_Agent
-from ..rl_algorithms import rockAgent, paperAgent, scissorsAgent, randomAgent
+from regym.rl_algorithms import build_DQN_Agent
+from regym.rl_algorithms import build_TabularQ_Agent
+from regym.rl_algorithms import build_PPO_Agent
+from regym.rl_algorithms import rockAgent, paperAgent, scissorsAgent, randomAgent
 
-from .. import environments
+from regym.environments import generate_task
 
 
 def check_for_unknown_candidate_input(known, candidates, category_name):
@@ -32,7 +32,7 @@ def initialize_training_schemes(candidate_training_schemes):
     return [self_play_training_schemes[t_s.lower()] for t_s in candidate_training_schemes]
 
 
-def initialize_algorithms(environment, agent_configurations):
+def initialize_agents(environment, agent_configurations):
     '''
     Builds an agent for each agent in :param: agent_configurations
     suitable to act and process experience from :param: environment
@@ -45,7 +45,7 @@ def initialize_algorithms(environment, agent_configurations):
         if agent_name.startswith('deepqlearning'): return build_DQN_Agent(task, config, agent_name)
         if agent_name.startswith('ppo'): return build_PPO_Agent(task, config, agent_name)
         else: raise ValueError('Unkown agent name: {agent_name}'.format(agent_name))
-    task = environments.parse_gym_environment(environment)
+    task = generate_task(environment)
     return [partial_match_build_function(agent, task, config) for agent, config in agent_configurations.items()]
 
 
