@@ -1,4 +1,5 @@
 # TODO: give all credit to Juyenesh
+import math
 from collections import namedtuple
 from typing import List, Optional, Tuple
 
@@ -24,6 +25,7 @@ def compute_nash_averaging(payoff_matrix: np.ndarray, perform_logodds_transforma
     check_validity(game_matrix, perform_logodds_transformation)
     maxent_nash, nash_averaging = compute_nash_average(game_matrix, steps=2**10)
     return maxent_nash, nash_averaging
+
 
 def compute_nash_average(payoff_matrix: np.ndarray, **method_kwargs):
     """ Computes the maxent Nash/Correlated Equilibrium and the associated nash average ranking
@@ -115,7 +117,6 @@ def solve_maxent_ce(payoffs: np.ndarray, steps: int, eps: Optional[float] = None
             np.clip(lambdas[i], 0.0, None, lambdas[i])
 
         prev_policy = policy
-
     return policy
 
 
@@ -186,7 +187,7 @@ def preprocess_matrix(payoff_matrix, perform_logodds_transformation):
     game_matrix = payoff_matrix
     if not isinstance(game_matrix, np.ndarray): game_matrix = np.array(game_matrix)
     if perform_logodds_transformation:
-        epsilon = 1e-15
+        epsilon = 1e-10
         # Modyfing values near 0 and 1 to prevent
         # infinities after log-odds operation
         game_matrix = np.where(np.isclose(game_matrix, 0),
