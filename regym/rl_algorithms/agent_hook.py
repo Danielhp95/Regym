@@ -1,8 +1,19 @@
+import os
+from os import listdir
+from os.path import isfile, join
+from typing import List
 import torch
 from .agents import TabularQLearningAgent, DeepQNetworkAgent, PPOAgent, MixedStrategyAgent
 from enum import Enum
 
 AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
+
+
+# TODO: move elsewhere. Maybe utils?
+def load_population_from_path(path: str, file_extension='pt') -> List:
+    files = [os.path.abspath(f'{path}/{f}') for f in listdir(path)
+             if isfile(join(path, f)) and f.endswith(file_extension)]
+    return [torch.load(open(f, 'rb')) for f in files]
 
 
 class AgentHook():
