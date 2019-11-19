@@ -1,16 +1,13 @@
-import logging
-from typing import List, Tuple
-from concurrent.futures import as_completed
-from concurrent.futures import ProcessPoolExecutor
-
+from typing import List
 import gym
 
-import random
 import numpy as np
+
+from regym.util import play_multiple_matches
 
 
 def compute_winrate_matrix_metagame(population: List, episodes_per_matchup: int, env: gym.Env,
-                                    num_workers: int=1) -> np.ndarray:
+                                    num_workers: int = 1) -> np.ndarray:
     '''
     Generates a metagame for an environemnt :param: env given a :param: population
     of strategies. This metagame is a symmetric 2-player zero-sum normal form game.
@@ -78,28 +75,11 @@ def generate_upper_triangular_symmetric_metagame(population: List, env: gym.Env,
     matchups_agent_indices = zip(*np.triu_indices_from(winrate_matrix, k=1))
 
     for i, j in matchups_agent_indices:
-        for episode in range(episodes_per_matchup):
-            winner = play_single_match(env, agent_vector=(population[i], population[j])) # TODO do this with ProcessPool. Beware of deadlocks
-            if winner == 0: winrate_matrix[i, j] += 1
-    winrate_matrix /= episodes_per_matchup
+        player_1_winrate = play_multiple_matches(env,
+                                                 agent_vector=(population[i], population[j]),
+                                                 n_matches=episodes_per_matchup)[0]
+        winrate_matrix[i, j] = player_1_winrate
     return winrate_matrix
-
-
-def play_single_match(env, agent_vector):
-    # TODO: find better way of calculating who won.
-    # trajectory: [(s,a,r,s')]
-    from regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop import run_episode
-    trajectory = run_episode(env, agent_vector, training=False)
-    reward_vector = lambda t: t[2]
-    individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
-    cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]
-    episode_winner = choose_winner(cumulative_reward_vector)
-    return episode_winner
-
-
-def choose_winner(cumulative_reward_vector, break_ties=random.choice):
-    indexes_max_score = np.argwhere(cumulative_reward_vector == np.amax(cumulative_reward_vector))
-    return break_ties(indexes_max_score.flatten().tolist())
 
 
 def check_input_validity(population: np.ndarray, episodes_per_matchup: int, env):
