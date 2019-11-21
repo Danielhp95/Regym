@@ -108,8 +108,9 @@ class PSRONashResponse():
     def fill_meta_game_missing_entries(self, policies: List,
                                        updated_meta_game: np.ndarray,
                                        benchmarking_episodes: int, env_id: str):
-        nan_indices = zip(*map(tuple, np.where(np.isnan(updated_meta_game))))
-        for i, j in nan_indices:
+        indices_to_fill = product(range(updated_meta_game.shape[0]),
+                                  [updated_meta_game.shape[0] - 1])
+        for i, j in indices_to_fill:
             if i == j: updated_meta_game[j, j] = 0.5
             else:
                 winrate_estimate = play_multiple_matches(env=generate_task(env_id).env,
