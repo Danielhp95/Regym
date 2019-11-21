@@ -20,13 +20,14 @@ def play_single_match(env, agent_vector):
     # trajectory: [(s,a,r,s')]
     from regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop import run_episode
     trajectory = run_episode(env, agent_vector, training=False)
-    reward_vector = lambda t: t[2]
-    individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
-    cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(len(agent_vector))]
-    episode_winner = choose_winner(cumulative_reward_vector)
+    episode_winner = extract_winner(trajectory)
     return episode_winner
 
 
-def choose_winner(cumulative_reward_vector, break_ties=random.choice):
+def extract_winner(trajectory, break_ties=random.choice):
+    reward_vector = lambda t: t[2]
+    number_of_agents = len(reward_vector(trajectory[0]))
+    individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
+    cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(number_of_agents)]
     indexes_max_score = np.argwhere(cumulative_reward_vector == np.amax(cumulative_reward_vector))
     return break_ties(indexes_max_score.flatten().tolist())
