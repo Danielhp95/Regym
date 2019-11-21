@@ -5,6 +5,7 @@ import numpy as np
 from . import naive_self_play as naive
 from . import delta_distributional_self_play as delta_dis
 from . import delta_limit_uniform_distributional_self_play as delta_limit_dis
+from .psro import PSRONashResponse
 
 
 SelfPlayTrainingScheme = namedtuple('SelfPlayTrainingScheme', 'opponent_sampling_distribution curator name')
