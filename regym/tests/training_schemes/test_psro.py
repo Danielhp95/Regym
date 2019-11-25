@@ -88,3 +88,22 @@ def test_can_keep_track_of_window_of_winrate_for_learning_policy():
 
     np.testing.assert_array_equal(expected_rolling_window,
                                   psro.match_outcome_rolling_window)
+
+
+def test_can_detect_convergence_to_threshold_best_response():
+    rolling_window_size = 30
+    threshold_best_response = 0.9
+    psro = PSRONashResponse(env_id='RockPaperScissors-v0',
+                            match_outcome_rolling_window_size=rolling_window_size,
+                            threshold_best_response=threshold_best_response)
+
+    index_list = [i for i in range(rolling_window_size)]
+    random_match_outcome_window = np.zeros(rolling_window_size)
+    indeces_to_fill_witth_ones = np.random.choice(index_list,
+                                                  size=int(rolling_window_size * threshold_best_response),
+                                                  replace=False)
+    for i in indeces_to_fill_witth_ones: random_match_outcome_window[i] = 1
+
+    psro.match_outcome_rolling_window = random_match_outcome_window
+
+    assert psro.has_policy_converged()
