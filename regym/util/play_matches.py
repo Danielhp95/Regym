@@ -1,27 +1,42 @@
+from typing import List
 import random
 import numpy as np
 
 
-def play_multiple_matches(env, agent_vector, n_matches: int):
+def play_multiple_matches(env, agent_vector: List, n_matches: int, keep_trajectories=False):
     '''
+    Computes a winrate vector by making :param agent_vector: play in :param env:
+    for :param n_matches:. If :param keep_trajectories: is True, a tuple is returned
+    where the first element is the winrate vector and the second is the vector of
+    trajectories.
+
+    :param env: OpenAI Gym environment
     :param agent_vector: vector of agents capable of acting in :param env:
+    :param n_matches: number of matches to be played
     :returns: Vector containing the winrate for each agent
     '''
     winrates = np.zeros(len(agent_vector))
+    trajectories = []
     for episode in range(n_matches):
-        winner = play_single_match(env, agent_vector)
+        if keep_trajectories:
+            winner, trajectory = play_single_match(env, agent_vector, True)
+            trajectories.append(trajectory)
+        else:
+            winner = play_single_match(env, agent_vector, False)
         winrates[winner] += 1
     winrates /= n_matches
-    return winrates
+    if len(trajectories) == 0: return winrates
+    else: return winrates, trajectories
 
 
-def play_single_match(env, agent_vector):
+def play_single_match(env, agent_vector, keep_trajectories=False):
     # TODO: find better way of calculating who won.
     # trajectory: [(s,a,r,s')]
     from regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop import run_episode
     trajectory = run_episode(env, agent_vector, training=False)
     episode_winner = extract_winner(trajectory)
-    return episode_winner
+    if keep_trajectories: return episode_winner, trajectory
+    else: return episode_winner
 
 
 def extract_winner(trajectory, break_ties=random.choice):
