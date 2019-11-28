@@ -40,7 +40,8 @@ setup(
                       'torchvision',
                       'cvxopt',
                       'scipy',
-                      'seaborn'] + test_requirements,
+                      'seaborn',
+                      'recordclass'] + test_requirements,
 
     python_requires=">=3.6",
 )
