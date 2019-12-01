@@ -1,4 +1,6 @@
+from typing import Dict
 from regym.training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
+from regym.training_schemes import PSRONashResponse
 
 from regym.rl_algorithms import build_DQN_Agent
 from regym.rl_algorithms import build_TabularQ_Agent
@@ -21,15 +23,23 @@ def check_for_unknown_candidate_input(known, candidates, category_name):
         raise ValueError('Unknown {}(s): {}. Valid candidates are: {}'.format(category_name, unknown_candidates, known))
 
 
-def initialize_training_schemes(candidate_training_schemes):
+def initialize_training_schemes(training_schemes_configs):
     '''
     Creates a list containing pointers to the relevant self_play training scheme functions
     :param candidate_training_schemes: requested training schemes
     :return: list containing pointers to the corresponding self_play training schemes functions
     '''
-    self_play_training_schemes = {'fullhistoryselfplay': FullHistorySelfPlay, 'halfhistoryselfplay': HalfHistorySelfPlay, 'lastquarterhistoryselfplay': LastQuarterHistorySelfPlay, 'naiveselfplay': NaiveSelfPlay, 'fullhistorylimitselfplay': FullHistoryLimitSelfPlay, 'halfhistorylimitselfplay': HalfHistoryLimitSelfPlay, 'lastquarterhistorylimitselfplay': LastQuarterHistoryLimitSelfPlay}
-    check_for_unknown_candidate_input(self_play_training_schemes.keys(), candidate_training_schemes, 'training schemes')
-    return [self_play_training_schemes[t_s.lower()] for t_s in candidate_training_schemes]
+    def partial_match_build_function(self_play_name, config):
+        if self_play_name.startswith('psro'): return PSRONashResponse(**config)
+        if self_play_name.startswith('fullhistoryselfplay'): return FullHistorySelfPlay
+        if self_play_name.startswith('halfhistoryselfplay'): return HalfHistorySelfPlay
+        if self_play_name.startswith('lastquarterhistoryselfplay'): return LastQuarterHistorySelfPlay
+        if self_play_name.startswith('naiveselfplay'): return NaiveSelfPlay
+        if self_play_name.startswith('fullhistorylimitselfplay'): return FullHistoryLimitSelfPlay
+        if self_play_name.startswith('halfhistorylimitselfplay'): return HalfHistoryLimitSelfPlay
+        if self_play_name.startswith('lastquarterhistorylimitselfplay'): return LastQuarterHistoryLimitSelfPlay
+        else: raise ValueError(f'Unkown Self Play training scheme: {self_play_name}')
+    return [partial_match_build_function(t_s.lower(), config) for t_s, config in training_schemes_configs.items()]
 
 
 def initialize_agents(environment, agent_configurations):
@@ -61,11 +71,15 @@ def initialize_fixed_agents(fixed_agents):
     return [fix_agent_build_functions[agent.lower()] for agent in fixed_agents]
 
 
-def filter_relevant_agent_configurations(experiment_config, agents_config):
+def filter_relevant_configurations(experiment_config: Dict,
+                                   target_configs: Dict[str, Dict], target_key: str):
     '''
     The config file allows to have configuration for RL algorithms that will not be used.
     This allows to keep all configuration in a single file.
     The configuration that will be used is explicitly captured in :param: experiment_config
+    :param experiment_config: TODO
+    :param target_configs: TODO
+    :param key: TODO
     '''
-    return {agent: config for agent, config in agents_config.items()
-            if any(map(lambda algorithm: agent.startswith(algorithm), experiment_config['algorithms']))}
+    return {key: config for key, config in target_configs.items()
+            if any(map(lambda elem: key.startswith(elem), experiment_config[target_key]))}
