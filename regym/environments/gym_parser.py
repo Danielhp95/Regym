@@ -2,8 +2,6 @@ import itertools
 import numpy as np
 from gym.spaces import Box, Discrete, MultiDiscrete, Tuple
 
-from gym_rock_paper_scissors.envs.one_hot_space import OneHotEncoding
-
 from .task import Task
 
 
@@ -30,13 +28,15 @@ def parse_gym_environment(env, name=None):
 
 def get_observation_dimensions_and_type(env):
     def parse_dimension_space(space):
-        if isinstance(space, OneHotEncoding): return space.size, 'Discrete'
-        elif isinstance(space, Discrete): return space.n, 'Discrete'
+        if isinstance(space, Discrete): return 1, 'Discrete' # One neuron is enough to take any Discrete space
         elif isinstance(space, Box): return int(np.prod(space.shape)), 'Continuous'
         elif isinstance(space, Tuple): return sum([parse_dimension_space(s)[0] for s in space.spaces]), parse_dimension_space(space.spaces[0])[1]
+        # Below space refers to OneHotEncoding space from 'https://github.com/Danielhp95/gym-rock-paper-scissors'
+        elif hasattr(space, 'size'): return space.size, 'Discrete'
         raise ValueError('Unknown observation space: {}'.format(space))
 
-    if hasattr(env.observation_space, 'spaces'): return parse_dimension_space(env.observation_space.spaces[0]) # Multi agent environment
+    # ASSUMPTION: Multi agent environment. Symmetrical observation space
+    if hasattr(env.observation_space, 'spaces'): return parse_dimension_space(env.observation_space.spaces[0])
     else: return parse_dimension_space(env.observation_space) # Single agent environment
 
 
