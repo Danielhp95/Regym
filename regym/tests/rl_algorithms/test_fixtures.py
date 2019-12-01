@@ -12,11 +12,11 @@ def ppo_config_dict():
     config['entropy_weight'] = 0.01
     config['gradient_clip'] = 5
     config['optimization_epochs'] = 10
-    config['mini_batch_size'] = 256
+    config['mini_batch_size'] = 32
     config['ppo_ratio_clip'] = 0.2
     config['learning_rate'] = 3.0e-4
     config['adam_eps'] = 1.0e-5
-    config['horizon'] = 1024
+    config['horizon'] = 128
     config['phi_arch'] = 'MLP'
     config['actor_arch'] = 'None'
     config['critic_arch'] = 'None'
@@ -114,3 +114,9 @@ def PendulumTask(): # Continuous Action / Observation space
 @pytest.fixture
 def RPSTask():
     return generate_task('RockPaperScissors-v0')
+
+
+@pytest.fixture
+def KuhnTask():
+    import gym_kuhn_poker
+    return generate_task('KuhnPoker-v0')
