@@ -1,4 +1,5 @@
 from typing import List
+import numpy as np
 import gym
 
 
@@ -37,6 +38,14 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool):
 
 def update_agent(agent_id: int, trajectory: List, agent_vector: List,
                  reward: float, succ_observation: np.ndarray, done: bool):
+    '''
+    This function assumes that every non-terminal observation corresponds to
+    the an information set uniquely for the player whose turn it is.
+    This means that each "experience" is from which an RL agent will learn
+    (o, a, r, o') is fragmented throughout the trajectory. This function
+    "stiches together" the right environmental signals, ensuring that
+    each agent only has access to information from their own information sets.
+    '''
     o, a = get_last_observation_and_action_for_agent(agent_id,
                                                      trajectory,
                                                      len(agent_vector))
