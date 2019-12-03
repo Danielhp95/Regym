@@ -113,6 +113,7 @@ def PendulumTask(): # Continuous Action / Observation space
 
 @pytest.fixture
 def RPSTask():
+    import gym_rock_paper_scissors
     return generate_task('RockPaperScissors-v0')
 
 
