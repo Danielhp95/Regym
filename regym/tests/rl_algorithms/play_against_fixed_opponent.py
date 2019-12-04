@@ -1,5 +1,6 @@
 from functools import reduce
 from tqdm import tqdm
+import numpy as np
 from regym.environments import generate_task
 from regym.rl_loops.multiagent_loops import sequential_action_rl_loop
 from regym.rl_loops.multiagent_loops import simultaneous_action_rl_loop
@@ -9,7 +10,7 @@ def learn_against_fix_opponent(agent, fixed_opponent,
                                env: str, env_type: str,
                                agent_position: int,
                                total_episodes: int, training_percentage: float,
-                               reward_threshold: float,
+                               reward_tolerance: float,
                                maximum_average_reward: float,
                                evaluation_method: str):
     '''
@@ -24,7 +25,7 @@ def learn_against_fix_opponent(agent, fixed_opponent,
     :param total_episodes: Number of episodes used for training + evaluation
     :param training_percentage: % of :param total_episodes: that will be used
                                 to train :param: agent.
-    :param reward_threshold: Tolerance (epsilon) allowed when considering if
+    :param reward_tolerance: Tolerance (epsilon) allowed when considering if
                              :param: agent has solved the environment.
     :param maximum_average_reward: Maximum average reward per episode
     :param evaluation_method: Whether to consider 'average' trajectory
@@ -48,13 +49,16 @@ def learn_against_fix_opponent(agent, fixed_opponent,
                                      run_episode_func=run_episode_func)
 
     if evaluation_method == 'average':
-        average_inference_reward = average_reward(inference_trajectories,
-                                                  agent_position)
+        inference_reward = average_reward(inference_trajectories,
+                                          agent_position)
     elif evaluation_method == 'last':
-        average_inference_reward = sum(map(lambda t: last_trajectory_reward(t, agent_position),
-                                          inference_trajectories)) / float(len(inference_trajectories))
+        inference_reward = sum(map(lambda t: last_trajectory_reward(t, agent_position),
+                                   inference_trajectories))
+        inference_reward /= float(len(inference_trajectories))
 
-    assert average_inference_reward >= maximum_average_reward - reward_threshold
+    reward_threshold = maximum_average_reward - reward_tolerance
+    assert inference_reward >= reward_threshold, \
+           f'Reward obtained during inference wasn\'t high enough\n{inference_reward} < {reward_threshold}'
 
 
 def simulate(env, agent, fixed_opponent, agent_position, episodes, training, run_episode_func):
