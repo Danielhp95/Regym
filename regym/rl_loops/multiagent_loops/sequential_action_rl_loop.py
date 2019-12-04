@@ -49,7 +49,8 @@ def update_agent(agent_id: int, trajectory: List, agent_vector: List,
     o, a = get_last_observation_and_action_for_agent(agent_id,
                                                      trajectory,
                                                      len(agent_vector))
-    agent_vector[agent_id].handle_experience(o, a, reward, succ_observation, done)
+    experience = (o, a, reward, succ_observation, done)
+    agent_vector[agent_id].handle_experience(*experience)
 
 
 def propagate_last_experience(agent_vector: List, trajectory: List,
