@@ -1,5 +1,7 @@
 from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSTask, KuhnTask
 
+# TODO: get rid of this after refactoring
+from regym.environments import generate_task, EnvType
 from regym.rl_algorithms.agents import build_PPO_Agent
 from regym.rl_algorithms import rockAgent
 
@@ -30,7 +32,7 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0, # Doesn't matter in RPS
-                               env=RPSTask.name, env_type='simultaneous',
+                               task=RPSTask,
                                total_episodes=500, training_percentage=0.9,
                                reward_tolerance=0.1,
                                maximum_average_reward=1.0,
@@ -51,6 +53,7 @@ def test_ppo_rnn_can_take_actions(RPSTask, ppo_rnn_config_dict):
         # assert RPSenv.action_space.contains([a, a])
 
 
+# TODO: refactor with function below which does the same thing!
 def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
     '''
     Test used to make sure that agent is 'learning' by learning a best response
@@ -63,7 +66,7 @@ def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0, # Doesn't matter in RPS
-                               env=RPSTask.name, env_type='simultaneous',
+                               task=RPSTask,
                                total_episodes=500, training_percentage=0.9,
                                reward_tolerance=0.1,
                                maximum_average_reward=1.0,
@@ -139,10 +142,11 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
             pass
 
     fixed_opponent = FixedAgent(fixed_agent_action)
+    kuhn_task = generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=fixed_opponent,
                                agent_position=agent_position,
-                               env='KuhnPoker-v0', env_type='sequential',
+                               task=kuhn_task,
                                total_episodes=total_episodes, training_percentage=0.9,
                                reward_tolerance=0.1,
                                maximum_average_reward=max_reward,

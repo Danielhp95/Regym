@@ -2,48 +2,58 @@ from unittest import mock
 import pytest
 import numpy as np
 
+from regym.environments import generate_task, EnvType
 from regym.training_schemes import PSRONashResponse
 from regym.rl_algorithms import rockAgent, scissorsAgent, paperAgent
 
 
-def test_task_can_be_generated_from_parameter_env():
+
+@pytest.fixture()
+def RPS_task():
+    import gym_rock_paper_scissors
+    return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
+
+
+@pytest.fixture()
+def pendulum_task():
+    import gym_rock_paper_scissors
+    return generate_task('Pendulum-v0')
+
+
+def test_single_agent_task_raises_valueerror(pendulum_task):
     with pytest.raises(ValueError) as _:
-        _ = PSRONashResponse(env_id=None,
-                             threshold_best_response=0.5,
-                             benchmarking_episodes=1)
-    with pytest.raises(ValueError) as _:
-        _ = PSRONashResponse(env_id='caca',
+        _ = PSRONashResponse(task=pendulum_task,
                              threshold_best_response=0.5,
                              benchmarking_episodes=1)
 
 
-def test_for_threshold_best_response_must_lay_between_0_and_1():
+def test_for_threshold_best_response_must_lay_between_0_and_1(RPS_task):
     with pytest.raises(ValueError) as _:
-        _ = PSRONashResponse(env_id='RockPaperScissors-v0',
+        _ = PSRONashResponse(task=RPS_task,
                              threshold_best_response=-1,
                              benchmarking_episodes=1)
     with pytest.raises(ValueError) as _:
-        _ = PSRONashResponse(env_id='RockPaperScissors-v0',
+        _ = PSRONashResponse(task=RPS_task,
                              threshold_best_response=2,
                              benchmarking_episodes=1)
 
 
-def test_for_benchmarking_episodes_must_be_strictly_positive():
+def test_for_benchmarking_episodes_must_be_strictly_positive(RPS_task):
     with pytest.raises(ValueError) as _:
-        _ = PSRONashResponse(env_id='RockPaperScissors-v0',
+        _ = PSRONashResponse(task=RPS_task,
                              threshold_best_response=0.5,
                              benchmarking_episodes=0)
 
 
-def test_for_rolling_window_size_must_be_strictly_positive():
+def test_for_rolling_window_size_must_be_strictly_positive(RPS_task):
     with pytest.raises(ValueError) as _:
-        _ = PSRONashResponse(env_id='RockPaperScissors-v0',
+        _ = PSRONashResponse(task=RPS_task,
                              threshold_best_response=0.5,
                              match_outcome_rolling_window_size=0)
 
 
-def test_can_fill_missing_game_entries_upon_adding_new_policy():
-    psro = PSRONashResponse(env_id='RockPaperScissors-v0', benchmarking_episodes=2)
+def test_can_fill_missing_game_entries_upon_adding_new_policy(RPS_task):
+    psro = PSRONashResponse(task=RPS_task, benchmarking_episodes=2)
     psro.menagerie = [rockAgent, paperAgent, scissorsAgent]
     meta_game = np.array([[0.5, 0, np.nan],
                           [1, 0.5, np.nan],
@@ -54,12 +64,12 @@ def test_can_fill_missing_game_entries_upon_adding_new_policy():
     actual_updated_metagame = psro.fill_meta_game_missing_entries(policies=psro.menagerie,
                                                                   updated_meta_game=meta_game,
                                                                   benchmarking_episodes=psro.benchmarking_episodes,
-                                                                  env_id=psro.env_id)
+                                                                  task=RPS_task)
     np.testing.assert_array_equal(expected_updated_metagame, actual_updated_metagame)
 
 
-def test_can_update_mata_game():
-    psro = PSRONashResponse(env_id='RockPaperScissors-v0', benchmarking_episodes=2)
+def test_can_update_mata_game(RPS_task):
+    psro = PSRONashResponse(task=RPS_task, benchmarking_episodes=2)
     psro.menagerie = [rockAgent, paperAgent, scissorsAgent]
     psro.meta_game = np.array([[0.5, 0],
                                [1, 0.5]])
@@ -73,8 +83,8 @@ def test_can_update_mata_game():
     np.testing.assert_array_equal(expected_meta_game, actual_meta_game)
 
 
-def test_can_keep_track_of_window_of_winrate_for_learning_policy():
-    psro = PSRONashResponse(env_id='RockPaperScissors-v0',
+def test_can_keep_track_of_window_of_winrate_for_learning_policy(RPS_task):
+    psro = PSRONashResponse(task=RPS_task,
                             match_outcome_rolling_window_size=3)
     training_agent_indeces = [1, 1, 0, 1]
     expected_rolling_window = [1, 0, 1]
@@ -90,10 +100,10 @@ def test_can_keep_track_of_window_of_winrate_for_learning_policy():
                                   psro.match_outcome_rolling_window)
 
 
-def test_can_detect_convergence_to_threshold_best_response():
+def test_can_detect_convergence_to_threshold_best_response(RPS_task):
     rolling_window_size = 30
     threshold_best_response = 0.9
-    psro = PSRONashResponse(env_id='RockPaperScissors-v0',
+    psro = PSRONashResponse(task=RPS_task,
                             match_outcome_rolling_window_size=rolling_window_size,
                             threshold_best_response=threshold_best_response)
 

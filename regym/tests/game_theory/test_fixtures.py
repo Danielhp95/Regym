@@ -1,5 +1,5 @@
 import pytest
-from regym.environments import generate_task
+from regym.environments import generate_task, EnvType
 
 
 @pytest.fixture
@@ -24,4 +24,10 @@ def ppo_config_dict():
 
 @pytest.fixture
 def RPSTask():
-    return generate_task('RockPaperScissors-v0')
+    import gym_rock_paper_scissors
+    return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
+
+
+@pytest.fixture
+def pendulum_task():
+    return generate_task('Pendulum-v0')

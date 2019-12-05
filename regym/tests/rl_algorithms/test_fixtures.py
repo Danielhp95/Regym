@@ -1,5 +1,6 @@
 import pytest
 from regym.environments import generate_task
+from regym.environments import EnvType
 
 
 @pytest.fixture
@@ -114,10 +115,10 @@ def PendulumTask(): # Continuous Action / Observation space
 @pytest.fixture
 def RPSTask():
     import gym_rock_paper_scissors
-    return generate_task('RockPaperScissors-v0')
+    return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
 
 
 @pytest.fixture
 def KuhnTask():
     import gym_kuhn_poker
-    return generate_task('KuhnPoker-v0')
+    return generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
