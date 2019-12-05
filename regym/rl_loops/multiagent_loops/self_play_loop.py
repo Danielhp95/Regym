@@ -2,10 +2,12 @@ from typing import List
 import numpy as np
 import os
 
+
 def self_play_training(task, training_agent, self_play_scheme,
                        target_episodes: int=10, opci: int=1,
-                       menagerie: List=[], menagerie_path: str=None,
-                       iteration: int=None):
+                       menagerie: List=[],
+                       menagerie_path: str='.',
+                       initial_episode: int=0):
     '''
     Extension of the multi-agent rl loop. The extension works thus:
     - Opponent sampling distribution
@@ -20,6 +22,7 @@ def self_play_training(task, training_agent, self_play_scheme,
     :param target_episodes: number of episodes that will be run before training ends.
     :param opci: Opponent policy Change Interval
     :param menageries_path: path to folder where all menageries are stored.
+    :param initial_episode: Episode from where training takes on. Useful when training is interrupted.
     :returns: Menagerie after target_episodes have elapsed
     :returns: Trained agent. freshly baked!
     :returns: Array of arrays of trajectories for all target_episodes
@@ -35,7 +38,7 @@ def self_play_training(task, training_agent, self_play_scheme,
         training_agent_index = np.random.choice(range(len(opponent_agent_vector_e)))
         opponent_agent_vector_e.insert(training_agent_index, training_agent)
         episode_trajectory = task.run_episode(agent_vector=opponent_agent_vector_e, training=True)
-        candidate_save_path = f'{agent_menagerie_path}/checkpoint_episode_{iteration + episode}.pt'
+        candidate_save_path = f'{agent_menagerie_path}/checkpoint_episode_{initial_episode + episode}.pt'
 
         menagerie = self_play_scheme.curator(menagerie, training_agent,
                                              episode_trajectory, training_agent_index,
