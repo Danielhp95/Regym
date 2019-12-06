@@ -8,9 +8,9 @@ from regym.rl_loops.multiagent_loops import simultaneous_action_rl_loop
 
 
 class EnvType(Enum):
-    SINGLE_AGENT = 0
-    MULTIAGENT_SIMULTANEOUS_ACTION = 1
-    MULTIAGENT_SEQUENTIAL_ACTION = 2
+    SINGLE_AGENT = 'single-agent'
+    MULTIAGENT_SIMULTANEOUS_ACTION = 'multiagent-simultaneous'
+    MULTIAGENT_SEQUENTIAL_ACTION = 'multiagent-sequential'
 
 
 class Task:
