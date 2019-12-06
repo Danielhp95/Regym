@@ -23,14 +23,14 @@ def check_for_unknown_candidate_input(known, candidates, category_name):
         raise ValueError('Unknown {}(s): {}. Valid candidates are: {}'.format(category_name, unknown_candidates, known))
 
 
-def initialize_training_schemes(training_schemes_configs):
+def initialize_training_schemes(training_schemes_configs, task):
     '''
     Creates a list containing pointers to the relevant self_play training scheme functions
     :param candidate_training_schemes: requested training schemes
     :return: list containing pointers to the corresponding self_play training schemes functions
     '''
-    def partial_match_build_function(self_play_name, config):
-        if self_play_name.startswith('psro'): return PSRONashResponse(**config)
+    def partial_match_build_function(self_play_name, config, task):
+        if self_play_name.startswith('psro'): return PSRONashResponse(task=task, **config)
         if self_play_name.startswith('fullhistoryselfplay'): return FullHistorySelfPlay
         if self_play_name.startswith('halfhistoryselfplay'): return HalfHistorySelfPlay
         if self_play_name.startswith('lastquarterhistoryselfplay'): return LastQuarterHistorySelfPlay
@@ -39,14 +39,14 @@ def initialize_training_schemes(training_schemes_configs):
         if self_play_name.startswith('halfhistorylimitselfplay'): return HalfHistoryLimitSelfPlay
         if self_play_name.startswith('lastquarterhistorylimitselfplay'): return LastQuarterHistoryLimitSelfPlay
         else: raise ValueError(f'Unkown Self Play training scheme: {self_play_name}')
-    return [partial_match_build_function(t_s.lower(), config) for t_s, config in training_schemes_configs.items()]
+    return [partial_match_build_function(t_s.lower(), config, task) for t_s, config in training_schemes_configs.items()]
 
 
-def initialize_agents(environment, agent_configurations):
+def initialize_agents(task, agent_configurations):
     '''
     Builds an agent for each agent in :param: agent_configurations
     suitable to act and process experience from :param: environment
-    :param environment: environment on which the agents will act
+    :param task: Task used to initialize agents on.
     :param agent_configurations: configuration dictionaries for each requested agent
     :returns: array of agents built according to their corresponding configuration dictionaries
     '''
@@ -55,7 +55,6 @@ def initialize_agents(environment, agent_configurations):
         if agent_name.startswith('deepqlearning'): return build_DQN_Agent(task, config, agent_name)
         if agent_name.startswith('ppo'): return build_PPO_Agent(task, config, agent_name)
         else: raise ValueError('Unkown agent name: {agent_name}'.format(agent_name))
-    task = generate_task(environment)
     return [partial_match_build_function(agent, task, config) for agent, config in agent_configurations.items()]
 
 

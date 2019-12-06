@@ -1,7 +1,3 @@
-import numpy as np
-import os
-
-
 def run_episode(env, agent_vector, training):
     '''
     Runs a single multi-agent rl loop until termination.
@@ -24,43 +20,3 @@ def run_episode(env, agent_vector, training):
         observations = succ_observations
 
     return trajectory
-
-
-def self_play_training(env, training_agent, self_play_scheme, target_episodes=10, opci=1, menagerie=[], menagerie_path=None, iteration=None):
-    '''
-    Extension of the multi-agent rl loop. The extension works thus:
-    - Opponent sampling distribution
-    - MARL loop
-    - Curator
-
-    :param env: OpenAI gym environment
-    :param training_scheme
-    :param training_agent: AgentHook of the agent being trained, together with training algorithm
-    :param opponent_sampling_distribution: Probability distribution that
-    :param curator: Gating function which determines if the current agent will be added to the menagerie at the end of an episode
-    :param target_episodes: number of episodes that will be run before training ends.
-    :param opci: Opponent policy Change Interval
-    :param menageries_path: path to folder where all menageries are stored.
-    :returns: Menagerie after target_episodes have elapsed
-    :returns: Trained agent. freshly baked!
-    :returns: Array of arrays of trajectories for all target_episodes
-    '''
-    agent_menagerie_path = '{}/{}-{}'.format(menagerie_path, self_play_scheme.name, training_agent.name)
-    if not os.path.exists(agent_menagerie_path):
-        os.mkdir(agent_menagerie_path)
-
-    trajectories = []
-    for episode in range(target_episodes):
-        if episode % opci == 0:
-            opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
-        training_agent_index = np.random.choice(range(len(opponent_agent_vector_e)))
-        opponent_agent_vector_e.insert(training_agent_index, training_agent)
-        episode_trajectory = run_episode(env, agent_vector=opponent_agent_vector_e, training=True)
-        candidate_save_path = f'{agent_menagerie_path}/checkpoint_episode_{iteration + episode}.pt'
-
-        menagerie = self_play_scheme.curator(menagerie, training_agent,
-                                             episode_trajectory, training_agent_index,
-                                             candidate_save_path=candidate_save_path)
-        trajectories.append(episode_trajectory)
-
-    return menagerie, training_agent, trajectories

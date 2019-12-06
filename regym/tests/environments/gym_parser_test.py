@@ -2,18 +2,19 @@ import pytest
 import gym
 from gym.spaces import MultiDiscrete
 
-from regym.environments.task import Task
+from regym.environments.task import Task, EnvType
 from regym.environments import gym_parser
 
 
 @pytest.fixture
 def RPS_env():
-    '''
-    Assumes that RPS uses a recall of 3
-    (env param stacked_observations = 3)
-    '''
     import gym_rock_paper_scissors
     return gym.make('RockPaperScissors-v0')
+
+
+@pytest.fixture
+def Pendulum_env():
+    return gym.make('Pendulum-v0')
 
 
 def test_multidiscrete_action_flattening():
@@ -39,13 +40,14 @@ def test_RPS_get_action_dimensions(RPS_env):
     assert expected_action_type == action_type
 
 
-def test_task_creation(RPS_env):
-    expected_observation_dim = 30
-    expected_observation_type = 'Discrete'
-    expected_action_space_size = 3
-    expected_action_dim = 3
-    expected_action_type = 'Discrete'
-    expected_hash_function = RPS_env.hash_state
-    expected_state_space_size = RPS_env.state_space_size
-    rps_task = Task(RPS_env.spec.id, RPS_env, expected_state_space_size, expected_action_space_size, expected_observation_dim, expected_observation_type, expected_action_dim, expected_action_type, expected_hash_function)
-    assert rps_task == gym_parser.parse_gym_environment(RPS_env)
+def test_creating_single_agent_env_with_multiagent_envtype_raises_value_error(Pendulum_env):
+    with pytest.raises(ValueError) as _:
+        _ = gym_parser.parse_gym_environment(Pendulum_env, env_type=EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
+
+    with pytest.raises(ValueError) as _:
+        _ = gym_parser.parse_gym_environment(Pendulum_env, env_type=EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+
+
+def test_creating_single_agent_env_with_multiagent_envtype_raises_value_error(RPS_env):
+    with pytest.raises(ValueError) as _:
+        _ = gym_parser.parse_gym_environment(RPS_env, env_type=EnvType.SINGLE_AGENT)

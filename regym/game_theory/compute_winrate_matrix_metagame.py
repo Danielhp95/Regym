@@ -3,13 +3,16 @@ import gym
 
 import numpy as np
 
+from regym.environments import Task, EnvType
 from regym.util import play_multiple_matches
 
 
-def compute_winrate_matrix_metagame(population: List, episodes_per_matchup: int, env: gym.Env,
+def compute_winrate_matrix_metagame(population: List,
+                                    episodes_per_matchup: int,
+                                    task: Task,
                                     num_workers: int = 1) -> np.ndarray:
     '''
-    Generates a metagame for an environemnt :param: env given a :param: population
+    Generates a metagame for a multiagent :param: task given a :param: population
     of strategies. This metagame is a symmetric 2-player zero-sum normal form game.
     The game is defined by a single matrix corresponding to the payoffs of player 1.
     The payoff matrix is square, it's shape is (rows=len(population), columns=len(population))
@@ -20,7 +23,6 @@ def compute_winrate_matrix_metagame(population: List, episodes_per_matchup: int,
           against strategy 2 regardless of whether player 1 chooses strategy 1
           or player 2 chooses strategy 1. The payoff of a given strategy is not
           affected by player identity.
-        - :param: env takes actions from both players simultaneously
 
     TODO future improvement:
        In non-deterministic games (every game, because our policies are stochastic)
@@ -31,18 +33,18 @@ def compute_winrate_matrix_metagame(population: List, episodes_per_matchup: int,
        problem. This idea is expanded in: https://arxiv.org/abs/1909.09849
 
     :param population: List of agents which will be pitted against each other to generate
-                       a metagame for the given :param: env.
+                       a metagame for the given :param: task.
     :param episodes_per_matchup: Number of times each matchup will be repeated to compute
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
-    :param env: Multiagent OpenAI Gym environment for which the metagame is being computed
+    :param task Multiagent Task for which the metagame is being computed
     :param num_workers: Number of parallel threads to be spawned to carry out benchmarks in parallel
-    :returns: Empirical payoff matrix for player 1 representing the metagame for :param: env and
+    :returns: Empirical payoff matrix for player 1 representing the metagame for :param: task and
               :param: population
     '''
-    check_input_validity(population, episodes_per_matchup, env)
+    check_input_validity(population, episodes_per_matchup, task)
 
-    upper_triangular_winrate_matrix = generate_upper_triangular_symmetric_metagame(population, env, episodes_per_matchup, num_workers)
+    upper_triangular_winrate_matrix = generate_upper_triangular_symmetric_metagame(population, task, episodes_per_matchup, num_workers)
 
     # Copy upper triangular into lower triangular  Generate complementary entries
     # a_i,j + a_j,i = 1 for all non diagonal entries
@@ -53,38 +55,37 @@ def compute_winrate_matrix_metagame(population: List, episodes_per_matchup: int,
     return winrate_matrix
 
 
-def generate_upper_triangular_symmetric_metagame(population: List, env: gym.Env, episodes_per_matchup: int,
+def generate_upper_triangular_symmetric_metagame(population: List, task: Task, episodes_per_matchup: int,
                                                  num_workers: int = 1) -> np.ndarray:
     '''
     Generates a matrix which:
         - Upper triangular part contains the empirical winrates of pitting each agent in
-          :param: population against each other in :param: environment for :param: episodes_per_matchup
+          :param: population against each other in :param: task for :param: episodes_per_matchup
         - Diagonal and lower triangular parts of the matrix are filled with 0s.
 
     :param population: List of agents which will be pitted against each other to generate
-                       a metagame for the given :param: env.
+                       a metagame for the given :param: task.
     :param episodes_per_matchup: Number of times each matchup will be repeated to compute
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
-    :param env: Multiagent OpenAI Gym environment for which the metagame is being computed
+    :param task Multiagent Task for which the metagame is being computed
     :param num_workers: Number of parallel threads to be spawned to carry out benchmarks in parallel
-    :returns: PARTIALLY filled in payoff matrix for metagame for :param: population in :param: env.
+    :returns: PARTIALLY filled in payoff matrix for metagame for :param: population in :param: task.
     '''
     winrate_matrix = np.zeros((len(population), len(population)))
     # k=1 below makes sure that the diagonal indices are not included
     matchups_agent_indices = zip(*np.triu_indices_from(winrate_matrix, k=1))
 
     for i, j in matchups_agent_indices:
-        player_1_winrate = play_multiple_matches(env,
+        player_1_winrate = play_multiple_matches(task,
                                                  agent_vector=(population[i], population[j]),
                                                  n_matches=episodes_per_matchup)[0]
         winrate_matrix[i, j] = player_1_winrate
     return winrate_matrix
 
 
-def check_input_validity(population: np.ndarray, episodes_per_matchup: int, env):
+def check_input_validity(population: np.ndarray, episodes_per_matchup: int, task):
     if population is None: raise ValueError('Population should be an array of policies')
     if len(population) == 0: raise ValueError('Population cannot be empty')
     if episodes_per_matchup <= 0: raise ValueError('Episodes_per_matchup must strictly positive')
-    if not isinstance(env, gym.Env): raise ValueError('Env must be an gym.Env multiagent environment')
-    # TODO: add test to check if environment is multi_agent or single_agent?
+    if task.env_type == EnvType.SINGLE_AGENT: raise ValueError('Task is single-agent. Metagames can only be computed for multiagent tasks.')
