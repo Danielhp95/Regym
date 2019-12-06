@@ -4,6 +4,8 @@ http://papers.nips.cc/paper/7007-a-unified-game-theoretic-approach-to-multiagent
 
 TODO: difference between PSRO which takes 3 separate stages and our method, which is an online method.
 '''
+
+import dill
 from recordclass import recordclass
 import logging
 import time
@@ -20,11 +22,18 @@ from regym.environments import generate_task, Task, EnvType
 
 class PSRONashResponse():
 
-    IterationStatistics = recordclass('IterationStatistics', [
-                                      'total_elapsed_episodes',
-                                      'current_iteration_elapsed_episodes',
-                                      'menagerie_picks',
-                                      'meta_game_solution'])
+    class IterationStatistics():
+        def __init__(self, total_elapsed_episodes: int,
+                     current_iteration_elapsed_episodes: int,
+                     menagerie_picks: List[int],
+                     meta_game_solution: np.ndarray):
+            '''
+            Data class containing information for each of the PSRO iterations
+            '''
+            self.total_elapsed_episodes = total_elapsed_episodes
+            self.current_iteration_elapsed_episodes = current_iteration_elapsed_episodes
+            self.menagerie_picks = menagerie_picks
+            self.meta_game_solution = meta_game_solution
 
     def __init__(self,
                  task: Task,
@@ -49,7 +58,7 @@ class PSRONashResponse():
         '''
         self.name = 'PSRO_M=maxent-Nash_O=BestResponse'
         self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.info)
         self.check_parameter_validity(task, threshold_best_response,
                                       benchmarking_episodes,
                                       match_outcome_rolling_window_size)
@@ -118,11 +127,11 @@ class PSRONashResponse():
         self.match_outcome_rolling_window.append(victory)
 
     def update_meta_game_solution(self, update=False):
-        self.logger.debug(f'START: Solving metagame. Size: {len(self.menagerie)}')
+        self.logger.info(f'START: Solving metagame. Size: {len(self.menagerie)}')
         start_time = time.time()
         self.meta_game_solution = self.meta_game_solver(self.meta_game)
         time_elapsed = time.time() - start_time
-        self.logger.debug(f'FINISH: Solving metagame. time: {time_elapsed}')
+        self.logger.info(f'FINISH: Solving metagame. time: {time_elapsed}')
         return self.meta_game_solution
 
     def update_meta_game(self):
