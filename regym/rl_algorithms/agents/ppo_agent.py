@@ -99,8 +99,6 @@ class PPOAgent(object):
         self.current_prediction = self._post_process(self.current_prediction)
 
         action = self.current_prediction['a'].numpy()
-        # print(state)
-        # print(np.exp(self.current_prediction['log_pi_a'].numpy()))
         if action.shape == torch.Size([1, 1]): # If action is a single integer
             action = np.int(action)
         return action
