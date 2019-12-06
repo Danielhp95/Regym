@@ -14,6 +14,38 @@ class EnvType(Enum):
 
 
 class Task:
+    r'''
+    A Task is a thin layer of abstraction over OpenAI gym environments and
+    Unity ML-agents executables, used across Regym.
+    The main uses of Tasks are: 
+        - Initialize agents capable of acting in an environment via the
+          `build_X_Agent()` functions where `X` is an algorithm from
+          `regym.rl_algorithms`.
+        - Run episodes of the underlying environment via the `task.run_episode` function.
+
+    NOTE: Unless you know what you are doing, a Task should be generated thus:
+    >>> from regym.environments import generate_task
+    >>> task = generate_task('OpenAIGymEnv-v0')
+
+    Tasks can encapsulate 3 types of environments. Captured in the class
+    `regym.environments.EnvType`:
+        - SINGLE_AGENT
+        - MULTIAGENT_SIMULTANEOUS_ACTION
+        - MULTIAGENT_SEQUENTIAL_ACTION
+
+    Single agent environments are self-explanatory. In sequential action
+    environments, the environment will process a single agent action on every
+    `env.step` function call. Simultaenous action environments will take an
+    action from every player on each `env.step` function call.
+
+    For multiagent environments, it is mandatory to specify whether the
+    actions are consumed simultaneously or sequentially by the environment.
+    This is done via passing an EnvType to the `generate_task` function.
+
+    >>> from regym.environments import EnvType
+    >>> simultaneous_task = generate_task('SimultaneousEnv-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
+    >>> sequential_task   = generate_task('SequentialsEnv-v0',  EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+    '''
 
     def __init__(self, name: str,
                  env: gym.Env,
