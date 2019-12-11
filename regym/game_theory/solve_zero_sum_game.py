@@ -27,7 +27,7 @@ def solve_zero_sum_game(matrix: np.array) \
 
     solution_player1 = solve_for_row_player(matrix)
     solution_player2 = solution_player1 if is_matrix_antisymetrical(matrix) else solve_for_row_player(-1 * matrix.T)
-    return (solution_player1[0], solution_player2[0],
+    return (np.array(solution_player1[0]), np.array(solution_player2[0]),
             solution_player1[1], solution_player2[1])
 
 
