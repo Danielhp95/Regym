@@ -56,17 +56,16 @@ class PSRONashResponse():
                                                   decide whether the currently training agent
                                                   has converged to a best response.
         '''
-        self.name = 'PSRO_M=maxent-Nash_O=BestResponse'
+        self.name = f'PSRO(M=maxentNash,O=BestResponse(wr={threshold_best_response},ws={match_outcome_rolling_window_size})'
         self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(logging.info)
+        self.logger.setLevel(logging.INFO)
         self.check_parameter_validity(task, threshold_best_response,
                                       benchmarking_episodes,
                                       match_outcome_rolling_window_size)
         self.task = task
 
         self.meta_game_solver = meta_game_solver
-        self.meta_game = None
-        self.meta_game_solution = None
+        self.meta_game, self.meta_game_solution = None, None
         self.menagerie = []
 
         self.threshold_best_response = threshold_best_response
@@ -135,7 +134,7 @@ class PSRONashResponse():
         return self.meta_game_solution
 
     def update_meta_game(self):
-        self.logger.debug(f'START: updating metagame. Size: {len(self.menagerie)}')
+        self.logger.info(f'START: updating metagame. Size: {len(self.menagerie)}')
         start_time = time.time()
         number_old_policies = len(self.menagerie) - 1
         updated_meta_game = np.full(((len(self.menagerie)), len(self.menagerie)),
@@ -148,7 +147,7 @@ class PSRONashResponse():
                                             self.task)
         self.meta_game = updated_meta_game
         time_elapsed = time.time() - start_time
-        self.logger.debug(f'FINISH: updating metagame. time: {time_elapsed}')
+        self.logger.info(f'FINISH: updating metagame. time: {time_elapsed}')
         return updated_meta_game
 
     def fill_meta_game_missing_entries(self, policies: List,
