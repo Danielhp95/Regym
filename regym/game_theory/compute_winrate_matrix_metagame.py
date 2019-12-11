@@ -1,13 +1,15 @@
-from typing import List
+from typing import List, Iterable
+from itertools import product
 import gym
 
 import numpy as np
 
 from regym.environments import Task, EnvType
 from regym.util import play_multiple_matches
+from regym.game_theory import solve_zero_sum_game
 
 
-def compute_winrate_matrix_metagame(population: List,
+def compute_winrate_matrix_metagame(population: Iterable,
                                     episodes_per_matchup: int,
                                     task: Task,
                                     num_workers: int = 1) -> np.ndarray:
@@ -53,6 +55,77 @@ def compute_winrate_matrix_metagame(population: List,
                       - upper_triangular_winrate_matrix).transpose()
     for i in range(len(winrate_matrix)): winrate_matrix[i, i] = 0.5 # Generate diagonal of 0.5
     return winrate_matrix
+
+
+def generate_evaluation_matrix_multi_population(populations: Iterable,
+                                                task: Task, episodes_per_matchup: int,):
+
+    if len(populations) > 2:
+        raise NotImplemented('Currently only two popuations are supported')
+
+    population_1, population_2 = populations
+    winrate_matrix = np.zeros((len(population_1), len(population_2)))
+
+    for i, j in product(range(len(population_1)), range(len(population_2))):
+        player_1_winrate = play_multiple_matches(task,
+                                                 agent_vector=(
+                                                     population_1[i],
+                                                     population_2[j]
+                                                     ),
+                                                 n_matches=episodes_per_matchup)[0]
+        winrate_matrix[i, j] = player_1_winrate
+    return winrate_matrix
+
+
+def relative_population_performance(population_1: List, population_2: List,
+                                    task: Task, episodes_per_matchup: int) -> int:
+    '''
+    From 'Open Ended Learning in Symmetric Zero-sum Games'
+    https://arxiv.org/abs/1901.08106
+    Definition 3: Relative population performance.
+
+    It boils down to computing the value of player 1 under Nash Equilibrium
+    of a zero-sum game computed from matching both populations against one another.
+
+    TODO: document
+    '''
+    return evolution_relative_population_performance(population_1, population_2, task,
+                                                     episodes_per_matchup,
+                                                     initial_index=(len(population_1) -1))[0]
+
+
+# TODO: test
+def evolution_relative_population_performance(population_1: List, population_2: List,
+                                              task: Task,
+                                              episodes_per_matchup: int,
+                                              initial_index: int=0) -> np.ndarray:
+    '''
+    TODO: finish documenting
+    :param population_1 / 2:
+    :param Task:
+    :param episodes_per_matchup:
+    :param initial_index: Index for both populations at which the relative
+                          population performance will be computed.
+    '''
+    if len(population_1) != len(population_2):
+        raise ValueError('Population must be of the same size')
+    if not (0 <= initial_index < len(population_1)):
+        raise ValueError(f'Initial index must be a valid index for population vector: [0,{len(population_1)}]')
+
+    winrate_matrix = generate_evaluation_matrix_multi_population(populations=[
+                                                                     population_1,
+                                                                     population_2
+                                                                     ],
+                                                                 task=task,
+                                                                 episodes_per_matchup=episodes_per_matchup)
+    # The antisymmetry refers to the operation performed to the winrates inside
+    # of the matrix, NOT the matrix itself
+    antisymmetric_form = winrate_matrix - 1/2
+    relative_performances = np.zeros(len(population_1) - initial_index)
+    for i in range(initial_index + 1, len(population_1) + 1):
+        _, _, value_1, _ = solve_zero_sum_game(antisymmetric_form[:i, :i])
+        relative_performances[(i-1) - initial_index] = value_1
+    return relative_performances
 
 
 def generate_upper_triangular_symmetric_metagame(population: List, task: Task, episodes_per_matchup: int,

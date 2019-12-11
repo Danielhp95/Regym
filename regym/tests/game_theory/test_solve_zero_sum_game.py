@@ -60,7 +60,7 @@ class ZeroSumGameSolver(unittest.TestCase):
         # Supports should distribute probability mass as expected
         for actual_s, expected_s in zip(supports, expected_supports):
             for actual_action_support, expected_action_support in zip(actual_s, expected_s):
-                self.assertAlmostEqual(actual_action_support, expected_action_support)
+                np.testing.assert_array_almost_equal(actual_action_support, expected_action_support)
 
         # Minimax values should match
         for actual_minimax_val, expected_minimax_val in zip(minimax_vals, expected_minimax_values):
