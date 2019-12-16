@@ -6,7 +6,6 @@ TODO: difference between PSRO which takes 3 separate stages and our method, whic
 '''
 
 import dill
-from recordclass import recordclass
 import logging
 import time
 from typing import Callable, List
@@ -22,18 +21,6 @@ from regym.environments import generate_task, Task, EnvType
 
 class PSRONashResponse():
 
-    class IterationStatistics():
-        def __init__(self, total_elapsed_episodes: int,
-                     current_iteration_elapsed_episodes: int,
-                     menagerie_picks: List[int],
-                     meta_game_solution: np.ndarray):
-            '''
-            Data class containing information for each of the PSRO iterations
-            '''
-            self.total_elapsed_episodes = total_elapsed_episodes
-            self.current_iteration_elapsed_episodes = current_iteration_elapsed_episodes
-            self.menagerie_picks = menagerie_picks
-            self.meta_game_solution = meta_game_solution
 
     def __init__(self,
                  task: Task,
@@ -74,7 +61,7 @@ class PSRONashResponse():
 
         self.benchmarking_episodes = benchmarking_episodes
 
-        self.statistics = [self.IterationStatistics(0, 0, [0], np.nan)]
+        self.statistics = [self.IterationStatistics(0, 0, 0, [0], np.nan)]
 
     def opponent_sampling_distribution(self, menagerie, training_agent):
         '''
@@ -130,6 +117,7 @@ class PSRONashResponse():
         start_time = time.time()
         self.meta_game_solution = self.meta_game_solver(self.meta_game)
         time_elapsed = time.time() - start_time
+        self.statistics[-1].time_elapsed_meta_game_solution = time_elapsed
         self.logger.info(f'FINISH: Solving metagame. time: {time_elapsed}')
         return self.meta_game_solution
 
@@ -147,6 +135,7 @@ class PSRONashResponse():
                                             self.task)
         self.meta_game = updated_meta_game
         time_elapsed = time.time() - start_time
+        self.statistics[-1].time_elapsed_meta_game_update = time_elapsed
         self.logger.info(f'FINISH: updating metagame. time: {time_elapsed}')
         return updated_meta_game
 
@@ -172,7 +161,7 @@ class PSRONashResponse():
         self.menagerie.append(training_agent.clone(training=False))
 
     def create_new_iteration_statistics(self, last_iteration_statistics):
-        return self.IterationStatistics(last_iteration_statistics.total_elapsed_episodes,
+        return self.IterationStatistics(len(self.statistics), last_iteration_statistics.total_elapsed_episodes,
                                         0, [0] * len(self.menagerie),
                                         self.meta_game_solution)
 
@@ -190,3 +179,32 @@ class PSRONashResponse():
         if not(0 < match_outcome_rolling_window_size):
             raise ValueError('Parameter \'benchmarking_episodes\' corresponds to ' +
                              'the lenght of a list. It must be strictly positive')
+
+    class IterationStatistics():
+        def __init__(self, iteration_number: int,
+                     total_elapsed_episodes: int,
+                     current_iteration_elapsed_episodes: int,
+                     menagerie_picks: List[int],
+                     meta_game_solution: np.ndarray):
+            '''
+            Data class containing information for each of the PSRO iterations
+            '''
+            self.iteration_number = iteration_number
+            self.total_elapsed_episodes = total_elapsed_episodes
+            self.current_iteration_elapsed_episodes = current_iteration_elapsed_episodes
+            self.menagerie_picks = menagerie_picks
+            self.meta_game_solution = meta_game_solution
+            self.time_elapsed_meta_game_solution = np.nan
+            self.time_elapsed_meta_game_update = np.nan
+
+        def __repr__(self):
+            s = \
+            f'''
+            Iteration: {self.iteration_number}
+            Total elapsed episodes: {self.total_elapsed_episodes}
+            Current iteration elapsed episodes: {self.current_iteration_elapsed_episodes}
+            Menagerie picks: {self.menagerie_picks}
+            Time elapsed M: {self.time_elapsed_meta_game_solution}
+            Time elapsed Winrate matrix: {self.time_elapsed_meta_game_update}
+            '''
+            return s
