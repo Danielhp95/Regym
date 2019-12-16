@@ -1,13 +1,17 @@
+from functools import partial
 from typing import Dict
-from regym.training_schemes import NaiveSelfPlay, HalfHistorySelfPlay, LastQuarterHistorySelfPlay, FullHistorySelfPlay, HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
+
+import numpy as np
+
+from regym.training_schemes import HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
+from regym.training_schemes import NaiveSelfPlay
 from regym.training_schemes import PSRONashResponse
+from regym.training_schemes import DeltaDistributionalSelfPlay
 
 from regym.rl_algorithms import build_DQN_Agent
 from regym.rl_algorithms import build_TabularQ_Agent
 from regym.rl_algorithms import build_PPO_Agent
 from regym.rl_algorithms import rockAgent, paperAgent, scissorsAgent, randomAgent
-
-from regym.environments import generate_task
 
 
 def check_for_unknown_candidate_input(known, candidates, category_name):
@@ -31,13 +35,12 @@ def initialize_training_schemes(training_schemes_configs, task):
     '''
     def partial_match_build_function(self_play_name, config, task):
         if self_play_name.startswith('psro'): return PSRONashResponse(task=task, **config)
-        if self_play_name.startswith('fullhistoryselfplay'): return FullHistorySelfPlay
-        if self_play_name.startswith('halfhistoryselfplay'): return HalfHistorySelfPlay
-        if self_play_name.startswith('lastquarterhistoryselfplay'): return LastQuarterHistorySelfPlay
         if self_play_name.startswith('naiveselfplay'): return NaiveSelfPlay
         if self_play_name.startswith('fullhistorylimitselfplay'): return FullHistoryLimitSelfPlay
         if self_play_name.startswith('halfhistorylimitselfplay'): return HalfHistoryLimitSelfPlay
         if self_play_name.startswith('lastquarterhistorylimitselfplay'): return LastQuarterHistoryLimitSelfPlay
+        if self_play_name.startswith('deltauniform'):
+            return DeltaDistributionalSelfPlay(delta=config['delta'], distribution=np.random.choice)
         else: raise ValueError(f'Unkown Self Play training scheme: {self_play_name}')
     return [partial_match_build_function(t_s.lower(), config, task) for t_s, config in training_schemes_configs.items()]
 
