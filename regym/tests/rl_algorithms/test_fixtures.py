@@ -98,6 +98,12 @@ def a2c_config_dict():
 
 
 @pytest.fixture
+def mcts_config_dict():
+    config = dict()
+    config['budget'] = 1
+    return config
+
+@pytest.fixture
 def FrozenLakeTask(): # Discrete Action / Observation space
     return generate_task('FrozenLake-v0')
 
@@ -122,3 +128,9 @@ def RPSTask():
 def KuhnTask():
     import gym_kuhn_poker
     return generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+
+
+@pytest.fixture
+def Connect4Task():
+    import gym_connect4
+    return generate_task('Connect4-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)

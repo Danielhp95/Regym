@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as readme:
     long_description = readme.read()
 
 test_requirements = ['dill', 'tqdm', 'pytest',
-                     'gym-rock-paper-scissors==0.1', 'gym-kuhn-poker==0.1']
+                     'gym-rock-paper-scissors==0.1', 'gym-kuhn-poker==0.1', 'gym-connect4']
 
 setup(
     name='regym',
