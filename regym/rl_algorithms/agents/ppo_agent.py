@@ -1,6 +1,8 @@
+from typing import Dict
 import torch
 import copy
 
+import regym
 from regym.rl_algorithms.agents import Agent
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody, LSTMBody
@@ -109,7 +111,7 @@ class PPOAgent(Agent):
         return clone
 
 
-def build_PPO_Agent(task, config, agent_name):
+def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str) -> PPOAgent:
     '''
     :param task: Environment specific configuration
     :param config: Dict containing configuration for ppo agent

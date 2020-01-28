@@ -31,7 +31,16 @@ class MCTSAgent(Agent):
         s = f'MCTSAgent: {self.name}. Budget: {self.budget}'
         return s
 
-def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str):
+
+def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str) -> MCTSAgent:
+    '''
+    :param task: Task in which the agent will be able to act
+    :param agent_name: String identifier for the agent
+    :param config: Dictionary whose entries contain hyperparameters for the A2C agents:
+        - 'budget': (Int) Number of iterations of the MCTS loop that will be carried
+                    out before an action is selected.
+    :returns: Agent using Reinforce algorithm to act and learn in environments
+    '''
     if task.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
         raise NotImplementedError('MCTS does not currently support Simultaenous multiagent environments')
     if task.env_type == regym.environments.EnvType.SINGLE_AGENT:

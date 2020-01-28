@@ -7,7 +7,7 @@ cvxopt.solvers.options["feastol"] = tol
 cvxopt.solvers.options["show_progress"] = False
 
 
-def solve_zero_sum_game(matrix: np.array) \
+def solve_zero_sum_game(matrix: np.ndarray) \
         -> Tuple[List[float], List[float], float, float]:
     '''
     Computes one (not all!) Nash Equilibrium for the input :param matrix:
@@ -26,7 +26,7 @@ def solve_zero_sum_game(matrix: np.array) \
     check_parameter_validity(matrix)
 
     solution_player1 = solve_for_row_player(matrix)
-    solution_player2 = solution_player1 if is_matrix_antisymetrical(matrix) else solve_for_row_player(-1 * matrix.T)
+    solution_player2 = solution_player1 if is_matrix_antisymmetrical(matrix) else solve_for_row_player(-1 * matrix.T)
     return (np.array(solution_player1[0]), np.array(solution_player2[0]),
             solution_player1[1], solution_player2[1])
 
@@ -149,7 +149,7 @@ def compute_leq_constraint_coefficients(num_variables: int, num_leq_constraints:
             g_mat[i, j] = -1 * payoff_matrix[j, i]
         g_mat[i, -1] = 1.0
 
-    # inequalities form (2)
+    # inequalities from (2)
     j = 0
     for i in range(payoff_matrix.shape[1], g_mat.size[0]):
         g_mat[i, j] = -1.0
@@ -157,7 +157,7 @@ def compute_leq_constraint_coefficients(num_variables: int, num_leq_constraints:
     return g_mat
 
 
-def is_matrix_antisymetrical(m: np.array) -> bool:
+def is_matrix_antisymmetrical(m: np.array) -> bool:
     '''
     Checks if the following properties hold for matrix :param m::
         (1) m is square
@@ -168,7 +168,7 @@ def is_matrix_antisymetrical(m: np.array) -> bool:
     return m.shape[0] == m.shape[1] and np.allclose(m, -1 * m.T, rtol=1e-03, atol=1e-03)
 
 
-def check_parameter_validity(matrix):
+def check_parameter_validity(matrix: np.ndarray):
     if (matrix.ndim and matrix.size) == 0: raise ValueError('Game matrix should not be empty')
     if matrix is None: raise ValueError('Input matrix was None. It should be a 2D matrix of Floats')
     if isinstance(matrix, np.ndarray):

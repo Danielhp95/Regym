@@ -4,12 +4,13 @@ import gym
 
 import numpy as np
 
+from regym.rl_algorithms.agents import Agent
 from regym.environments import Task, EnvType
 from regym.util import play_multiple_matches
 from regym.game_theory import solve_zero_sum_game
 
 
-def compute_winrate_matrix_metagame(population: Iterable,
+def compute_winrate_matrix_metagame(population: Iterable[Agent],
                                     episodes_per_matchup: int,
                                     task: Task,
                                     num_workers: int = 1) -> np.ndarray:
@@ -57,8 +58,8 @@ def compute_winrate_matrix_metagame(population: Iterable,
     return winrate_matrix
 
 
-def generate_evaluation_matrix_multi_population(populations: Iterable,
-                                                task: Task, episodes_per_matchup: int,):
+def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
+                                                task: Task, episodes_per_matchup: int):
 
     if len(populations) > 2:
         raise NotImplemented('Currently only two popuations are supported')
@@ -77,7 +78,8 @@ def generate_evaluation_matrix_multi_population(populations: Iterable,
     return winrate_matrix
 
 
-def relative_population_performance(population_1: List, population_2: List,
+def relative_population_performance(population_1: List[Agent],
+                                    population_2: List[Agent],
                                     task: Task, episodes_per_matchup: int) -> int:
     '''
     From 'Open Ended Learning in Symmetric Zero-sum Games'
@@ -95,7 +97,8 @@ def relative_population_performance(population_1: List, population_2: List,
 
 
 # TODO: test
-def evolution_relative_population_performance(population_1: List, population_2: List,
+def evolution_relative_population_performance(population_1: List[Agent],
+                                              population_2: List[Agent],
                                               task: Task,
                                               episodes_per_matchup: int,
                                               initial_index: int=0) -> np.ndarray:
@@ -128,7 +131,9 @@ def evolution_relative_population_performance(population_1: List, population_2: 
     return relative_performances
 
 
-def generate_upper_triangular_symmetric_metagame(population: List, task: Task, episodes_per_matchup: int,
+def generate_upper_triangular_symmetric_metagame(population: List[Agent],
+                                                 task: Task,
+                                                 episodes_per_matchup: int,
                                                  num_workers: int = 1) -> np.ndarray:
     '''
     Generates a matrix which:
@@ -157,7 +162,7 @@ def generate_upper_triangular_symmetric_metagame(population: List, task: Task, e
     return winrate_matrix
 
 
-def check_input_validity(population: np.ndarray, episodes_per_matchup: int, task):
+def check_input_validity(population: Iterable[Agent], episodes_per_matchup: int, task: Task):
     if population is None: raise ValueError('Population should be an array of policies')
     if len(population) == 0: raise ValueError('Population cannot be empty')
     if episodes_per_matchup <= 0: raise ValueError('Episodes_per_matchup must strictly positive')

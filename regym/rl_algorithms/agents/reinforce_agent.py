@@ -54,7 +54,7 @@ class ReinforceAgent(Agent):
         self.current_prediction = self.algorithm.model(state)
         return self.current_prediction['action'].item()
 
-    def clone(self, training=None):
+    def clone(self, training=True):
         '''
         :param training: Boolean specifying whether the newly cloned agent will be in training mode
         :returns: Deep cloned version of this agent
@@ -66,9 +66,9 @@ class ReinforceAgent(Agent):
         return clone
 
 
-def build_Reinforce_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str):
+def build_Reinforce_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str) -> ReinforceAgent:
     '''
-    :param task: Environment specific configuration
+    :param task: Task in which the agent will be able to act
     :param agent_name: String identifier for the agent
     :param algorithm: Reinforcement Learning algorithm used to update the agent's policy.
                       Contains the agent's policy, represented as a neural network.
