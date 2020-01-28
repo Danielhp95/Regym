@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List
 import numpy as np
 import gym
@@ -19,7 +20,10 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool):
     observations, done, trajectory, current_player = env.reset(), False, [], 0
     while not done:
         agent = agent_vector[current_player]
-        action = agent.take_action(observations[current_player])
+        if not agent.requires_environment_model:
+            action = agent.take_action(observations[current_player])
+        else:
+            action = agent.take_action(deepcopy(env))
         succ_observations, reward_vector, done, _ = env.step(action)
         trajectory.append((observations, action, reward_vector, succ_observations, done))
 
@@ -28,7 +32,6 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool):
             update_agent(agent_to_update, trajectory, agent_vector,
                          reward_vector[agent_to_update],
                          succ_observations[agent_to_update], done)
-
         observations = succ_observations
         current_player = (current_player + 1) % len(agent_vector)
 
