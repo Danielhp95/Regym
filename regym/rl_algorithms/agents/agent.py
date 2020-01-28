@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 
 class Agent(ABC):
 
-    def __init__(self, name):
-        self.requires_environment_model = False
+    def __init__(self, name, requires_environment_model=False):
+        self.requires_environment_model = requires_environment_model
         self.name = name
         self.training = True
         self.handled_experiences = 0
