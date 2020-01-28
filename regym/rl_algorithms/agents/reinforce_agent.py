@@ -1,10 +1,14 @@
+from typing import Dict
 import copy
-from ..reinforce import ReinforceAlgorithm
+
+import regym
+from regym.rl_algorithms.agents import Agent
+from regym.rl_algorithms.reinforce import ReinforceAlgorithm
 
 
-class ReinforceAgent():
+class ReinforceAgent(Agent):
 
-    def __init__(self, name, episodes_before_update, algorithm):
+    def __init__(self, name: str, episodes_before_update: int, algorithm):
         '''
         :param name: String identifier for the agent
         :param episodes_before_update: Number of full environment episodes that will
@@ -12,8 +16,7 @@ class ReinforceAgent():
         :param algorithm: Reinforcement Learning algorithm used to update the agent's policy.
                           Contains the agent's policy, represented as a neural network.
         '''
-        self.name = name
-        self.training = True
+        super(ReinforceAgent, self).__init__(name=name)
         self.algorithm = algorithm
 
         self.episodes_before_update = episodes_before_update
@@ -32,14 +35,15 @@ class ReinforceAgent():
         :param succ_s: Environment state reached after after taking :param a: action at :param s: state
         :param done:   Boolean representing whether the environment episode has finished
         '''
+        super(ReinforceAgent, self).handle_experience(s, a, r, succ_s, done)
         if not self.training: return
-        self.trajectories[self.completed_episodes].append((s, a, self.current_prediction['action_log_probability'], r, succ_s))
+        trajectory_index = self.completed_episodes % self.episodes_before_update
+        self.trajectories[trajectory_index].append((s, a, self.current_prediction['action_log_probability'], r, succ_s))
         if done:
             self.completed_episodes += 1
-            if self.completed_episodes >= self.episodes_before_update:
+            if (self.completed_episodes % self.episodes_before_update) == 0:
                 self.algorithm.train(self.trajectories)
                 self.trajectories = []
-                self.completed_episodes = 0
             self.trajectories.append([])
 
     def take_action(self, state):
@@ -62,7 +66,7 @@ class ReinforceAgent():
         return clone
 
 
-def build_Reinforce_Agent(task, config, agent_name):
+def build_Reinforce_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str):
     '''
     :param task: Environment specific configuration
     :param agent_name: String identifier for the agent

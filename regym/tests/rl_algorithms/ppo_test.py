@@ -2,6 +2,7 @@ from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSTask, KuhnTas
 
 # TODO: get rid of this after refactoring
 from regym.environments import generate_task, EnvType
+from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.agents import build_PPO_Agent
 from regym.rl_algorithms import rockAgent
 
@@ -94,14 +95,14 @@ def act_in_task_env(task, agent):
         observation, rewards, done, info = env.step(a)
 
 
-def test_learns_to_beat_rock_in_kuhn_poker(KuhnTask, ppo_config_dict):
-    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_config_dict, 'PPO-MLP')
-    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
-
-
-def test_learns_to_beat_rock_in_kuhn_poker_rnn(KuhnTask, ppo_rnn_config_dict):
-    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_rnn_config_dict, 'PPO-RNN')
-    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
+#def test_mlp_architecture_learns_to_beat_kuhn_poker(KuhnTask, ppo_config_dict):
+#    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_config_dict, 'PPO-MLP')
+#    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
+#
+#
+#def test_rnn_architecture_learns_to_beat_kuhn_poker_rnn(KuhnTask, ppo_rnn_config_dict):
+#    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_rnn_config_dict, 'PPO-RNN')
+#    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
 
 
 def play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func):
@@ -130,15 +131,18 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
     '''
     from play_against_fixed_opponent import learn_against_fix_opponent
 
-    class FixedAgent():
+    class FixedAgent(Agent):
         def __init__(self, action):
-            self.name = f'FixedAction: {action}'
+            super(FixedAgent, self).__init__(name=f'FixedAction: {action}')
             self.action = action
 
         def take_action(self, *args):
             return self.action
 
         def handle_experience(self, *args):
+            pass
+
+        def clone(self, *args):
             pass
 
     fixed_opponent = FixedAgent(fixed_agent_action)

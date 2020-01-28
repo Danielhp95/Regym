@@ -1,6 +1,7 @@
 import torch
 import copy
 
+from regym.rl_algorithms.agents import Agent
 from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from ..networks import FCBody, LSTMBody
 from ..networks import PreprocessFunction
@@ -10,14 +11,12 @@ import torch.nn.functional as F
 import numpy as np
 
 
-class PPOAgent(object):
+class PPOAgent(Agent):
 
     def __init__(self, name, algorithm):
-        self.training = True
+        super(PPOAgent, self).__init__(name)
         self.algorithm = algorithm
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
-        self.handled_experiences = 0
-        self.name = name
 
         self.recurrent = False
         self.rnn_states = None
@@ -65,7 +64,8 @@ class PPOAgent(object):
                     self.rnn_states[k][0][idx] = self.rnn_states[k][0][idx].cuda()
                     self.rnn_states[k][1][idx] = self.rnn_states[k][1][idx].cuda()
 
-    def handle_experience(self, s, a, r, succ_s, done=False):
+    def handle_experience(self, s, a, r, succ_s, done):
+        super(PPOAgent, self).handle_experience(s, a, r, succ_s, done)
         non_terminal = torch.ones(1)*(1 - int(done))
         state = self.state_preprocessing(s)
         r = torch.ones(1)*r
@@ -73,8 +73,7 @@ class PPOAgent(object):
         self.algorithm.storage.add(self.current_prediction)
         self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
-        self.handled_experiences += 1
-        if self.training and self.handled_experiences >= self.algorithm.kwargs['horizon']:
+        if self.training and (self.handled_experiences % self.algorithm.kwargs['horizon']) == 0:
             next_state = self.state_preprocessing(succ_s)
 
             if self.recurrent:

@@ -80,8 +80,8 @@ def tabular_q_learning_config_dict():
 @pytest.fixture
 def reinforce_config_dict():
     config = dict()
-    config['learning_rate'] = 1.0e-3
-    config['episodes_before_update'] = 20 # Do not make less than 2, for reinforce_test.py
+    config['learning_rate'] = 5.0e-3
+    config['episodes_before_update'] = 50 # Do not make less than 2, for reinforce_test.py
     config['adam_eps'] = 1.0e-5
     return config
 
