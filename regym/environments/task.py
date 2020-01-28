@@ -2,9 +2,7 @@ from enum import Enum
 from typing import Callable, Any
 import gym
 
-from regym.rl_loops.singleagent_loops import rl_loop
-from regym.rl_loops.multiagent_loops import sequential_action_rl_loop
-from regym.rl_loops.multiagent_loops import simultaneous_action_rl_loop
+import regym
 
 
 class EnvType(Enum):
@@ -85,11 +83,11 @@ class Task:
         '''
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
-            return rl_loop.run_episode(self.env, agent_vector, training)
+            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, agent_vector, training)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            return simultaneous_action_rl_loop.run_episode(self.env, agent_vector, training)
+            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, agent_vector, training)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            return sequential_action_rl_loop.run_episode(self.env, agent_vector, training)
+            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, agent_vector, training)
 
     def __repr__(self):
         s = \
