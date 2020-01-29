@@ -66,7 +66,9 @@ def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
     given a set of :param: populations, each containing a (possibly uneven) number
     of Agents (strategies). This metagame is an n-player zero-sum normal form game,
     where `n = len(populations)`.
-    ---Currently only 2 populations are suported---
+
+    Currently only 2 populations are suported
+
     The game is defined by a matrix single matrix, of shape: (rows=len(population[0]), columns=len(population[1]))
     The payoffs (Each entry [i,j] in the evaluation metagame matrix) represent
     agent i's (from populations[0]) winrate against agent j (from popuations[1])
