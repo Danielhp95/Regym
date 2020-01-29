@@ -80,8 +80,8 @@ def tabular_q_learning_config_dict():
 @pytest.fixture
 def reinforce_config_dict():
     config = dict()
-    config['learning_rate'] = 1.0e-3
-    config['episodes_before_update'] = 20 # Do not make less than 2, for reinforce_test.py
+    config['learning_rate'] = 5.0e-3
+    config['episodes_before_update'] = 50 # Do not make less than 2, for reinforce_test.py
     config['adam_eps'] = 1.0e-5
     return config
 
@@ -96,6 +96,12 @@ def a2c_config_dict():
     config['adam_eps'] = 1.0e-5
     return config
 
+
+@pytest.fixture
+def mcts_config_dict():
+    config = dict()
+    config['budget'] = 1
+    return config
 
 @pytest.fixture
 def FrozenLakeTask(): # Discrete Action / Observation space
@@ -122,3 +128,9 @@ def RPSTask():
 def KuhnTask():
     import gym_kuhn_poker
     return generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+
+
+@pytest.fixture
+def Connect4Task():
+    import gym_connect4
+    return generate_task('Connect4-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)

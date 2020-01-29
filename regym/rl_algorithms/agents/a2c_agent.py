@@ -1,23 +1,24 @@
-from ..A2C import A2CAlgorithm
+from regym.rl_algorithms.agents import Agent
+from regym.rl_algorithms.A2C import A2CAlgorithm
 
 
-class A2CAgent():
+class A2CAgent(Agent):
 
-    def __init__(self, name, samples_before_update, algorithm):
+    def __init__(self, name: str, samples_before_update: int, algorithm):
         '''
         :param name: String identifier for the agent
         :param samples_before_update: Number of actions the agent will take before updating
         :param algorithm: Reinforcement Learning algorithm used to update the agent's policy.
                           Contains the agent's policy, represented as a neural network.
         '''
-        self.name = name
-        self.training = True
+        super(A2CAgent, self).__init__(name=name)
         self.algorithm = algorithm
 
         self.samples_before_update = samples_before_update
         self.samples = []
 
     def handle_experience(self, s, a, r, succ_s, done=False):
+        super(A2CAgent, self).handle_experience(s, a, r, succ_s, done)
         if not self.training: return
         self.samples.append((s, a, self.current_prediction['action_log_probability'],
                              r, self.current_prediction['state_value'], succ_s, done))

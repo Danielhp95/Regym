@@ -1,10 +1,16 @@
-# TODO: give all credit to Juyenesh
+'''
+DISCLAIMER: This work has been based on the fabulous work by
+ the researcher Jayesh K. Gupta (https://github.com/rejuvyesh).
+ All credit goes for this module goes to him.
+'''
 import math
 from collections import namedtuple
 from typing import List, Optional, Tuple
 
 import numpy as np
 from scipy.special import softmax
+
+from regym.game_theory.solve_zero_sum_game import is_matrix_antisymmetrical
 
 
 def compute_nash_averaging(payoff_matrix: np.ndarray, perform_logodds_transformation=False) \
@@ -18,7 +24,12 @@ def compute_nash_averaging(payoff_matrix: np.ndarray, perform_logodds_transforma
         https://arxiv.org/abs/1806.02643
 
     :param payoff_matrix: For representing payoffs for player 1 of a symmetric 2-player game.
-    :param perform_logodds_transformation: (default: False). TODO: explain why
+    :param perform_logodds_transformation: (default: False). Nash averaging is based on a
+    maximum entropy Nash Equilibrium. A sufficient condition to guarantee the existence of
+    a _unique_ maximum entropy equilibrium is that the game matrix is ANTISYMMETRIC.
+    if the :param payoff_matrix: is a winrate matrix (as it is often the case),
+    it can be turned into an antisymmetrical matrix by performing logodds operation on each 
+    matrix value.
     :returns: Maximum entropy Nash Equilibrium vector, Nash Averaging vector
     '''
     game_matrix = preprocess_matrix(payoff_matrix, perform_logodds_transformation)
@@ -198,13 +209,6 @@ def preprocess_matrix(payoff_matrix, perform_logodds_transformation):
     return game_matrix
 
 
-def is_matrix_antisymmetrical(m: np.array) -> bool:
-    '''
-    TODO: This is already in Regym, eliminate once we merge
-    '''
-    return m.shape[0] == m.shape[1] and np.allclose(m, -1 * m.T, rtol=1e-03, atol=1e-03)
-
-
 def check_validity(payoff_matrix: np.ndarray, perform_logodds_transformation: bool):
     is_matrix_square = lambda m: m.ndim == 2 and m.shape[0] == m.shape[1]
     if payoff_matrix.dtype.kind not in np.typecodes['AllInteger'] and \
@@ -213,14 +217,17 @@ def check_validity(payoff_matrix: np.ndarray, perform_logodds_transformation: bo
         raise ValueError('Payoff matrix should be a 2D and square.')
     if not perform_logodds_transformation and not is_matrix_antisymmetrical(payoff_matrix):
         raise ValueError('''
-                         Input payoff_matrix was not antisymmetrical. Nash averaging can only
+                         :param: payoff_matrix was not antisymmetrical. Nash averaging can only
                          safely be computed on an antisymmetrical matrix because otherwise
                          it is not guaranteed that there is a unique maximum entropy Nash
                          equilibria, and thus we lose the property of "interpretability"
                          from Nash Averaging.
                          
-                         If the payoff_matrix is an empirical winrate matrix (TODO, define further),
-                         then set :param perform_logodds_transformation: to True to turn the
-                         payoff_matrix into an antisymmetrical matrix as defined in 
-                         Balduzzi 2018 Revaluating Evaluation.
+                         If the :param: payoff_matrix is an empirical winrate matrix
+                         (i.e, each entry inside :param: payoff_matrix was computed
+                         by calculating the winrate of head to head matches between
+                         two strategies then set 
+                         :param perform_logodds_transformation: to True
+                         to turn the payoff_matrix into an antisymmetrical matrix
+                         as defined in (Balduzzi 2018 Revaluating Evaluation).
                          ''')

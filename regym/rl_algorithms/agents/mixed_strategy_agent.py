@@ -1,6 +1,7 @@
+from regym.rl_algorithms.agents import Agent
 import numpy as np
 
-class MixedStrategyAgent():
+class MixedStrategyAgent(Agent):
     '''
     Representes a fixed agent which uses a mixed strategy.
     A mixed strategy is represented as a support vector (probability) distribution over
@@ -13,12 +14,12 @@ class MixedStrategyAgent():
         :param support_vector: support vector for all three possible pure strategies [ROCK, PAPER, SCISSORS]
         :throws ValueError: If support vector is not a valid probability distribution
         '''
+        super(MixedStrategyAgent, self).__init__(name=name)
         if any(map(lambda support: support < 0, support_vector)):
             raise ValueError('Every support in the support vector should be a positive number. Given supports: {}'.format(support_vector))
         if sum(support_vector) != 1.0:
             raise ValueError('The sum of all supports in the support_vector should sum up to 1. Given supports: {}'.format(support_vector))
         self.support_vector = support_vector
-        self.name = name
 
     def take_action(self, state):
         '''

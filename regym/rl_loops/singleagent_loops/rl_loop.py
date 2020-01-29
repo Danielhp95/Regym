@@ -1,4 +1,11 @@
-def run_episode(env, agent, training):
+from typing import List, Tuple
+from copy import deepcopy
+import gym
+import regym
+from regym.rl_algorithms.agents import Agent
+
+
+def run_episode(env: gym.Env, agent: Agent, training: bool) -> Tuple:
     '''
     Runs a single episode of a single-agent rl loop until termination.
     :param env: OpenAI gym environment
@@ -10,7 +17,7 @@ def run_episode(env, agent, training):
     done = False
     trajectory = []
     while not done:
-        action = agent.take_action(observation)
+        action = agent.take_action(deepcopy(env)) if agent.requires_environment_model else agent.take_action(observation)
         succ_observation, reward, done, info = env.step(action)
         trajectory.append((observation, action, reward, succ_observation, done))
         if training: agent.handle_experience(observation, action, reward, succ_observation, done)
