@@ -40,7 +40,7 @@ def compute_winrate_matrix_metagame(population: Iterable[Agent],
     :param episodes_per_matchup: Number of times each matchup will be repeated to compute
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
-    :param task Multiagent Task for which the metagame is being computed
+    :param task: Multiagent Task for which the metagame is being computed
     :param num_workers: Number of parallel threads to be spawned to carry out benchmarks in parallel
     :returns: Empirical payoff matrix for player 1 representing the metagame for :param: task and
               :param: population
@@ -59,10 +59,36 @@ def compute_winrate_matrix_metagame(population: Iterable[Agent],
 
 
 def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
-                                                task: Task, episodes_per_matchup: int):
+                                                task: Task,
+                                                episodes_per_matchup: int) -> np.ndarray:
+    '''
+    Generates an evaluation matrix (a metagame) for a multiagent :param: task
+    given a set of :param: populations, each containing a (possibly uneven) number
+    of Agents (strategies). This metagame is an n-player zero-sum normal form game,
+    where `n = len(populations)`.
+    ---Currently only 2 populations are suported---
+    The game is defined by a matrix single matrix, of shape: (rows=len(population[0]), columns=len(population[1]))
+    The payoffs (Each entry [i,j] in the evaluation metagame matrix) represent
+    agent i's (from populations[0]) winrate against agent j (from popuations[1])
+    for :param: episodes_per_matchup.
 
+    If all populations contain exactly the same agents, this function will
+    (theoretically) yield the same result as `compute_winrate_matrix_metagame(populations[0],...)`
+
+    :param populations: Populations to be matched against each other
+    :param task: Multiagent Task for which the evaluation matrix is being computed
+    :param episodes_per_matchup: Number of times each matchup will be repeated to compute
+                                 empirical winrates. Higher values generate a more accurate
+                                 metagame, at the expense of longer compute time.
+    :returns: Emprirical winrate matrix (aka evaluation matrix) representing
+              the winrates of populations[0] against population[1]. That is:
+              each row i represents the winrates of agent i from popuations[0]
+              against all agents from populations[1]
+    '''
+    if task.env_type == EnvType.SINGLE_AGENT:
+        raise ValueError('Task is single-agent. Metagames can only be computed for multiagent tasks.')
     if len(populations) > 2:
-        raise NotImplemented('Currently only two popuations are supported')
+        raise NotImplementedError('Currently only two popuations are supported')
 
     population_1, population_2 = populations
     winrate_matrix = np.zeros((len(population_1), len(population_2)))
@@ -80,40 +106,69 @@ def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
 
 def relative_population_performance(population_1: List[Agent],
                                     population_2: List[Agent],
-                                    task: Task, episodes_per_matchup: int) -> int:
+                                    task: Task, episodes_per_matchup: int) -> float:
     '''
     From 'Open Ended Learning in Symmetric Zero-sum Games'
     https://arxiv.org/abs/1901.08106
     Definition 3: Relative population performance.
+    Computes an scalar value comparing the performance of :param: population_1
+    against :param: population_2 at :param: task.
 
     It boils down to computing the value of player 1 under Nash Equilibrium
-    of a zero-sum game computed from matching both populations against one another.
+    of a zero-sum game computed from matching :param: population_1 (player 1)
+    against :param: population_2 (player 2) inside of :param: task.
 
-    TODO: document
+    Proposition 5.1 from paper above. Relative population performance is
+    independent of choice of Nash Equilibrium. 
+    :param population_1 / _2: Populations from which relative population
+                              performance will be computed
+    :param task: Multiagent Task for which the metagame is being computed
+    :param episodes_per_matchup: Number of times each matchup will be repeated to compute
+                                 empirical winrates. Higher values generate a more accurate
+                                 metagame, at the expense of longer compute time.
+    :returns: Population performance of :param: population_1 relative to
+              :param: population_2.
     '''
     return evolution_relative_population_performance(population_1, population_2, task,
                                                      episodes_per_matchup,
                                                      initial_index=(len(population_1) -1))[0]
 
 
-# TODO: test
 def evolution_relative_population_performance(population_1: List[Agent],
                                               population_2: List[Agent],
                                               task: Task,
                                               episodes_per_matchup: int,
                                               initial_index: int=0) -> np.ndarray:
     '''
-    TODO: finish documenting
-    :param population_1 / 2:
-    :param Task:
-    :param episodes_per_matchup:
+    Computes various relative population performances for :param: population_1
+    and :param: population_2, where the first relative population performance
+    is taken for population_1[0:initial_index] policies, until
+    population_1[:], with a step of 1.
+
+    Useful for plotting relative population performance as new policies
+    were introduced in both populations.
+
+    :param population_1 / _2: Populations from which relative population
+                              performance will be computed
+    :param task: Multiagent Task for which the metagame is being computed
+    :param episodes_per_matchup: Number of times each matchup will be repeated to compute
+                                 empirical winrates. Higher values generate a more accurate
+                                 metagame, at the expense of longer compute time.
     :param initial_index: Index for both populations at which the relative
                           population performance will be computed.
+    :returns: Vector containing the evolution of the population performance of
+              :param: population_1 relative to :param: population_2 starting 
+              at population_1 index :param: initial_index.
     '''
+
+    if task.env_type == EnvType.SINGLE_AGENT:
+        raise ValueError('Task is single-agent. Metagames can only be computed for multiagent tasks.')
     if len(population_1) != len(population_2):
-        raise ValueError('Population must be of the same size')
+        raise ValueError('Population must be of the same size. This constraint could be relaxed')
     if not (0 <= initial_index < len(population_1)):
         raise ValueError(f'Initial index must be a valid index for population vector: [0,{len(population_1)}]')
+    if episodes_per_matchup <= 0:
+        raise ValueError(f'Param `episodes_per_matchup` must be strictly positive')
 
     winrate_matrix = generate_evaluation_matrix_multi_population(populations=[
                                                                      population_1,
