@@ -59,6 +59,7 @@ class Task:
                  observation_type: str,
                  action_dim: int,
                  action_type: str,
+                 num_agents: int,
                  hash_function: Callable[[Any], int]):
         '''
         TODO Document
@@ -72,14 +73,20 @@ class Task:
         self.observation_type = observation_type
         self.action_dim = action_dim
         self.action_type = action_type
+        self.num_agents = num_agents
         self.hash_function = hash_function
+
+        if num_agents != 1 and env_type == EnvType.SINGLE_AGENT:
+            raise ValueError('Task was described as single-agent, ',
+                             f'yet it features {self.num_agents}.',
+                             'It must be declared as a multiagent EnvType')
 
         self.total_episodes_run = 0
 
 
     def run_episode(self, agent_vector, training):
         '''
-        TODO
+        TODO: document
         '''
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
