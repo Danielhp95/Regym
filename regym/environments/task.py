@@ -73,11 +73,6 @@ class Task:
         self.num_agents = num_agents
         self.hash_function = hash_function
 
-        if num_agents != 1 and env_type == EnvType.SINGLE_AGENT:
-            raise ValueError('Task was described as single-agent, ',
-                             f'yet it features {self.num_agents}.',
-                             'It must be declared as a multiagent EnvType')
-
         self.total_episodes_run = 0
 
 
