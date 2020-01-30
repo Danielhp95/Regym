@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, Any
+from typing import List, Callable, Any
 import gym
 
 import regym
@@ -61,9 +61,6 @@ class Task:
                  action_type: str,
                  num_agents: int,
                  hash_function: Callable[[Any], int]):
-        '''
-        TODO Document
-        '''
         self.name = name
         self.env = env
         self.env_type = env_type
@@ -84,9 +81,17 @@ class Task:
         self.total_episodes_run = 0
 
 
-    def run_episode(self, agent_vector, training):
+    def run_episode(self, agent_vector: List[Agent], training: bool):
         '''
-        TODO: document
+        Runs an episode of the Task's underlying environment using the
+        :param: agent_vector to populate the agents in the environment.
+        If the flag :param: training is set, the agents in :param: agent_vector
+        will be fed the 'experiences'* collected during the episode.
+
+        Depending on the Task.env_type, a different mathematical model
+        is used to simulate an episode an episode on the environment.
+
+        *The term 'experience' is defined in regym.rl_algorithms.agents.Agent
         '''
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
@@ -102,6 +107,7 @@ f'''
 Task: {self.name}
 env: {self.env}
 env_type: {self.env_type}
+num_agents: {self.num_agents}
 observation_dim: {self.observation_dim}
 observation_type: {self.observation_type}
 state_space_size: {self.state_space_size}
