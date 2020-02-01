@@ -4,22 +4,24 @@ import gym
 
 import regym
 from regym.rl_algorithms.agents import Agent
-from regym.rl_algorithms.MCTS import MCTS_UCT
+from regym.rl_algorithms.MCTS import sequential_mcts
+from regym.rl_algorithms.MCTS import simultaneous_mcts
 
 
 class MCTSAgent(Agent):
 
-    def __init__(self, name: str, iteration_budget: int):
+    def __init__(self, name: str, algorithm, iteration_budget: int):
         '''
         MCTS is a model based algorithm, which will require
         a copy of the environment every time MCTSAgent.take_action()
         is invoked
         '''
         super(MCTSAgent, self).__init__(name=name, requires_environment_model=True)
+        self.algorithm = algorithm
         self.budget = iteration_budget
 
     def take_action(self, env: gym.Env):
-        return MCTS_UCT(env, self.budget)
+        return self.algorithm(env, self.budget)
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
@@ -41,16 +43,18 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                     out before an action is selected.
     :returns: Agent using Reinforce algorithm to act and learn in environments
     '''
-    if task.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-        raise NotImplementedError('MCTS does not currently support Simultaenous multiagent environments')
     if task.env_type == regym.environments.EnvType.SINGLE_AGENT:
         raise NotImplementedError('MCTS does not currently support single agent environments')
+    if task.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
+        algorithm = simultaneous_mcts.MCTS_UCT
+    if task.env_type == regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
+        algorithm = sequential_mcts.MCTS_UCT
 
     check_config_validity(config)
 
     # TODO: box environments are considered continuous.
     # Update so that if (space.dtype == an int type), then the space is considered discrete
-    agent = MCTSAgent(name=agent_name, iteration_budget=config['budget']) 
+    agent = MCTSAgent(name=agent_name, algorithm=algorithm, iteration_budget=config['budget']) 
     return agent
 
 
