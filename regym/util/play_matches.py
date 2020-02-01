@@ -17,7 +17,7 @@ def play_multiple_matches(task: Task, agent_vector: List, n_matches: int, keep_t
     :param n_matches: number of matches to be played
     :returns: Vector containing the winrate for each agent
     '''
-    winrates = np.zeros(len(agent_vector))
+    winrates = np.zeros(task.num_agents)
     trajectories = []
     for episode in range(n_matches):
         if keep_trajectories:
