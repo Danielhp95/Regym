@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, Any
+from typing import List, Callable, Any, Dict
 import gym
 
 import regym
@@ -20,7 +20,7 @@ class Task:
     r'''
     A Task is a thin layer of abstraction over OpenAI gym environments and
     Unity ML-agents executables, used across Regym.
-    The main uses of Tasks are: 
+    The main uses of Tasks are:
         - Initialize agents capable of acting in an environment via the
           `build_X_Agent()` functions where `X` is an algorithm from
           `regym.rl_algorithms`.
@@ -59,10 +59,8 @@ class Task:
                  observation_type: str,
                  action_dim: int,
                  action_type: str,
+                 num_agents: int,
                  hash_function: Callable[[Any], int]):
-        '''
-        TODO Document
-        '''
         self.name = name
         self.env = env
         self.env_type = env_type
@@ -72,22 +70,58 @@ class Task:
         self.observation_type = observation_type
         self.action_dim = action_dim
         self.action_type = action_type
+        self.num_agents = num_agents
         self.hash_function = hash_function
+        self.extended_agents = {}
 
         self.total_episodes_run = 0
 
 
-    def run_episode(self, agent_vector, training):
+    def extend_task(self, agents: Dict, force=False):
+        ''' TODO: DOCUMENT, TEST '''
+        if self.env_type == EnvType.SINGLE_AGENT:
+            raise ValueError('SINGLE_AGENT tasks cannot be extended')
+        for i, agent in agents.items():
+            # Maybe refactor whole scope into a list comprehension
+            if i in self.extended_agents and not force:
+                raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
+            self.extended_agents[i] = agent
+
+
+    def run_episode(self, agent_vector, training: bool):
         '''
-        TODO
+        Runs an episode of the Task's underlying environment using the
+        :param: agent_vector to populate the agents in the environment.
+        If the flag :param: training is set, the agents in :param: agent_vector
+        will be fed the 'experiences'* collected during the episode.
+
+        Depending on the Task.env_type, a different mathematical model
+        is used to simulate an episode an episode on the environment.
+
+        *The term 'experience' is defined in regym.rl_algorithms.agents.Agent
         '''
+        extended_agent_vector = self._extend_agent_vector(agent_vector)
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
-            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, agent_vector, training)
+            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector, training)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, agent_vector, training)
+            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, agent_vector, training)
+            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training)
+        self
+
+    def _extend_agent_vector(self, agent_vector):
+        # This should be much prettier
+        agent_index = 0
+        extended_agent_vector = []
+        for i in range(self.num_agents):
+            if i in self.extended_agents:
+                extended_agent_vector.append(self.extended_agents[i])
+            else:
+                extended_agent_vector.append(agent_vector[agent_index])
+                agent_index += 1
+
+        return extended_agent_vector
 
     def __repr__(self):
         s = \
@@ -95,6 +129,8 @@ f'''
 Task: {self.name}
 env: {self.env}
 env_type: {self.env_type}
+num_agents: {self.num_agents}
+Extended_agents: {self.extended_agents}
 observation_dim: {self.observation_dim}
 observation_type: {self.observation_type}
 state_space_size: {self.state_space_size}

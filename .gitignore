@@ -107,3 +107,4 @@ venv.bak/
 
 # vim
 Session.vim
+.vim/

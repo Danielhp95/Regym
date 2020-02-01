@@ -26,10 +26,14 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType) -> Task:
     state_space_size = env.state_space_size if hasattr(env, 'state_space_size') else None
     action_space_size = env.action_space_size if hasattr(env, 'action_space_size') else None
     hash_function = env.hash_state if hasattr(env, 'hash_state') else None
+    if env_type == EnvType.SINGLE_AGENT: num_agents = 1
+    else: num_agents = len(env.observation_space.spaces)
 
     check_env_compatibility_with_env_type(env, env_type)
 
-    return Task(name, env, env_type, state_space_size, action_space_size, observation_dims, observation_type, action_dims, action_type, hash_function)
+    return Task(name, env, env_type, state_space_size, action_space_size,
+                observation_dims, observation_type, action_dims, action_type,
+                num_agents, hash_function)
 
 
 def get_observation_dimensions_and_type(env):

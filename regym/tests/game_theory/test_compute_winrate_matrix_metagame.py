@@ -29,13 +29,11 @@ def test_for_compute_winrate_matrix_metagame_empty_population_raises_valueerror(
 
 def test_for_compute_winrate_matrix_metagame_negative_or_zero_episodes_per_matchup_raises_valueerror(RPSTask):
     with pytest.raises(ValueError) as _:
-        # TODO: is it worth it to pass an agent?
         _ = compute_winrate_matrix_metagame(population=[1, 2, 3],
                                             episodes_per_matchup=-1,
                                             task=RPSTask)
 
     with pytest.raises(ValueError) as _:
-        # TODO: is it worth it to pass an agent?
         _ = compute_winrate_matrix_metagame(population=[1, 2, 3],
                                             episodes_per_matchup=0,
                                             task=RPSTask)
@@ -43,7 +41,6 @@ def test_for_compute_winrate_matrix_metagame_negative_or_zero_episodes_per_match
 
 def test_for_compute_winrate_matrix_metagame_singleagent_task_raises_valueerror(pendulum_task):
     with pytest.raises(ValueError) as _:
-        # TODO: is it worth it to pass an agent?
         _ = compute_winrate_matrix_metagame(population=[1, 2, 3],
                                             episodes_per_matchup=10,
                                             task=pendulum_task)
