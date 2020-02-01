@@ -145,6 +145,7 @@ class PSRONashResponse():
         indices_to_fill = product(range(updated_meta_game.shape[0]),
                                   [updated_meta_game.shape[0] - 1])
         for i, j in indices_to_fill:
+            # TODO: maybe use regym.evaluation. benchmark on tasks?
             if i == j: updated_meta_game[j, j] = 0.5
             else:
                 winrate_estimate = play_multiple_matches(task=task,
