@@ -12,7 +12,7 @@ def test_non_integer_budget_raises_value_error(Connect4Task):
     with pytest.raises(ValueError) as _:
         _ = build_MCTS_Agent(Connect4Task, config, 'name')
 
-def test_reinforce_can_take_actions_discrete_obvservation_discrete_action(Connect4Task, mcts_config_dict):
+def test_mcts_can_take_actions_discrete_obvservation_discrete_action(Connect4Task, mcts_config_dict):
     mcts1 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
     mcts2 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
     Connect4Task.run_episode([mcts1, mcts2], training=False)

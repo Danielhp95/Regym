@@ -1,10 +1,7 @@
-from math import sqrt, log
+from math import sqrt
 import random
+from .util import UCB1
 from .open_loop_node import OpenLoopNode
-
-
-def UCB1(node, child, exploration_constant=sqrt(2)):
-    return child.wins / child.visits + exploration_constant * sqrt(log(node.visits) / child.visits)
 
 
 def selection_phase(node, state, selection_policy=UCB1, selection_policy_args=[]):
