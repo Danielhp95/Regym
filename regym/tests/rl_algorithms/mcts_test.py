@@ -24,6 +24,6 @@ def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, mcts_co
     mcts2 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
     trajectory = Connect4Task.run_episode([mcts1, mcts2], training=False)
 
-    assert extract_winner(trajectory) == 1 # Second player (index 1) has a much higer budget
+    assert extract_winner(trajectory) == 1 # Second player (index 1) has a much higher budget
     trajectory = Connect4Task.run_episode([mcts2, mcts1], training=False)
-    assert extract_winner(trajectory) == 0 # First player (index 0) has a much higer budget
+    assert extract_winner(trajectory) == 0 # First player (index 0) has a much higher budget
