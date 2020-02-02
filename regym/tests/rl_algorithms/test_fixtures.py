@@ -134,3 +134,11 @@ def KuhnTask():
 def Connect4Task():
     import gym_connect4
     return generate_task('Connect4-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+
+
+
+@pytest.fixture
+def RandomWalkTask():
+    from gym.envs.registration import register
+    register(id='RandomWalk-v0', entry_point='regym.tests.rl_algorithms.random_walk_env:RandomWalkEnv')
+    return generate_task('RandomWalk-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
