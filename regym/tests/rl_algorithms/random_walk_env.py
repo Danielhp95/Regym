@@ -15,13 +15,15 @@ class RandomWalkEnv(gym.Env):
 
         self.target = target
         self.done = False
-        self.reset()
+        self.winner = -1
+        self.done = False
+        self.current_positions = self.starting_positions
 
     def reset(self):
         self.winner = -1
         self.done = False
         self.current_positions = self.starting_positions
-        return np.array([copy(self.current_positions), copy(self.current_positions)])
+        return [np.array(copy(self.current_positions)), np.array(copy(self.current_positions))]
 
     def clone(self):
         return RandomWalkEnv(target=self.target, starting_positions=copy(self.current_positions), space_size=self.space_size)
@@ -30,24 +32,33 @@ class RandomWalkEnv(gym.Env):
         """
         :param actions: List of two elements, containing one action for each player
         """
-        # TODO: in here we can enforce collaboration (i.e They only move if both players say right)
-        for i, a in enumerate(actions):
-            if a == 0:
+        if self.done:
+            return [self.current_positions[0]], [self.current_positions[1]], [0, 0], self.done, {}
+        for i in range(2):
+            if actions[i] == 0:
                 self.current_positions[i] += 1
-            elif a == 1:
+            elif actions[i] == 1:
                 self.current_positions[i] -= 1
+            else:
+                pass
 
-        reward_vector = [int(self.target == p) for p in self.current_positions]
+        reward_vector = [1 if self.target == p else 0 for p in self.current_positions]
 
-        if reward_vector[0] == 1:
+        # TODO: find if a player has won
+        if reward_vector[1] == 1:
             self.winner = 1
-        elif reward_vector[1] == 1:
-            self.winner = 2
+        elif reward_vector[0] == 1:
+            self.winner = 0
+        else:
+            self.winner = -1
 
         # info should be kept empty
         info = {}
         self.done = self.winner != -1
-        return [np.array([copy(self.current_positions), copy(self.current_positions)])], reward_vector, self.done, info
+        return [np.array(copy(self.current_positions)), np.array(copy(self.current_positions))], reward_vector, self.done, info
+
+    def is_over(self):
+        return self.winner != -1
 
     def get_moves(self, player_id: int):
         """
@@ -55,16 +66,16 @@ class RandomWalkEnv(gym.Env):
         TODO: figure out what are the valid moves an agent can take.
         (i.e figure ability cooldowns / collision against map borders)
         """
-        if self.winner != 0:
+        if self.winner != -1:
             return []
         return [0, 1] # Left, right, null
 
-    def get_result(self, player):
+    def get_result(self, player_id):
         """
         :param player: (int) player which we want to see if he / she is a winner
         :returns: winner from the perspective of the param player
         """
-        return player == self.winner
+        return int(self.current_positions[player_id] == self.target)
 
     def render(self, mode='human'):
         return f'Current position: {self.current_positions}. Target: {self.target}'

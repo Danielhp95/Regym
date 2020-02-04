@@ -5,7 +5,7 @@ from regym.environments import generate_task
 
 def test_can_pass_kwargs_to_env():
     from gym.envs.registration import register
-    register(id='DummyEnv-v0', entry_point='regym.tests.environments.params_test_env:ParamsTestEnv') # FIX
+    register(id='DummyEnv-v0', entry_point='regym.tests.environments.params_test_env:ParamsTestEnv')
 
     params = {'param1': 1, 'param2': 2, 'param3': 3}
 

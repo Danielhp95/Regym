@@ -4,16 +4,18 @@ from .util import UCB1
 from .simultaneous_open_loop_node import SimultaneousOpenLoopNode
 
 
-def selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=[]):
-    expanded = [False for n in nodes]
-    while not all(expanded):
+def selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=None):
+    if selection_policy_args is None:
+        selection_policy_args = []
+    expanded = [False for _ in nodes]
+    while not (all(expanded) or state.is_over()):
         moves, expanded = choose_moves(nodes, selection_policy, selection_policy_args)
         state.step(moves)
-        nodes = [n.doStuff(moves, state) for n in nodes]
+        nodes = [n.descend_and_expand(moves, state) for n in nodes]
     return nodes
 
 
-def choose_moves(self, nodes, selection_policy, selection_policy_args):
+def choose_moves(nodes, selection_policy, selection_policy_args):
     expanded = []
     moves = []
     for n in nodes:
@@ -39,8 +41,9 @@ def backpropagation_phase(nodes, state):
         if n is not None:
             #TODO: get_result() returns True/False...we need a numeric score (evaluation) for
             # each player in the state
-            n.update(state.get_result(n.perspective_player))
-            backpropagation_phase(n.parent_node, state)
+            while n is not None:
+                n.update(state.get_result(n.perspective_player))
+                n = n.parent_node
 
 
 def action_selection_phase(nodes):

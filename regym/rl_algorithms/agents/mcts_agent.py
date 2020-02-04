@@ -20,8 +20,9 @@ class MCTSAgent(Agent):
         self.algorithm = algorithm
         self.budget = iteration_budget
 
-    def take_action(self, env: gym.Env):
-        return self.algorithm(env, self.budget)
+    def take_action(self, env: gym.Env, player_index: int):
+        all_player_actions = self.algorithm(env, self.budget)
+        return all_player_actions[player_index]
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
