@@ -10,25 +10,36 @@ from regym.rl_algorithms.MCTS import simultaneous_mcts
 
 class MCTSAgent(Agent):
 
-    def __init__(self, name: str, algorithm, iteration_budget: int):
+    def __init__(self, name: str, algorithm, iteration_budget: int, task_num_agents: int):
         '''
-        MCTS is a model based algorithm, which will require
-        a copy of the environment every time MCTSAgent.take_action()
-        is invoked
+        Agent for various algorithms of the Monte Carlo Tree Search family (MCTS).
+        MCTS algorithms are model based (aka, statistical forward planners). which will require
+        a copy of the environment every time MCTSAgent.take_action() is invoked.
+
+        Currently, MCTSAgent supports Multiagent environments. Refer to
+        regym.rl_algorithms.MCTS for details on algorithmic implementations.
+
+        A nice survey paper of MCTS approaches:
+        https://www.researchgate.net/publication/235985858_A_Survey_of_Monte_Carlo_Tree_Search_Methods
         '''
         super(MCTSAgent, self).__init__(name=name, requires_environment_model=True)
         self.algorithm = algorithm
         self.budget = iteration_budget
+        self.task_num_agents = task_num_agents
 
     def take_action(self, env: gym.Env, player_index: int):
-        all_player_actions = self.algorithm(env, self.budget)
-        return all_player_actions[player_index]
+        player_action = self.algorithm(env, self.budget,
+                                       self.task_num_agents)
+        return player_action
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
 
     def clone(self):
-        pass
+        cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,
+                           iteration_budget=self.iteration_budget,
+                           task_num_agents=self.task_num_agents)
+        return cloned
 
     def __repr__(self):
         s = f'MCTSAgent: {self.name}. Budget: {self.budget}'
@@ -42,7 +53,7 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
     :param config: Dictionary whose entries contain hyperparameters for the A2C agents:
         - 'budget': (Int) Number of iterations of the MCTS loop that will be carried
                     out before an action is selected.
-    :returns: Agent using Reinforce algorithm to act and learn in environments
+    :returns: Agent using an MCTS algorithm to act the :param: tasks's environment
     '''
     if task.env_type == regym.environments.EnvType.SINGLE_AGENT:
         raise NotImplementedError('MCTS does not currently support single agent environments')
@@ -53,9 +64,9 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
 
     check_config_validity(config)
 
-    # TODO: box environments are considered continuous.
-    # Update so that if (space.dtype == an int type), then the space is considered discrete
-    agent = MCTSAgent(name=agent_name, algorithm=algorithm, iteration_budget=config['budget']) 
+    agent = MCTSAgent(name=agent_name, algorithm=algorithm,
+                      iteration_budget=config['budget'],
+                      task_num_agents=task.num_agents)
     return agent
 
 

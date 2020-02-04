@@ -35,7 +35,8 @@ def action_selection_phase(node):
     return sorted(node.child_nodes, key=lambda c: c.wins / c.visits)[-1].move
 
 
-def MCTS_UCT(rootstate, itermax, exploration_factor_ucb1=sqrt(2)):
+def MCTS_UCT(rootstate, itermax: int, num_agents: int,
+             exploration_factor_ucb1: float = sqrt(2)):
     """
     Conducts a game tree search using the MCTS-UCT algorithm
     for a total of param itermax iterations. The search begins
