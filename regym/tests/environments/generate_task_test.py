@@ -14,4 +14,3 @@ def test_can_pass_kwargs_to_env():
     assert task.env.param1 == 1
     assert task.env.param2 == 2
     assert task.env.param3 == 3
-

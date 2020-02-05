@@ -4,6 +4,7 @@ import gym
 import regym
 from regym.rl_algorithms.agents import Agent
 
+
 def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool) -> Tuple:
     '''
     Runs a single multi-agent rl loop until termination where each agent
