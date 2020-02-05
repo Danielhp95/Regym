@@ -18,7 +18,6 @@ class SimultaneousOpenLoopNode:
     is created.
 
 
-
     TODO: write assumptions made over the interface of the underlying
           OpenAIGym environment. THIS IS SUPER IMPORTANT
     """
