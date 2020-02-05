@@ -23,7 +23,7 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool):
         if not agent.requires_environment_model:
             action = agent.take_action(observations[current_player])
         else:
-            action = agent.take_action(deepcopy(env), current_player)
+            action = agent.take_action(deepcopy(env))
         succ_observations, reward_vector, done, _ = env.step(action)
         trajectory.append((observations, action, reward_vector, succ_observations, done))
 

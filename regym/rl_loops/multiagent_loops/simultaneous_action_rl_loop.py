@@ -20,7 +20,7 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool) -> Tupl
     trajectory = []
     while not done:
         action_vector = [
-                agent.take_action(deepcopy(env), i) if agent.requires_environment_model else agent.take_action(observations[i])
+                agent.take_action(deepcopy(env)) if agent.requires_environment_model else agent.take_action(observations[i])
                 for i, agent in enumerate(agent_vector)]
         succ_observations, reward_vector, done, info = env.step(action_vector)
         trajectory.append((observations, action_vector, reward_vector, succ_observations, done))

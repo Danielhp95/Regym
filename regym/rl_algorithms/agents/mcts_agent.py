@@ -27,7 +27,7 @@ class MCTSAgent(Agent):
         self.budget = iteration_budget
         self.task_num_agents = task_num_agents
 
-    def take_action(self, env: gym.Env, player_index: int):
+    def take_action(self, env: gym.Env):
         player_action = self.algorithm(env, self.budget,
                                        self.task_num_agents)
         return player_action
