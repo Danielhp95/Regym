@@ -14,7 +14,7 @@ class RandomWalkEnv(gym.Env):
     the target position at the same time, leading to a reward to both agents.
 
     Action space: {0: Moving right, 1: Moving left}
-    Observation space (Fully observable): [position player 0 (int), position player 1 (int)] 
+    Observation space (Fully observable): [position player 0 (int), position player 1 (int)]
     '''
 
     def __init__(self, target=3, starting_positions=[0, 0], space_size=50):
@@ -29,7 +29,7 @@ class RandomWalkEnv(gym.Env):
 
     def reset(self) -> List[np.ndarray]:
         '''
-        Restores environment initial state and
+        Restores environment initia state.
         :returns: Environment initial state (starting positions for all agents)
         '''
         self.winner = -1
