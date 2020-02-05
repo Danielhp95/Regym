@@ -1,1 +1,2 @@
-from .mcts import MCTS_UCT
+from . import sequential_mcts
+from . import simultaneous_mcts

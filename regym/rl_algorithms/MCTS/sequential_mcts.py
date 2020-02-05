@@ -1,10 +1,7 @@
-from math import sqrt, log
+from math import sqrt
 import random
-from .open_loop_node import OpenLoopNode
-
-
-def UCB1(node, child, exploration_constant=sqrt(2)):
-    return child.wins / child.visits + exploration_constant * sqrt(log(node.visits) / child.visits)
+from .util import UCB1
+from .sequential_open_loop_node import SequentialOpenLoopNode
 
 
 def selection_phase(node, state, selection_policy=UCB1, selection_policy_args=[]):
@@ -31,15 +28,16 @@ def rollout_phase(state):
 def backpropagation_phase(node, state):
     if node is not None:
         node.update(state.get_result(node.player_just_moved))
-        backpropagation_phase(node.parent_node, state)    
+        backpropagation_phase(node.parent_node, state)
 
 
 def action_selection_phase(node):
     return sorted(node.child_nodes, key=lambda c: c.wins / c.visits)[-1].move
 
 
-def MCTS_UCT(rootstate, itermax, exploration_factor_ucb1=sqrt(2)):
-    """ 
+def MCTS_UCT(rootstate, itermax: int, num_agents: int,
+             exploration_factor_ucb1: float = sqrt(2)):
+    """
     Conducts a game tree search using the MCTS-UCT algorithm
     for a total of param itermax iterations. The search begins
     in the param rootstate. Assumes that 2 players are alternating
@@ -49,8 +47,8 @@ def MCTS_UCT(rootstate, itermax, exploration_factor_ucb1=sqrt(2)):
     :param itermax: number of MCTS iterations to be carried out. Also knwon as the computational budget.
     :returns: (int) Action that will be taken by an agent.
     """
-    rootnode = OpenLoopNode(state=rootstate)
-    
+    rootnode = SequentialOpenLoopNode(state=rootstate)
+
     for _ in range(itermax):
         node  = rootnode
         state = rootstate.clone()
@@ -58,5 +56,5 @@ def MCTS_UCT(rootstate, itermax, exploration_factor_ucb1=sqrt(2)):
         node  = expansion_phase(node, state)
         rollout_phase(state)
         backpropagation_phase(node, state)
-    
+
     return action_selection_phase(rootnode)

@@ -1,13 +1,21 @@
-class OpenLoopNode:
+class SequentialOpenLoopNode:
     """
-        An Open-loop approach keeps only one state representation at the root node of the game tree being computed by MCTS, and each of the edges represent an action. As the game tree is being traversed, the actions stored in the nodes being traversed are used as input to the model of the game. Thus the initial state stored at the root of the tree changes according to the actions selected during the game tree traversal. Once an MCTS iteration is over, this stated modified during the tree traversal is discarded, and a new clone of the state of the root node is created. Furthermore, we don't store the intermediate states obtained during the traversal. This means that we are esentially throwing away the computation performed by the model as soon as we don't need it.
+    Open loop tree implementation apt for MCTS in SIMULTANEOUS tasks.
+    An Open-loop approach keeps only one state representation at the root node
+    of the game tree being computed by MCTS. Except the root node, each node
+    stores which action was executed w.r.t to its parent node. As the game
+    tree is being traversed, the actions stored in the nodes being traversed
+    are used as input to the model of the game. Thus the initial state stored
+    at the root of the tree changes according to the actions selected during
+    the game tree traversal.
+    Once an MCTS iteration is over, this stated modified during the tree
+    traversal is discarded, and a new clone of the state of the root node
+    is created.
 
+    Note: self.wins is from the perspective of player_just_moved.
 
-        Node of a game tree. A tree is a connected acyclic graph.
-        Note: self.wins is from the perspective of playerJustMoved.
-
-        TODO: write assumptions made over the interface of the underlying
-              OpenAIGym environment. THIS IS SUPER IMPORTANT
+    TODO: write assumptions made over the interface of the underlying
+          OpenAIGym environment. THIS IS SUPER IMPORTANT
     """
     def __init__(self, move=None, parent=None, state=None):
         self.move = move  # Move that was taken to reach this game state
@@ -29,7 +37,7 @@ class OpenLoopNode:
         :param state: (GameState) state corresponding to new child node
         :returns: new expanded node added to the tree
         """
-        node = OpenLoopNode(move=move, parent=self, state=state)
+        node = SequentialOpenLoopNode(move=move, parent=self, state=state)
         self.untried_moves.remove(move)
         self.child_nodes.append(node)
         return node
