@@ -19,7 +19,11 @@ class RandomAgent(Agent):
         return RandomAgent(name=self.name, action_space=self.action_space)
 
 
-def build_Random_Agent(task, config, name: str):
+    def __repr__(self):
+        return f'{self.name}. Action space: {self.action_space}'
+
+
+def build_Random_Agent(task, config, agent_name: str):
     '''
     Builds an agent that is able to randomly act in a task
 
@@ -30,4 +34,4 @@ def build_Random_Agent(task, config, name: str):
     if task.env_type == EnvType.SINGLE_AGENT: action_space = task.env.action_space
     # Assumes all agents share same action space
     else: action_space = task.env.action_space.spaces[0]
-    return RandomAgent(name=name, action_space=action_space)
+    return RandomAgent(name=agent_name, action_space=action_space)

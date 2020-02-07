@@ -124,7 +124,7 @@ def MCTS_UCT(rootstate, itermax: int, num_agents: int,
                                            perspective_player=i)
                   for i in range(num_agents)]
 
-    for _ in range(itermax):
+    for i in range(itermax):
         nodes = root_nodes
         state = rootstate.clone()
         nodes = selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=[exploration_factor_ucb1])

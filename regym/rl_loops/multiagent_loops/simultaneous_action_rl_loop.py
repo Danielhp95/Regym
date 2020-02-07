@@ -5,7 +5,7 @@ import regym
 from regym.rl_algorithms.agents import Agent
 
 
-def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool) -> Tuple:
+def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_mode: str = '') -> Tuple:
     '''
     Runs a single multi-agent rl loop until termination where each agent
     takes an action simulatenously.
@@ -19,7 +19,10 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool) -> Tupl
     observations = env.reset()
     done = False
     trajectory = []
+    iteration = 0
     while not done:
+        if render_mode != '': print(env.render(render_mode))
+        iteration += 1
         action_vector = [
                 agent.take_action(deepcopy(env)) if agent.requires_environment_model else agent.take_action(observations[i])
                 for i, agent in enumerate(agent_vector)]

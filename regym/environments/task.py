@@ -88,7 +88,7 @@ class Task:
             self.extended_agents[i] = agent
 
 
-    def run_episode(self, agent_vector, training: bool):
+    def run_episode(self, agent_vector, training: bool, render_mode: str):
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
@@ -105,7 +105,7 @@ class Task:
         if self.env_type == EnvType.SINGLE_AGENT:
             return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector, training)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training)
+            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training)
         self
