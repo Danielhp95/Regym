@@ -4,14 +4,16 @@ import regym
 
 from regym.environments import Task, EnvType
 from regym.rl_algorithms.agents import Agent
-from regym.util import play_multiple_matches
+from regym.util import play_multiple_matches, extract_average_rewards
 
 
 def benchmark_agents_on_tasks(tasks: List[Task],
                               agents: List[Agent],
                               num_episodes: int,
+                              keep_average_rewards=False,
                               populate_all_agents=False) -> np.ndarray:
     '''
+    TODO: This function does too much. separate into smaller functions?
     Benchmark :param: agents in :param: tasks for :param: num_episodes.
     Tasks must either be ALL EnvType.SINGLE_AGENT
     or ALL multiagent variants.
@@ -39,15 +41,26 @@ def benchmark_agents_on_tasks(tasks: List[Task],
     '''
     check_input_validity(tasks, agents, num_episodes, populate_all_agents)
     # TODO: for single agent tasks we can't pass a vector, change naming
-    winrates = []
+    winrates, average_rewards = [], []
     for t in tasks:
         agent_vector = agents if not populate_all_agents else [agents[0].clone()
                                                                for _ in range(t.num_agents)]
-        player_winrates = play_multiple_matches(task=t,
-                                                agent_vector=agent_vector,
-                                                n_matches=num_episodes)
+        if keep_average_rewards:
+            player_winrates, trajectories = play_multiple_matches(task=t,
+                                                                  agent_vector=agent_vector,
+                                                                  n_matches=num_episodes,
+                                                                  keep_trajectories=True)
+            avg_reward = np.sum(np.array([extract_average_rewards(t)[0] for t in trajectories])) / len(trajectories)
+            average_rewards.append(avg_reward)
+        else:
+            player_winrates = play_multiple_matches(task=t,
+                                                    agent_vector=agent_vector,
+                                                    n_matches=num_episodes)
         winrates.append(player_winrates[0])
-    return winrates
+    if keep_average_rewards:
+        return winrates, average_rewards
+    else:
+        return winrates
 
 
 def check_input_validity(tasks: List[Task], agents: List[Agent],

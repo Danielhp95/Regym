@@ -39,9 +39,22 @@ def play_single_match(task, agent_vector, keep_trajectories=False):
 
 
 def extract_winner(trajectory, break_ties=random.choice):
+    '''
+    NOTE: winner is computed as the agent who obtained the highest AVERAGE reward.
+    '''
+    average_rewards = extract_average_rewards(trajectory)
+    indexes_max_score = np.argwhere(average_rewards >= np.max(average_rewards))
+    return break_ties(indexes_max_score.flatten().tolist())
+
+
+def extract_average_rewards(trajectory: List) -> List[float]:
+    '''
+    :param trajectory: trajectory for which the average rewards will be computed
+    '''
     reward_vector = lambda t: t[2]
     number_of_agents = len(reward_vector(trajectory[0]))
     individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
-    cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(number_of_agents)]
-    indexes_max_score = np.argwhere(cumulative_reward_vector == np.amax(cumulative_reward_vector))
-    return break_ties(indexes_max_score.flatten().tolist())
+    cumulative_rewards = np.array([individal_agent_trajectory_reward(trajectory, i)
+                                   for i in range(number_of_agents)])
+
+    return cumulative_rewards / len(trajectory)

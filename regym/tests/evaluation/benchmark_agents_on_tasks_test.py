@@ -2,7 +2,7 @@ from copy import deepcopy
 import pytest
 import numpy as np
 
-from test_fixtures import RPSTask, pendulum_task, ppo_config_dict
+from test_fixtures import RPSTask, RPSTask2Repetitions, pendulum_task, ppo_config_dict
 from regym.environments import generate_task, EnvType
 from regym.rl_algorithms import build_PPO_Agent
 from regym.rl_algorithms import rockAgent, paperAgent, scissorsAgent
@@ -76,15 +76,19 @@ def test_can_compute_winrate_for_player1_multiagent_task(RPSTask):
     np.testing.assert_array_equal(expected_winrates, actual_winrates)
 
 
-# def test_can_compute_average_reward_for_agent_single_agent_task(RPSTask):
-#     vs_paper = deepcopy(RPSTask)
-#     vs_scissors = deepcopy(RPSTask)
-#     vs_paper.extend_task(agents={1: paperAgent})
-#     vs_paper.extend_task(agents={1: scissorsAgent})
-# 
-#     actual_winrates = benchmark_agents_on_tasks(tasks=[vs_paper, vs_scissors],
-#                                                 agents=[rockAgent],
-#                                                 num_episodes=10)
+def test_can_compute_average_reward_for_agent_single_agent_task(RPSTask2Repetitions):
+    vs_paper = deepcopy(RPSTask2Repetitions)
+    vs_scissors = deepcopy(RPSTask2Repetitions)
+    vs_paper.extend_task(agents={1: paperAgent})
+    vs_scissors.extend_task(agents={1: scissorsAgent})
+
+    expected_average_rewards = [-1., 1]
+
+    actual_winrates, actual_average_rewards = benchmark_agents_on_tasks(tasks=[vs_paper, vs_scissors],
+                                                                        agents=[rockAgent],
+                                                                        keep_average_rewards=True,
+                                                                        num_episodes=10)
+    np.testing.assert_array_equal(expected_average_rewards, actual_average_rewards)
 
 
 def test_single_agent_can_populate_all_agents(RPSTask):
