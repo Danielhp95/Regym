@@ -35,13 +35,16 @@ def benchmark_agents_on_tasks(tasks: List[Task],
     :param populate_all_agents: If a single agent is provided in :param: agents,
                                 this flag indicates whether that agent's policy
                                 will populate all other agents spots in the environment.
+                                A fresh copy is made for each required agent.
     '''
     check_input_validity(tasks, agents, num_episodes, populate_all_agents)
     # TODO: for single agent tasks we can't pass a vector, change naming
     winrates = []
     for t in tasks:
+        agent_vector = agents if not populate_all_agents else [agents[0].clone()
+                                                               for _ in range(t.num_agents)]
         player_winrates = play_multiple_matches(task=t,
-                                                agent_vector=agents,
+                                                agent_vector=agent_vector,
                                                 n_matches=num_episodes)
         winrates.append(player_winrates[0])
     return winrates

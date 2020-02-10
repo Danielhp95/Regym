@@ -88,7 +88,7 @@ class Task:
             self.extended_agents[i] = agent
 
 
-    def run_episode(self, agent_vector, training: bool, render_mode: str):
+    def run_episode(self, agent_vector, training: bool, render_mode: str = ''):
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
