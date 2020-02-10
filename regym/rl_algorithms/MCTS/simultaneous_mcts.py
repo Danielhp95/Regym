@@ -132,4 +132,4 @@ def MCTS_UCT(rootstate, itermax: int, num_agents: int,
         backpropagation_phase(nodes, state)
 
     all_player_actions = action_selection_phase(root_nodes)
-    return all_player_actions[0]  # TODO: this might be problematic. Look into it.
+    return all_player_actions  # TODO: this might be problematic. Look into it.

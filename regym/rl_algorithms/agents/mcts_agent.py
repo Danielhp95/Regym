@@ -20,17 +20,16 @@ class MCTSAgent(Agent):
         regym.rl_algorithms.MCTS for details on algorithmic implementations.
 
         A nice survey paper of MCTS approaches:
-        https://www.researchgate.net/publication/235985858_A_Survey_of_Monte_Carlo_Tree_Search_Methods
-        '''
+                https://www.researchgate.net/publication/235985858_A_Survey_of_Monte_Carlo_Tree_Search_Methods
+            '''
         super(MCTSAgent, self).__init__(name=name, requires_environment_model=True)
         self.algorithm = algorithm
         self.budget = iteration_budget
         self.task_num_agents = task_num_agents
 
-    def take_action(self, env: gym.Env):
-        player_action = self.algorithm(env, self.budget,
-                                       self.task_num_agents)
-        return player_action
+    def take_action(self, env: gym.Env, player_index: int):
+        player_actions = self.algorithm(env, self.budget, self.task_num_agents)
+        return player_actions[player_index]
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
