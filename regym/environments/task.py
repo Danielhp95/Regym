@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import List, Callable, Any, Dict
+from dataclasses import dataclass, field
 import gym
 
 import regym
@@ -16,6 +17,7 @@ class EnvType(Enum):
     MULTIAGENT_SEQUENTIAL_ACTION = 'multiagent-sequential'
 
 
+@dataclass
 class Task:
     r'''
     A Task is a thin layer of abstraction over OpenAI gym environments and
@@ -50,32 +52,19 @@ class Task:
     >>> sequential_task   = generate_task('SequentialsEnv-v0',  EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     '''
 
-    def __init__(self, name: str,
-                 env: gym.Env,
-                 env_type: EnvType,
-                 state_space_size: int,
-                 action_space_size: int,
-                 observation_dim: int,
-                 observation_type: str,
-                 action_dim: int,
-                 action_type: str,
-                 num_agents: int,
-                 hash_function: Callable[[Any], int]):
-        self.name = name
-        self.env = env
-        self.env_type = env_type
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
-        self.observation_dim = observation_dim
-        self.observation_type = observation_type
-        self.action_dim = action_dim
-        self.action_type = action_type
-        self.num_agents = num_agents
-        self.hash_function = hash_function
-        self.extended_agents = {}
-
-        self.total_episodes_run = 0
-
+    name: str
+    env: gym.Env
+    env_type: EnvType
+    state_space_size: int
+    action_space_size: int
+    observation_dim: int
+    observation_type: str
+    action_dim: int
+    action_type: str
+    num_agents: int
+    hash_function: Callable[[Any], int]
+    extended_agents: Dict = field(default_factory=dict)
+    total_episodes_run: int = 0
 
     def extend_task(self, agents: Dict, force=False):
         ''' TODO: DOCUMENT, TEST '''
@@ -86,7 +75,6 @@ class Task:
             if i in self.extended_agents and not force:
                 raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
             self.extended_agents[i] = agent
-
 
     def run_episode(self, agent_vector, training: bool, render_mode: str = ''):
         '''
