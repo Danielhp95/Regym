@@ -21,8 +21,8 @@ def expansion_phase(node, state):
 
 
 def rollout_phase(state):
-    while (moves := state.get_moves()) != []:
-        state.step(random.choice(moves))
+    while state.get_moves() != []:
+        state.step(random.choice(state.get_moves()))
 
 
 def backpropagation_phase(node, state):
