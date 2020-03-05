@@ -100,6 +100,8 @@ class Task:
 
         *The term 'experience' is defined in regym.rl_algorithms.agents.Agent
         '''
+        if len(self.extended_agents) + len(agent_vector) < self.num_agents:
+            raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
         extended_agent_vector = self._extend_agent_vector(agent_vector)
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
