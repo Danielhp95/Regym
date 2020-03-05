@@ -1,10 +1,10 @@
+from typing import List, Tuple
 from copy import deepcopy
-from typing import List
 import numpy as np
 import gym
 
 
-def run_episode(env: gym.Env, agent_vector: List, training: bool):
+def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: str):
     '''
     Runs a single multi-agent rl loop until termination for a sequential environment
 
@@ -15,25 +15,42 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool):
     :param env: OpenAI gym environment
     :param agent_vector: Vector containing the agent for each agent in the environment
     :param training: (boolean) Whether the agents will learn from the experience they recieve
+
+    :param render_mode: TODO: add explanation
     :returns: Episode trajectory (o,a,r,o')
     '''
-    observations, done, trajectory, current_player = env.reset(), False, [], 0
+    observations, done, trajectory = env.reset(), False, []
+    current_player = 0  # Assumption: The first agent to act is always the 0th agent
+    legal_actions: List = None  # Unfortunately, OpenAIGym does not support actions
     while not done:
         agent = agent_vector[current_player]
+
+        # Take action
         if not agent.requires_environment_model:
-            action = agent.take_action(observations[current_player])
-        else:
-            action = agent.take_action(deepcopy(env))
-        succ_observations, reward_vector, done, _ = env.step(action)
+            action = agent.take_action(observations[current_player],
+                                       legal_actions=legal_actions)
+        else: action = agent.take_action(deepcopy(env))
+
+        # Environment step
+        succ_observations, reward_vector, done, info = env.step(action)
         trajectory.append((observations, action, reward_vector, succ_observations, done))
 
+        # Update agents
         if training and len(trajectory) >= len(agent_vector):
             agent_to_update = len(trajectory) % len(agent_vector)
             update_agent(agent_to_update, trajectory, agent_vector,
                          reward_vector[agent_to_update],
                          succ_observations[agent_to_update], done)
+
+        # Update observation
         observations = succ_observations
-        current_player = (current_player + 1) % len(agent_vector)
+
+        # If environment provides information about next player, use it
+        # otherwise, assume that players' turn rotate circularly. 
+        if 'current_player' in info: current_player = info['current_player']
+        else: current_player = (current_player + 1) % len(agent_vector)
+
+        if 'legal_actions' in info: legal_actions = info['legal_actions']
 
     propagate_last_experience(agent_vector, trajectory, reward_vector, succ_observations)
     return trajectory
@@ -76,7 +93,7 @@ def propagate_last_experience(agent_vector: List, trajectory: List,
 
 
 def get_last_observation_and_action_for_agent(target_agent_id: int,
-                                              trajectory: List, num_agents: int):
+                                              trajectory: List, num_agents: int) -> Tuple:
     '''
     :param target_agent_id: Index of agent whose last observation / action
                             we are searching for

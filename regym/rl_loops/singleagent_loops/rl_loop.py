@@ -5,12 +5,13 @@ import regym
 from regym.rl_algorithms.agents import Agent
 
 
-def run_episode(env: gym.Env, agent: Agent, training: bool) -> Tuple:
+def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) -> Tuple:
     '''
     Runs a single episode of a single-agent rl loop until termination.
     :param env: OpenAI gym environment
     :param agent: Agent policy used to take actions in the environment and to process simulated experiences
     :param training: (boolean) Whether the agents will learn from the experience they recieve
+    :param render_mode: TODO: add rendering
     :returns: Episode trajectory. list of (o,a,r,o')
     '''
     observation = env.reset()
