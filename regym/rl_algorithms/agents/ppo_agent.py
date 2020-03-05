@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import torch
 import copy
 
@@ -89,7 +89,7 @@ class PPOAgent(Agent):
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def take_action(self, state):
+    def take_action(self, state, legal_actions: List[int]):
         state = self.state_preprocessing(state)
 
         if self.recurrent:
