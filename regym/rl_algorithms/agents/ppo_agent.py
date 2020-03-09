@@ -89,7 +89,7 @@ class PPOAgent(Agent):
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def take_action(self, state, legal_actions: List[int] = [1]):
+    def take_action(self, state, legal_actions: List[int] = None):
         state = self.state_preprocessing(state)
 
         if self.recurrent:
@@ -97,7 +97,8 @@ class PPOAgent(Agent):
             self.current_prediction = self.algorithm.model(state, rnn_states=self.rnn_states,
                                                            legal_actions=legal_actions)
         else:
-            self.current_prediction = self.algorithm.model(state, legal_actions)
+            self.current_prediction = self.algorithm.model(state,
+                                                           legal_actions=legal_actions)
         self.current_prediction = self._post_process(self.current_prediction)
 
         action = self.current_prediction['a'].numpy()
