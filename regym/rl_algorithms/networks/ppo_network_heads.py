@@ -237,7 +237,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
         dist = torch.distributions.Categorical(logits=logits)
         if action is None:
-            action = dist.sample(sample_shape=(logits.size(0),) )
+            action = dist.sample(sample_shape=(logits.size(0),))
             # batch x 1
         log_prob = dist.log_prob(action).unsqueeze(-1)
         # estimates the log likelihood of each action against each batched distributions... : batch x batch x 1
