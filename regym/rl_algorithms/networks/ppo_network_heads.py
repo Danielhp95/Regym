@@ -228,7 +228,6 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         else:
             phi_v = self.network.critic_body(phi)
 
-        #logits = F.softmax( self.network.fc_action(phi_a), dim=1 )
         logits = self.network.fc_action(phi_a)
         if legal_actions is not None:
             logits = self._mask_ilegal_action_logits(logits, legal_actions)
