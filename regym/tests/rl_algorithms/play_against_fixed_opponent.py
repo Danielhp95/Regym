@@ -31,8 +31,6 @@ def learn_against_fix_opponent(agent, fixed_opponent,
     :param evaluation_method: Whether to consider 'average' trajectory
                               or only the 'last' reward.
     '''
-    maximum_average_reward = maximum_average_reward
-
     training_episodes = int(total_episodes * training_percentage)
     inference_episodes = total_episodes - training_episodes
 
