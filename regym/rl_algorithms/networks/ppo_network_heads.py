@@ -3,7 +3,9 @@
 # Permission given to modify the code as long as you keep this        #
 # declaration at the top                                              #
 #######################################################################
+from typing import List
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -194,15 +196,19 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
 
 class CategoricalActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
-                 state_dim,
-                 action_dim,
-                 phi_body=None,
-                 actor_body=None,
-                 critic_body=None):
+                 state_dim: int,
+                 action_dim: int,
+                 phi_body: nn.Module = None,
+                 actor_body: nn.Module = None,
+                 critic_body: nn.Module = None):
+        BaseNet.__init__(self)
         super(CategoricalActorCriticNet, self).__init__()
+        self.action_dim = action_dim
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
 
-    def forward(self, obs, action=None, rnn_states=None):
+    # TODO: type hint rnn_states
+    def forward(self, obs: np.ndarray, action: int = None, rnn_states=None,
+                legal_actions: List[int] = None):
         obs = tensor(obs)
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
@@ -224,6 +230,8 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
         #logits = F.softmax( self.network.fc_action(phi_a), dim=1 )
         logits = self.network.fc_action(phi_a)
+        if legal_actions is not None:
+            logits = self._mask_ilegal_action_logits(logits, legal_actions)
         # batch x action_dim
         v = self.network.fc_critic(phi_v)
         # batch x 1
@@ -251,3 +259,13 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                     'log_pi_a': log_prob,
                     'ent': entropy,
                     'v': v}
+
+    def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
+        '''
+        TODO: document 
+        '''
+        illegal_action_mask = torch.tensor([float(i not in legal_actions)
+                                            for i in range(self.action_dim)])
+        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
+        masked_logits = logits + illegal_logit_penalties
+        return masked_logits

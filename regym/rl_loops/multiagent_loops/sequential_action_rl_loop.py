@@ -21,7 +21,11 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     '''
     observations, done, trajectory = env.reset(), False, []
     current_player = 0  # Assumption: The first agent to act is always the 0th agent
-    legal_actions: List = None  # Unfortunately, OpenAIGym does not support actions
+    # Unfortunately, OpenAIGym does not have a standardized interface
+    # To support which actions are legal at an initial state. These can only be extracted
+    # via the "info" dictionary given by the env.step(...) function
+    # Thus: Assumption: all actions are permitted on the first state
+    legal_actions: List = None
     while not done:
         agent = agent_vector[current_player]
 

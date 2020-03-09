@@ -8,8 +8,7 @@ class BaseNet:
     def __init__(self):
         # Sum a large negative constant to illegal action logits before taking the
         # max. This prevents illegal action values from being considered as target.
-        self.illegal_actions_logit_penaly = -1e9
-        pass
+        self.ILLEGAL_ACTIONS_LOGIT_PENALTY = -1e9
 
 
 def layer_init(layer, w_scale=1.0):
