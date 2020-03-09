@@ -9,8 +9,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .ppo_network_utils import BaseNet, layer_init, tensor
-from .ppo_network_bodies import DummyBody
+from regym.rl_algorithms.networks.utils import BaseNet, layer_init, tensor
+from regym.rl_algorithms.networks.bodies import DummyBody
 
 
 class VanillaNet(nn.Module, BaseNet):

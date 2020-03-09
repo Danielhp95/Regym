@@ -4,10 +4,10 @@ import copy
 
 import regym
 from regym.rl_algorithms.agents import Agent
-from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
-from ..networks import FCBody, LSTMBody
-from ..networks import PreprocessFunction
-from ..PPO import PPOAlgorithm
+from regym.rl_algorithms.networks import CategoricalActorCriticNet, GaussianActorCriticNet
+from regym.rl_algorithms.networks import FCBody, LSTMBody
+from regym.rl_algorithms.networks import PreprocessFunction
+from regym.rl_algorithms.PPO import PPOAlgorithm
 
 import torch.nn.functional as F
 import numpy as np

@@ -7,7 +7,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .ppo_network_utils import layer_init, layer_init_lstm
+from regym.rl_algorithms.networks.utils import layer_init, layer_init_lstm
 
 
 class NatureConvBody(nn.Module):
