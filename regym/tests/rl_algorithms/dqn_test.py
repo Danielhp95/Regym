@@ -24,10 +24,14 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, dqn_config_dict):
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    from rps_test import learns_against_fixed_opponent_RPS
+    from play_against_fixed_opponent import learn_against_fix_opponent
 
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
-    agent.training = True
-    learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
-                                      total_episodes=5000, training_percentage=0.95,
-                                      reward_threshold=0.2)
+    assert agent.training
+    learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
+                               agent_position=0, # Doesn't matter in RPS
+                               task=RPSTask,
+                               total_episodes=1000, training_percentage=0.9,
+                               reward_tolerance=0.1,
+                               maximum_average_reward=1.0,
+                               evaluation_method='average')

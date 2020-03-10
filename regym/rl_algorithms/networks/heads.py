@@ -9,21 +9,46 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from regym.rl_algorithms.networks import LeakyReLU
 from regym.rl_algorithms.networks.utils import BaseNet, layer_init, tensor
 from regym.rl_algorithms.networks.bodies import DummyBody
 
 
-class VanillaNet(nn.Module, BaseNet):
-    def __init__(self, output_dim, body):
-        super(VanillaNet, self).__init__()
-        self.fc_head = layer_init(nn.Linear(body.feature_dim, output_dim))
-        self.body = body
-        self.to(Config.DEVICE)
+class DQNet(nn.Module):
 
-    def forward(self, x):
-        phi = self.body(tensor(x))
-        y = self.fc_head(phi)
-        return y
+    def __init__(self,
+                 body: nn.Module,
+                 action_dim: int,
+                 actfn=LeakyReLU,
+                 use_cuda=False):
+        super(DQNet, self).__init__()
+
+        self.body = body
+        self.action_dim = action_dim
+        self.use_cuda = use_cuda
+
+        self.actfn = actfn
+
+        body_output_features = self.body.feature_dim
+        self.qsa = nn.Linear(body_output_features, self.action_dim)
+
+        if self.use_cuda:
+            self = self.cuda()
+
+    def forward(self, x, legal_actions):
+        x = self.body(x)
+        qsa = self.qsa(x)
+        return qsa
+
+    def _mask_ilegal_action_logits(self, tensor: torch.Tensor, legal_actions: List[int]):
+        '''
+        TODO: document 
+        '''
+        illegal_action_mask = torch.tensor([float(i not in legal_actions)
+                                            for i in range(self.action_dim)])
+        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
+        masked_logits = logits + illegal_logit_penalties
+        return masked_logits
 
 
 class DuelingNet(nn.Module, BaseNet):

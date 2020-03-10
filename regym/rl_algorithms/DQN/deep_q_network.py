@@ -101,55 +101,46 @@ class DeepQNetworkAlgorithm():
         :returns loss_np: numpy scalar of the estimated loss function.
         """
 
-        if len(self.replayBuffer) < self.min_capacity:
+        if self.replayBuffer.current_size < self.min_capacity:
             return None
 
-        if self.kwargs['use_PER']:
-            # Create batch with PrioritizedReplayBuffer/PER:
-            transitions, importanceSamplingWeights = self.replayBuffer.sample(self.batch_size)
-            batch = EXPPER(*zip(*transitions))
-            importanceSamplingWeights = torch.from_numpy(importanceSamplingWeights)
-        else:
-            # Create Batch with replayBuffer :
-            transitions = self.replayBuffer.sample(self.batch_size)
-            batch = EXP(*zip(*transitions))
+        # TODO: worry about this later
+        # if self.kwargs['use_PER']:
+        #     # Create batch with PrioritizedReplayBuffer/PER:
+        #     transitions, importance_sampling_weights = self.replayBuffer.sample(self.batch_size)
+        #     batch = EXPPER(*zip(*transitions))
+        #     importance_sampling_weights = torch.from_numpy(importance_sampling_weights)
+        #     if self.use_cuda:
+        #         importance_sampling_weights = importance_sampling_weights.cuda()
 
-        next_state_batch = Variable(torch.cat(batch.next_state), requires_grad=False)
-        state_batch = Variable(torch.cat(batch.state), requires_grad=False)
-        action_batch = Variable(torch.cat(batch.action), requires_grad=False)
-        reward_batch = Variable(torch.cat(batch.reward), requires_grad=False).view((-1, 1))
-        done_batch = [0.0 if batch.done[i] else 1.0 for i in range(len(batch.done))]
-        done_batch = Variable(torch.FloatTensor(done_batch), requires_grad=False).view((-1, 1))
+        transitions, batch = self.sample_from_replay_buffer(self.batch_size)
 
-        if self.use_cuda:
-            if self.kwargs['use_PER']: importanceSamplingWeights = importanceSamplingWeights.cuda()
-            next_state_batch = next_state_batch.cuda()
-            state_batch = state_batch.cuda()
-            action_batch = action_batch.cuda()
-            reward_batch = reward_batch.cuda()
-            done_batch = done_batch.cuda()
+        next_state_batch, state_batch, action_batch, reward_batch, \
+        done_batch = self.create_tensors_for_optimization(batch,
+                                                          use_cuda=self.use_cuda)
 
         self.optimizer.zero_grad()
 
+        import ipdb; ipdb.set_trace()
         state_action_values = self.model(state_batch)
-        state_action_values_g = state_action_values.gather(dim=1, index=action_batch)
+        state_action_values_g = state_action_values.gather(dim=1, index=action_batch.long().unsqueeze(1))
 
         ############################
-        targetQ_nextS_A_values = self.target_model(next_state_batch)
+        targetQ_nextS_A_values = self.target_model(next_state_batch).detach()
         argmaxA_targetQ_nextS_A_values, index_argmaxA_targetQ_nextS_A_values = targetQ_nextS_A_values.max(1)
         argmaxA_targetQ_nextS_A_values = argmaxA_targetQ_nextS_A_values.view(-1, 1)
         ############################
 
         # Compute the expected Q values
         gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values)
-        expected_state_action_values = reward_batch + done_batch*gamma_next
+        expected_state_action_values = reward_batch + done_batch * gamma_next
 
         # Compute loss:
-        diff = expected_state_action_values - state_action_values_g
+        bellman_error = expected_state_action_values - state_action_values_g
         if self.kwargs['use_PER']:
-            diff_squared = importanceSamplingWeights.unsqueeze(1) * diff.pow(2.0)
+            diff_squared = importance_sampling_weights.unsqueeze(1) * bellman_error.pow(2.0)
         else:
-            diff_squared = diff.pow(2.0)
+            diff_squared = bellman_error.pow(2.0)
         loss_per_item = diff_squared
         loss = torch.mean(diff_squared)
         loss.backward()
@@ -171,6 +162,32 @@ class DeepQNetworkAlgorithm():
 
         return loss_np
 
+    def create_tensors_for_optimization(self, batch, use_cuda: bool):
+        '''
+        TODO: document
+        '''
+        next_state_batch = Variable(torch.cat(batch.next_state), requires_grad=False)
+        state_batch = Variable(torch.cat(batch.state), requires_grad=False)
+        action_batch = Variable(torch.cat(batch.action), requires_grad=False)
+        reward_batch = Variable(torch.cat(batch.reward), requires_grad=False).view((-1, 1))
+        # TODO: figure out if this vector should be negated (currently if it's done, we have a 0.0
+        done_batch = [float(not batch.done[i]) for i in range(len(batch.done))]
+        done_batch = Variable(torch.FloatTensor(done_batch), requires_grad=False).view((-1, 1))
+
+        if use_cuda:
+            next_state_batch = next_state_batch.cuda()
+            state_batch = state_batch.cuda()
+            action_batch = action_batch.cuda()
+            reward_batch = reward_batch.cuda()
+            done_batch = done_batch.cuda()
+
+        return next_state_batch, state_batch, action_batch, reward_batch, done_batch
+
+    def sample_from_replay_buffer(self, batch_size: int):
+        transitions = self.replayBuffer.sample(self.batch_size)
+        batch = EXP(*zip(*transitions))
+        return transitions, batch
+
     def handle_experience(self, experience):
         '''
         This function is only called during training.
@@ -184,11 +201,11 @@ class DeepQNetworkAlgorithm():
         else:
             self.replayBuffer.push(experience)
 
-    def train(self, iteration=1):
-        self.target_update_count += iteration
-        for t in range(iteration):
+    def train(self, iterations: int):
+        self.target_update_count += iterations
+        for t in range(iterations):
             lossnp = self.optimize_model()
 
         if self.target_update_count > self.target_update_interval:
             self.target_update_count = 0
-            hard_update(self.target_model,self.model)
+            hard_update(self.target_model, self.model)

@@ -1,24 +1,27 @@
+from typing import List
 import copy
 import numpy as np
 import random
 import torch
 
-from ..replay_buffers import EXP
-from ..networks import LeakyReLU, DQN, DuelingDQN
-from ..networks import PreprocessFunction
-from ..DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
+from regym.rl_algorithms.agents import Agent
+from regym.rl_algorithms.replay_buffers import EXP
+from regym.rl_algorithms.networks import LeakyReLU, DuelingDQN, DQNet, FCBody
+from regym.rl_algorithms.networks import PreprocessFunction
+from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
 
 
-class DeepQNetworkAgent():
+class DeepQNetworkAgent(Agent):
     def __init__(self, name, algorithm):
         """
         :param algorithm: algorithm class to use to optimize the network.
         """
+        super(DeepQNetworkAgent, self).__init__(name=name,
+                                                requires_environment_model=False)
 
         self.training = True
         self.kwargs = algorithm.kwargs
 
-        self.name = name
         self.algorithm = algorithm
         self.preprocessing_function = self.algorithm.kwargs["preprocess"]
 
@@ -34,17 +37,21 @@ class DeepQNetworkAgent():
         hs = self.preprocessing_function(s)
         hsucc = self.preprocessing_function(succ_s)
         r = torch.ones(1)*r
-        a = torch.from_numpy(a)
-        experience = EXP(hs, a, hsucc, r, done)
+        a_tensor = torch.from_numpy(a) if isinstance(a, np.ndarray) else torch.Tensor([a])
+        experience = EXP(hs, a_tensor, hsucc, r, done)
         self.algorithm.handle_experience(experience=experience)
 
         if self.training:
-            self.algorithm.train(iteration=self.kwargs['nbrTrainIteration'])
+            self.algorithm.train(iterations=self.kwargs['nbrTrainIteration'])
 
-    def take_action(self, state):
+    def take_action(self, state: np.ndarray, legal_actions: List[int]):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
         action, qsa = self.select_action(model=self.algorithm.model, state=self.preprocessing_function(state), eps=self.eps)
+
+        if action.shape == torch.Size([1, 1]):  # If action is a single integer
+            action = np.int(action)
+
         return action
 
     def reset_eps(self):
@@ -59,7 +66,7 @@ class DeepQNetworkAgent():
             qsa = output.max(1)[0].view(1, 1)[0, 0]
             return action.numpy(), qsa
         else:
-            random_action = torch.LongTensor([[random.randrange(self.algorithm.model.nbr_actions)]])
+            random_action = torch.LongTensor([[random.randrange(self.algorithm.model.action_dim)]])
             return random_action.numpy(), 0.0
 
     def clone(self, training=None):
@@ -104,7 +111,9 @@ def build_DQN_Agent(task, config, agent_name):
     if config['dueling']:
         model = DuelingDQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
     else:
-        model = DQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
+        body = FCBody(task.observation_dim)
+        model = DQNet(body=body,
+                      action_dim=task.action_dim, use_cuda=config['use_cuda'])
     model.share_memory()
 
     kwargs["dueling"] = config['dueling']
