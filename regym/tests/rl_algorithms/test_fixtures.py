@@ -57,8 +57,8 @@ def dqn_config_dict():
     config['use_cuda'] = False
     config['use_PER'] = False
     config['PER_alpha'] = 0.07
-    config['min_memory'] = 1.e03
-    config['memoryCapacity'] = 1.e03
+    config['min_memory'] = 2.e03
+    config['memoryCapacity'] = 2.e03
     config['nbrTrainIteration'] = 8
     config['batch_size'] = 256
     config['gamma'] = 0.99
