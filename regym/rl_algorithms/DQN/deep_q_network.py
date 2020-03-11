@@ -4,8 +4,10 @@ import torch
 import torch.optim as optim
 from torch.autograd import Variable
 
-from ..replay_buffers import ReplayBuffer, PrioritizedReplayBuffer, EXP, EXPPER
-from ..networks import hard_update
+from regym.rl_algorithms.replay_buffers import ReplayBuffer, PrioritizedReplayBuffer, EXP, EXPPER
+from regym.rl_algorithms.networks.utils import hard_update
+from regym.rl_algorithms.networks.utils import compute_weights_decay_loss
+from regym.rl_algorithms.DQN.dqn_loss import compute_loss
 
 
 class DeepQNetworkAlgorithm():
@@ -69,7 +71,7 @@ class DeepQNetworkAlgorithm():
         self.target_update_interval = int(1.0/self.TAU)
         self.target_update_count = 0
         self.GAMMA = kwargs["gamma"]
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer: torch.optim = optim.Adam(self.model.parameters(), lr=self.lr)
 
         self.preprocess = kwargs["preprocess"]
 
@@ -86,6 +88,9 @@ class DeepQNetworkAlgorithm():
         cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs, model=cloned_model, target_model=cloned_target_model)
         return cloned
 
+    def is_ready_to_train(self):
+        return self.replayBuffer.current_size >= self.min_capacity
+
     def optimize_model(self, gradient_clamping_value=None):
         """
         1) Estimate the gradients of the loss with respect to the
@@ -100,10 +105,6 @@ class DeepQNetworkAlgorithm():
                                         and gradients are clamped.
         :returns loss_np: numpy scalar of the estimated loss function.
         """
-
-        if self.replayBuffer.current_size < self.min_capacity:
-            return None
-
         # TODO: worry about this later
         # if self.kwargs['use_PER']:
         #     # Create batch with PrioritizedReplayBuffer/PER:
@@ -113,54 +114,39 @@ class DeepQNetworkAlgorithm():
         #     if self.use_cuda:
         #         importance_sampling_weights = importance_sampling_weights.cuda()
 
+        self.optimizer.zero_grad()
         transitions, batch = self.sample_from_replay_buffer(self.batch_size)
 
         next_state_batch, state_batch, action_batch, reward_batch, \
-        done_batch = self.create_tensors_for_optimization(batch,
-                                                          use_cuda=self.use_cuda)
+        non_terminal_batch = self.create_tensors_for_optimization(batch,
+                                                                  use_cuda=self.use_cuda)
 
-        self.optimizer.zero_grad()
+        dqn_loss = compute_loss(states=state_batch,
+                                actions=action_batch,
+                                next_states=next_state_batch,
+                                rewards=reward_batch,
+                                non_terminals=non_terminal_batch,
+                                model=self.model,
+                                target_model=self.target_model,
+                                gamma=self.GAMMA,
+                                iteration_count=self.target_update_count)
 
-        import ipdb; ipdb.set_trace()
-        state_action_values = self.model(state_batch)
-        state_action_values_g = state_action_values.gather(dim=1, index=action_batch.long().unsqueeze(1))
-
-        ############################
-        targetQ_nextS_A_values = self.target_model(next_state_batch).detach()
-        argmaxA_targetQ_nextS_A_values, index_argmaxA_targetQ_nextS_A_values = targetQ_nextS_A_values.max(1)
-        argmaxA_targetQ_nextS_A_values = argmaxA_targetQ_nextS_A_values.view(-1, 1)
-        ############################
-
-        # Compute the expected Q values
-        gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values)
-        expected_state_action_values = reward_batch + done_batch * gamma_next
-
-        # Compute loss:
-        bellman_error = expected_state_action_values - state_action_values_g
-        if self.kwargs['use_PER']:
-            diff_squared = importance_sampling_weights.unsqueeze(1) * bellman_error.pow(2.0)
-        else:
-            diff_squared = bellman_error.pow(2.0)
-        loss_per_item = diff_squared
-        loss = torch.mean(diff_squared)
-        loss.backward()
+        dqn_loss.backward()
 
         if gradient_clamping_value is not None:
             torch.nn.utils.clip_grad_norm(self.model.parameters(), gradient_clamping_value)
 
-        weights_decay_lambda = 1e-0
-        weights_decay_loss = weights_decay_lambda * 0.5*sum([torch.mean(param*param) for param in self.model.parameters()])
-        weights_decay_loss.backward()
-
         self.optimizer.step()
 
-        loss_np = loss_per_item.cpu().data.numpy()
-        if self.kwargs['use_PER']:
-            for (idx, new_error) in zip(batch.idx, loss_np):
-                new_priority = self.replayBuffer.priority(new_error)
-                self.replayBuffer.update(idx, new_priority)
+        # TODO: Worry about this later
+        #loss_per_item = dqn_loss
+        #loss_np = loss_per_item.cpu().data.numpy()
+        #if self.kwargs['use_PER']:
+        #    for (idx, new_error) in zip(batch.idx, loss_np):
+        #        new_priority = self.replayBuffer.priority(new_error)
+        #        self.replayBuffer.update(idx, new_priority)
 
-        return loss_np
+        #return loss_np
 
     def create_tensors_for_optimization(self, batch, use_cuda: bool):
         '''
@@ -204,8 +190,15 @@ class DeepQNetworkAlgorithm():
     def train(self, iterations: int):
         self.target_update_count += iterations
         for t in range(iterations):
-            lossnp = self.optimize_model()
+            _ = self.optimize_model()
 
-        if self.target_update_count > self.target_update_interval:
-            self.target_update_count = 0
+        def weight_decay_closure():
+            self.optimizer.zero_grad()
+            weights_decay_loss = compute_weights_decay_loss(self.model)
+            weights_decay_loss.backward()
+            return weights_decay_loss
+        self.optimizer.step(weight_decay_closure)
+
+        # Update target network
+        if self.target_update_count % self.target_update_interval == 0:
             hard_update(self.target_model, self.model)

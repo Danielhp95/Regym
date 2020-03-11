@@ -41,7 +41,7 @@ class DeepQNetworkAgent(Agent):
         experience = EXP(hs, a_tensor, hsucc, r, done)
         self.algorithm.handle_experience(experience=experience)
 
-        if self.training:
+        if self.training and self.algorithm.is_ready_to_train():
             self.algorithm.train(iterations=self.kwargs['nbrTrainIteration'])
 
     def take_action(self, state: np.ndarray, legal_actions: List[int]):
