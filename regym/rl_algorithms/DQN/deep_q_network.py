@@ -156,18 +156,18 @@ class DeepQNetworkAlgorithm():
         state_batch = Variable(torch.cat(batch.state), requires_grad=False)
         action_batch = Variable(torch.cat(batch.action), requires_grad=False)
         reward_batch = Variable(torch.cat(batch.reward), requires_grad=False).view((-1, 1))
-        # TODO: figure out if this vector should be negated (currently if it's done, we have a 0.0
-        done_batch = [float(not batch.done[i]) for i in range(len(batch.done))]
-        done_batch = Variable(torch.FloatTensor(done_batch), requires_grad=False).view((-1, 1))
+        non_terminal_batch = [float(not batch.done[i]) for i in range(len(batch.done))]
+        non_terminal_batch = Variable(torch.FloatTensor(non_terminal_batch), requires_grad=False).view((-1, 1))
 
         if use_cuda:
             next_state_batch = next_state_batch.cuda()
             state_batch = state_batch.cuda()
             action_batch = action_batch.cuda()
             reward_batch = reward_batch.cuda()
-            done_batch = done_batch.cuda()
+            non_terminal_batch = non_terminal_batch.cuda()
 
-        return next_state_batch, state_batch, action_batch, reward_batch, done_batch
+        return next_state_batch, state_batch, action_batch, \
+               reward_batch, non_terminal_batch
 
     def sample_from_replay_buffer(self, batch_size: int):
         transitions = self.replayBuffer.sample(self.batch_size)

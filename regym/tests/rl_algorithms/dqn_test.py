@@ -26,6 +26,9 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, dqn_config_dict):
     '''
     from play_against_fixed_opponent import learn_against_fix_opponent
 
+    from torch.utils.tensorboard import SummaryWriter
+    import regym
+    regym.rl_algorithms.DQN.dqn_loss.summary_writer = SummaryWriter('test_tensorboard')
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,

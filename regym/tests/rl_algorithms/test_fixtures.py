@@ -48,10 +48,10 @@ def ppo_rnn_config_dict():
 @pytest.fixture
 def dqn_config_dict():
     config = dict()
-    config['learning_rate'] = 1.0e-3
-    config['epsstart'] = 1
-    config['epsend'] = 0.1
-    config['epsdecay'] = 5.0e4
+    config['learning_rate'] = 1.0e-5
+    config['epsstart'] = 0.4
+    config['epsend'] = 0.01
+    config['epsdecay'] = 5.0e3
     config['double'] = False
     config['dueling'] = False
     config['use_cuda'] = False

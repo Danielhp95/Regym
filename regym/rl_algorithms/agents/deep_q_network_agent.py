@@ -6,7 +6,7 @@ import torch
 
 from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.replay_buffers import EXP
-from regym.rl_algorithms.networks import LeakyReLU, DuelingDQN, DQNet, FCBody
+from regym.rl_algorithms.networks import LeakyReLU, DuelingDQN, CategoricalDQNet, FCBody
 from regym.rl_algorithms.networks import PreprocessFunction
 from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
 
@@ -37,7 +37,7 @@ class DeepQNetworkAgent(Agent):
         hs = self.preprocessing_function(s)
         hsucc = self.preprocessing_function(succ_s)
         r = torch.ones(1)*r
-        a_tensor = torch.from_numpy(a) if isinstance(a, np.ndarray) else torch.Tensor([a])
+        a_tensor = torch.from_numpy(a) if isinstance(a, np.ndarray) else torch.LongTensor([a])
         experience = EXP(hs, a_tensor, hsucc, r, done)
         self.algorithm.handle_experience(experience=experience)
 
@@ -47,7 +47,9 @@ class DeepQNetworkAgent(Agent):
     def take_action(self, state: np.ndarray, legal_actions: List[int]):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
-        action, qsa = self.select_action(model=self.algorithm.model, state=self.preprocessing_function(state), eps=self.eps)
+        action = self.select_action(model=self.algorithm.model,
+                                    state=self.preprocessing_function(state),
+                                    eps=self.eps)
 
         if action.shape == torch.Size([1, 1]):  # If action is a single integer
             action = np.int(action)
@@ -60,14 +62,11 @@ class DeepQNetworkAgent(Agent):
     def select_action(self, model, state, eps):
         sample = np.random.random()
         if sample > eps:
-            output = model(state).cpu().data
-            qsa, action = output.max(1)
-            action = action.view(1, 1)
-            qsa = output.max(1)[0].view(1, 1)[0, 0]
-            return action.numpy(), qsa
+            action = model(state)['action'].cpu()
+            return action.numpy()
         else:
             random_action = torch.LongTensor([[random.randrange(self.algorithm.model.action_dim)]])
-            return random_action.numpy(), 0.0
+            return random_action.numpy()
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
@@ -112,8 +111,9 @@ def build_DQN_Agent(task, config, agent_name):
         model = DuelingDQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
     else:
         body = FCBody(task.observation_dim)
-        model = DQNet(body=body,
-                      action_dim=task.action_dim, use_cuda=config['use_cuda'])
+        model = CategoricalDQNet(body=body,
+                                 action_dim=task.action_dim,
+                                 use_cuda=config['use_cuda'])
     model.share_memory()
 
     kwargs["dueling"] = config['dueling']

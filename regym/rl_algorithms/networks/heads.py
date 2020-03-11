@@ -14,14 +14,15 @@ from regym.rl_algorithms.networks.utils import BaseNet, layer_init, tensor
 from regym.rl_algorithms.networks.bodies import DummyBody
 
 
-class DQNet(nn.Module):
+class CategoricalDQNet(nn.Module, BaseNet):
 
     def __init__(self,
                  body: nn.Module,
                  action_dim: int,
                  actfn=LeakyReLU,
                  use_cuda=False):
-        super(DQNet, self).__init__()
+        BaseNet.__init__(self)
+        super(CategoricalDQNet, self).__init__()
 
         self.body = body
         self.action_dim = action_dim
@@ -35,14 +36,27 @@ class DQNet(nn.Module):
         if self.use_cuda:
             self = self.cuda()
 
-    def forward(self, x, legal_actions: List[int] = None):
+    def forward(self, x: torch.Tensor, action: torch.Tensor = None,
+                legal_actions: List[int] = None):
+        # Forward pass till last layer
         x = self.body(x)
-        qsa = self.qsa(x)
-        return qsa
+        # Q values for all actions
+        q_values = self.qsa(x)
 
-    def _mask_ilegal_action_logits(self, tensor: torch.Tensor, legal_actions: List[int]):
+        if action is None:
+            q_value, action = q_values.max(dim=1)
+
+        probs = F.softmax(q_values, dim=-1)
+        log_probs = torch.log(probs + self.EPS)
+        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
+
+        return {'action': action,
+                'q_values': q_values,
+                'entropy': entropy}
+
+    def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
         '''
-        TODO: document 
+        TODO: document
         '''
         illegal_action_mask = torch.tensor([float(i not in legal_actions)
                                             for i in range(self.action_dim)])

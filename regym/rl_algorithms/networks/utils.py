@@ -9,7 +9,7 @@ class BaseNet:
         # Sum a large negative constant to illegal action logits before taking the
         # max. This prevents illegal action values from being considered as target.
         self.ILLEGAL_ACTIONS_LOGIT_PENALTY = -1e9
-
+        self.EPS = 1e-9
 
 
 def compute_weights_decay_loss(model: torch.nn.Module, decay_rate: float = 1e-1) -> torch.Tensor:
