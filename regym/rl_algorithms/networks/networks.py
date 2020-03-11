@@ -12,16 +12,6 @@ def init_weights(size):
     return torch.Tensor(size).uniform_(-v, v)
 
 
-def hard_update(fromm, to):
-    for fp, tp in zip(fromm.parameters(), to.parameters()):
-        fp.data.copy_(tp.data)
-
-
-def soft_update(fromm, to, tau):
-    for fp, tp in zip(fromm.parameters(), to.parameters()):
-        fp.data.copy_((1.0-tau)*fp.data + tau*tp.data)
-
-
 def LeakyReLU(x):
     return F.leaky_relu(x, 0.1)
 

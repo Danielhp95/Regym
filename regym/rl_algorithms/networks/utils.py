@@ -11,6 +11,33 @@ class BaseNet:
         self.ILLEGAL_ACTIONS_LOGIT_PENALTY = -1e9
 
 
+
+def compute_weights_decay_loss(model: torch.nn.Module, decay_rate: float = 1e-1) -> torch.Tensor:
+    '''
+    A form of regularization. Computes a loss aiming to regress
+    network parameter values to 0.
+    :param model: Model whose parameters will be used to compute the decay loss
+    :param decay_rate: coefficient determining the magnitude (severity) of decay
+    :returns: Weight decay loss
+    '''
+    return decay_rate * sum([torch.mean(param * param)
+                             for param in model.parameters()])
+
+
+def hard_update(fromm: torch.nn.Module, to: torch.nn.Module):
+    '''
+    Updates network parameters from :param fromm: to :param to:.
+    Useful for updating target networks in DQN algorithms
+    '''
+    for fp, tp in zip(fromm.parameters(), to.parameters()):
+        fp.data.copy_(tp.data)
+
+
+def soft_update(fromm: torch.nn.Module, to: torch.nn.Module, tau: float):
+    for fp, tp in zip(fromm.parameters(), to.parameters()):
+        fp.data.copy_(((1.0 - tau) * fp.data) + (tau * tp.data))
+
+
 def layer_init(layer, w_scale=1.0):
     nn.init.orthogonal_(layer.weight.data)
     layer.weight.data.mul_(w_scale)

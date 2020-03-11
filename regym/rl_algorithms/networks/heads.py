@@ -35,7 +35,7 @@ class DQNet(nn.Module):
         if self.use_cuda:
             self = self.cuda()
 
-    def forward(self, x, legal_actions):
+    def forward(self, x, legal_actions: List[int] = None):
         x = self.body(x)
         qsa = self.qsa(x)
         return qsa
