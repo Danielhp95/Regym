@@ -41,9 +41,10 @@ def learn_against_fix_opponent(agent, fixed_opponent,
     inference_trajectories = simulate(task, agent, fixed_opponent, agent_position,
                                      episodes=inference_episodes, training=False)
 
-    if evaluation_method == 'average':
+    if evaluation_method == 'cumulative':
         inference_reward = average_reward(inference_trajectories,
                                           agent_position)
+
     elif evaluation_method == 'last':
         inference_reward = sum(map(lambda t: last_trajectory_reward(t, agent_position),
                                    inference_trajectories))
