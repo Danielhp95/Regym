@@ -14,6 +14,7 @@ def compute_loss(states: torch.Tensor,
                  target_model: torch.nn.Module,
                  gamma: float = 0.99,
                  use_PER: bool = False,
+                 use_double: bool = False,
                  #PER_beta: float = 1.0,
                  importanceSamplingWeights: torch.Tensor = None,
                  #use_HER: bool = False,
@@ -42,22 +43,41 @@ def compute_loss(states: torch.Tensor,
 #                                rewards, non_terminals, gamma,
 #                                model, target_model)
 #
-    prediction = model(states)
-    target_prediction = target_model(states, action=prediction['action'])
+    if not use_double:  # TODO: Refactor
+        prediction = model(states, action=actions)
+        target_prediction = target_model(next_states)
 
-    q_values = prediction['q_values']
-    q_values_from_selected_actions = q_values.gather(dim=1, index=actions.long().unsqueeze(1))
+        Q = prediction['Q']
+        Q_a = Q.gather(dim=1, index=actions.long().unsqueeze(1))
 
-    target_q_values_succ_state = target_prediction['q_values'].detach()
-    max_target_q_values_succ_state, _ = target_q_values_succ_state.max(1)
+        target_q_values_succ_state = target_prediction['Q'].detach()
+        max_target_q_values_succ_state, _ = target_q_values_succ_state.max(1)
 
-    max_target_q_values_succ_state = max_target_q_values_succ_state.view(-1, 1)
+        max_target_q_values_succ_state = max_target_q_values_succ_state.view(-1, 1)
 
-    # Compute the expected Q values
-    td_target = rewards + non_terminals * (gamma * max_target_q_values_succ_state)
+        # Compute the expected Q values
+        td_target = rewards + non_terminals * (gamma * max_target_q_values_succ_state)
 
-    # Compute td_error:
-    td_error = td_target.detach() - q_values_from_selected_actions
+        # Compute td_error:
+        td_error = td_target.detach() - Q_a
+
+    else:
+        prediction = model(states)
+
+        # Double DQN uses :param: model to choose an action,
+        # and :param: target_model to evaluate those values
+        target_prediction = target_model(next_states,
+                                         action=model(next_states)['a'])
+        Q = prediction['Q']
+        Q_a = Q.gather(dim=1, index=actions.long().unsqueeze(1))
+
+        target_q_values_succ_state = target_prediction['Q'].detach().gather(dim=1,
+                                                                                   index=target_prediction['a'].view(-1,1))
+        # Compute the expected Q values
+        td_target = rewards + non_terminals * (gamma * target_q_values_succ_state)
+
+        # Compute td_error:
+        td_error = td_target.detach() - Q_a
 
     if use_PER:  # TODO: worry about this later
         diff_squared = importance_sampling_weights.unsqueeze(1) * td_error.pow(2.0)
@@ -91,10 +111,10 @@ def compute_td_error(states: torch.Tensor,
     prediction = model(states)
     target_prediction = target_model(states, action=prediction['action'])
 
-    q_values = prediction['q_values']
-    q_values_from_selected_actions = q_values.gather(dim=1, index=actions.long().unsqueeze(1))
+    Q = prediction['Q']
+    Q_a = Q.gather(dim=1, index=actions.long().unsqueeze(1))
 
-    target_q_values_succ_state = target_prediction['q_values'].detach()
+    target_q_values_succ_state = target_prediction['Q'].detach()
     max_target_q_values_succ_state, _ = target_q_values_succ_state.max(1)
 
     max_target_q_values_succ_state = max_target_q_values_succ_state.view(-1, 1)
@@ -103,5 +123,5 @@ def compute_td_error(states: torch.Tensor,
     td_target = rewards + non_terminals * (gamma * max_target_q_values_succ_state)
 
     # Compute td_error:
-    td_error = td_target.detach() - q_values_from_selected_actions
+    td_error = td_target.detach() - Q_a
     return td_error
