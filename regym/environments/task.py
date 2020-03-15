@@ -1,5 +1,7 @@
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Callable, Any, Dict
+
 import gym
 
 import regym
@@ -16,6 +18,7 @@ class EnvType(Enum):
     MULTIAGENT_SEQUENTIAL_ACTION = 'multiagent-sequential'
 
 
+@dataclass
 class Task:
     r'''
     A Task is a thin layer of abstraction over OpenAI gym environments and
@@ -50,32 +53,22 @@ class Task:
     >>> sequential_task   = generate_task('SequentialsEnv-v0',  EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     '''
 
-    def __init__(self, name: str,
-                 env: gym.Env,
-                 env_type: EnvType,
-                 state_space_size: int,
-                 action_space_size: int,
-                 observation_dim: int,
-                 observation_type: str,
-                 action_dim: int,
-                 action_type: str,
-                 num_agents: int,
-                 hash_function: Callable[[Any], int]):
-        self.name = name
-        self.env = env
-        self.env_type = env_type
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
-        self.observation_dim = observation_dim
-        self.observation_type = observation_type
-        self.action_dim = action_dim
-        self.action_type = action_type
-        self.num_agents = num_agents
-        self.hash_function = hash_function
-        self.extended_agents = {}
+    # Properties changing in initializer
+    name: str
+    env: gym.Env
+    env_type: EnvType
+    state_space_size: int
+    action_space_size: int
+    observation_dim: int
+    observation_type: str
+    action_dim: int
+    action_type: str
+    num_agents: int
+    hash_function: Callable[[Any], int]
 
-        self.total_episodes_run = 0
+    extended_agents: Dict = field(default_factory=dict)
 
+    total_episodes_run: int = 0
 
     def extend_task(self, agents: Dict, force=False):
         ''' TODO: DOCUMENT, TEST '''
@@ -105,12 +98,11 @@ class Task:
         extended_agent_vector = self._extend_agent_vector(agent_vector)
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
-            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
+            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector[0], training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
-        self
 
     def _extend_agent_vector(self, agent_vector: List):
         # This should be much prettier
