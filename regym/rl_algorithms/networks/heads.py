@@ -65,20 +65,35 @@ class CategoricalDQNet(nn.Module, BaseNet):
         return masked_logits
 
 
-class DuelingNet(nn.Module, BaseNet):
-    def __init__(self, action_dim, body):
-        super(DuelingNet, self).__init__()
-        self.fc_value = layer_init(nn.Linear(body.feature_dim, 1))
-        self.fc_advantage = layer_init(nn.Linear(body.feature_dim, action_dim))
-        self.body = body
-        self.to(Config.DEVICE)
+class CategoricalDuelingDQNet(nn.Module, BaseNet):
 
-    def forward(self, x, to_numpy=False):
-        phi = self.body(tensor(x))
-        value = self.fc_value(phi)
-        advantange = self.fc_advantage(phi)
-        q = value.expand_as(advantange) + (advantange - advantange.mean(1, keepdim=True).expand_as(advantange))
-        return q
+    def __init__(self,
+                 body: nn.Module,
+                 action_dim: int,
+                 actfn=LeakyReLU):
+        BaseNet.__init__(self)
+        super(CategoricalDuelingDQNet, self).__init__()
+        self.action_dim = action_dim
+
+        self.body = body
+
+        self.value = layer_init(nn.Linear(body.feature_dim, 1))
+        self.advantage = layer_init(nn.Linear(body.feature_dim, action_dim))
+
+    def forward(self, x, action: torch.Tensor = None,
+                legal_actions: List[int] = None):
+        x = self.body(tensor(x))
+        V = self.value(x)
+        A = self.advantage(x)
+
+        Q = V.expand_as(A) + (A - A.mean(1, keepdim=True))
+
+        probs = F.softmax(Q, dim=-1)
+        log_probs = torch.log(probs + self.EPS)
+        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
+
+        return {'V': V, 'A': A, 'Q': Q, 'a': Q.max(dim=1)[1],
+                'entropy': entropy}
 
 
 class CategoricalNet(nn.Module, BaseNet):

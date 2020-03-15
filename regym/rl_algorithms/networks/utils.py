@@ -57,7 +57,7 @@ def layer_init_lstm(layer, w_scale=1.0):
 def tensor(x):
     if isinstance(x, torch.Tensor):
         return x
-    x = torch.tensor(x, device=Config.DEVICE, dtype=torch.float32)
+    x = torch.tensor(x, dtype=torch.float32)
     return x
 
 
