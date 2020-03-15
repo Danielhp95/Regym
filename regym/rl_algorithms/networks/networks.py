@@ -16,47 +16,6 @@ def LeakyReLU(x):
     return F.leaky_relu(x, 0.1)
 
 
-class DuelingDQN(nn.Module) :
-    def __init__(self,state_dim=3, nbr_actions=2,actfn=LeakyReLU, use_cuda=False ) :
-        super(DuelingDQN,self).__init__()
-
-        self.state_dim = state_dim
-        self.nbr_actions = nbr_actions
-        self.use_cuda = use_cuda
-
-        self.actfn = actfn
-        self.f1 = nn.Linear(self.state_dim, 1024)
-        self.f2 = nn.Linear(1024, 256)
-        self.f3 = nn.Linear(256,64)
-
-        self.value = nn.Linear(64,1)
-        self.advantage = nn.Linear(64,self.nbr_actions)
-
-        if self.use_cuda:
-            self = self.cuda()
-
-    def clone(self):
-        cloned = DuelingDQN(state_dim=self.state_dim,nbr_actions=self.nbr_actions,actfn=self.actfn,use_cuda=self.use_cuda)
-        cloned.load_state_dict( self.state_dict() )
-        return cloned
-
-    def forward(self, x) :
-        x = self.actfn( self.f1(x) )
-        x = self.actfn( self.f2(x) )
-        fx = self.actfn( self.f3(x) )
-
-        v = self.value(fx)
-        va = torch.cat( [ v for i in range(self.nbr_actions) ], dim=1)
-        a = self.advantage(fx)
-
-        suma = torch.mean(a,dim=1,keepdim=True)
-        suma = torch.cat( [ suma for i in range(self.nbr_actions) ], dim=1)
-
-        x = va+a-suma
-
-        return x
-
-
 class ActorNN(nn.Module) :
     def __init__(self,state_dim=3,action_dim=2,action_scaler=1.0,HER=False,actfn=LeakyReLU, use_cuda=False ) :
         super(ActorNN,self).__init__()

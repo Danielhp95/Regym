@@ -50,8 +50,8 @@ class CategoricalDQNet(nn.Module, BaseNet):
         log_probs = torch.log(probs + self.EPS)
         entropy = -1. * torch.sum(probs * log_probs, dim=-1)
 
-        return {'action': action,
-                'q_values': q_values,
+        return {'a': action,
+                'Q': q_values,
                 'entropy': entropy}
 
     def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):

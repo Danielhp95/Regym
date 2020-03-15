@@ -1,3 +1,4 @@
+from typing import Dict
 import copy
 
 import torch
@@ -11,7 +12,8 @@ from regym.rl_algorithms.DQN.dqn_loss import compute_loss
 
 
 class DeepQNetworkAlgorithm():
-    def __init__(self, kwargs, model, target_model=None):
+    def __init__(self, kwargs: Dict[str, object],
+                 model: torch.nn.Module, target_model: torch.nn.Module = None):
         """
         :param kwargs:
             "use_cuda": boolean to specify whether to use CUDA.
@@ -41,40 +43,43 @@ class DeepQNetworkAlgorithm():
         self.kwargs = kwargs
         self.use_cuda = kwargs["use_cuda"]
 
+        # DQN extensions
+        self.use_double = kwargs['double']
+        self.use_dueling = kwargs['dueling']
+
+        # Setting neural network models (target and normal model)
         self.model = model
+        self.target_model = target_model if target_model else copy.deepcopy(self.model)
+
         if self.use_cuda:
             self.model = self.model.cuda()
-
-        if target_model is None:
-            target_model = copy.deepcopy(self.model)
-
-        self.target_model = target_model
-        self.target_model.share_memory()
-
-        hard_update(self.target_model, self.model)
-        if self.use_cuda:
             self.target_model = self.target_model.cuda()
 
-        if self.kwargs['replayBuffer'] is None:
-            if kwargs["use_PER"]:
-                self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"], alpha=kwargs["PER_alpha"])
-            else:
-                self.replayBuffer = ReplayBuffer(capacity=kwargs["replay_capacity"])
+        self.target_model.share_memory()
+
+        # Replay buffer parameters
+        if kwargs["use_PER"]:
+            self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"], alpha=kwargs["PER_alpha"])
         else:
-            self.replayBuffer = self.kwargs['replayBuffer']
+            self.replayBuffer = ReplayBuffer(capacity=kwargs["replay_capacity"])
 
         self.min_capacity = kwargs["min_capacity"]
         self.batch_size = kwargs["batch_size"]
 
-        self.lr = kwargs["lr"]
+        # Target network update parameters
         self.TAU = kwargs["tau"]
         self.target_update_interval = int(1.0/self.TAU)
         self.target_update_count = 0
+
+        # Learning rate parameters
+        self.lr = kwargs["lr"]
         self.GAMMA = kwargs["gamma"]
         self.optimizer: torch.optim = optim.Adam(self.model.parameters(), lr=self.lr)
 
+        # PreprocessFunction
         self.preprocess = kwargs["preprocess"]
 
+        # Exploration rate parameters
         self.epsend = kwargs['epsend']
         self.epsstart = kwargs['epsstart']
         self.epsdecay = kwargs['epsdecay']
@@ -129,6 +134,7 @@ class DeepQNetworkAlgorithm():
                                 model=self.model,
                                 target_model=self.target_model,
                                 gamma=self.GAMMA,
+                                use_double=self.use_double,
                                 iteration_count=self.target_update_count)
 
         dqn_loss.backward()

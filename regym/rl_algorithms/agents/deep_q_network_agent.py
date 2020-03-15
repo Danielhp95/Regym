@@ -2,13 +2,16 @@ from typing import List
 import copy
 import numpy as np
 import random
-import torch
+import torch as T
+
+import torch.nn as nn
 
 from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.replay_buffers import EXP
-from regym.rl_algorithms.networks import LeakyReLU, DuelingDQN, CategoricalDQNet, FCBody
+from regym.rl_algorithms.networks import CategoricalDuelingDQNet, CategoricalDQNet
+from regym.rl_algorithms.networks import LeakyReLU, FCBody
 from regym.rl_algorithms.networks import PreprocessFunction
-from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm, DoubleDeepQNetworkAlgorithm
+from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm
 
 
 class DeepQNetworkAgent(Agent):
@@ -36,8 +39,8 @@ class DeepQNetworkAgent(Agent):
     def handle_experience(self, s, a, r, succ_s, done=False):
         hs = self.preprocessing_function(s)
         hsucc = self.preprocessing_function(succ_s)
-        r = torch.ones(1)*r
-        a_tensor = torch.from_numpy(a) if isinstance(a, np.ndarray) else torch.LongTensor([a])
+        r = T.ones(1)*r
+        a_tensor = T.from_numpy(a) if isinstance(a, np.ndarray) else T.LongTensor([a])
         experience = EXP(hs, a_tensor, hsucc, r, done)
         self.algorithm.handle_experience(experience=experience)
 
@@ -49,9 +52,13 @@ class DeepQNetworkAgent(Agent):
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
         action = self.select_action(model=self.algorithm.model,
                                     state=self.preprocessing_function(state),
-                                    eps=self.eps)
+                                    eps=self.eps,
+                                    training=self.training)
 
-        if action.shape == torch.Size([1, 1]):  # If action is a single integer
+        is_single_int_action = \
+            lambda a: a.shape == T.Size([1, 1]) or a.shape == (1,)
+
+        if is_single_int_action(action):  # If action is a single integer
             action = np.int(action)
 
         return action
@@ -59,14 +66,14 @@ class DeepQNetworkAgent(Agent):
     def reset_eps(self):
         self.eps = self.epsstart
 
-    def select_action(self, model, state, eps):
+    def select_action(self, model: nn.Module, state, eps: float, training: bool):
         sample = np.random.random()
-        if sample > eps:
-            action = model(state)['action'].cpu()
+        if not training or sample > eps:
+            action = model(state)['a'].detach().cpu()
             return action.numpy()
         else:
-            random_action = torch.LongTensor([[random.randrange(self.algorithm.model.action_dim)]])
-            return random_action.numpy()
+            action = np.random.choice(range(self.algorithm.model.action_dim))
+            return action
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
@@ -106,11 +113,13 @@ def build_DQN_Agent(task, config, agent_name):
     kwargs["nbr_actions"] = task.action_dim
     kwargs["actfn"] = LeakyReLU
     kwargs["state_dim"] = task.observation_dim
+
     # Create model architecture:
+    body = FCBody(task.observation_dim)
     if config['dueling']:
-        model = DuelingDQN(task.observation_dim, task.action_dim, use_cuda=config['use_cuda'])
+        model = CategoricalDuelingDQNet(body=body,
+                                        action_dim=task.action_dim)
     else:
-        body = FCBody(task.observation_dim)
         model = CategoricalDQNet(body=body,
                                  action_dim=task.action_dim,
                                  use_cuda=config['use_cuda'])
@@ -137,8 +146,6 @@ def build_DQN_Agent(task, config, agent_name):
     kwargs['epsend'] = float(config['epsend'])
     kwargs['epsdecay'] = float(config['epsdecay'])
 
-    kwargs['replayBuffer'] = None
-
-    DeepQNetwork_algo = DoubleDeepQNetworkAlgorithm(kwargs=kwargs, model=model) if config['dueling'] else DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
+    DeepQNetwork_algo = DeepQNetworkAlgorithm(kwargs=kwargs, model=model)
 
     return DeepQNetworkAgent(name=agent_name, algorithm=DeepQNetwork_algo)
