@@ -17,11 +17,14 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) ->
     observation = env.reset()
     done = False
     trajectory = []
+    legal_actions: List = None
     while not done:
-        action = agent.take_action(deepcopy(env)) if agent.requires_environment_model else agent.take_action(observation)
+        action = agent.take_action(deepcopy(env)) if agent.requires_environment_model else agent.take_action(observation, legal_actions)
         succ_observation, reward, done, info = env.step(action)
         trajectory.append((observation, action, reward, succ_observation, done))
         if training: agent.handle_experience(observation, action, reward, succ_observation, done)
         observation = succ_observation
+
+        if 'legal_actions' in info: legal_actions = info['legal_actions']
 
     return trajectory
