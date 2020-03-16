@@ -135,6 +135,7 @@ class DeepQNetworkAlgorithm():
                                 target_model=self.target_model,
                                 gamma=self.GAMMA,
                                 use_double=self.use_double,
+                                use_dueling=self.use_dueling,
                                 iteration_count=self.target_update_count)
 
         dqn_loss.backward()
