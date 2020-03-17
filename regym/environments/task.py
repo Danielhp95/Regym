@@ -76,7 +76,7 @@ class Task:
                 raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
             self.extended_agents[i] = agent
 
-    def run_episode(self, agent_vector, training: bool, render_mode: str = ''):
+    def run_episode(self, agent_vector, training: bool, render_mode: str = '', save_gif=False):
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
@@ -93,7 +93,7 @@ class Task:
         if self.env_type == EnvType.SINGLE_AGENT:
             return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector, training)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
+            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode, save_gif)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training)
         self

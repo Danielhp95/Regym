@@ -8,7 +8,7 @@ import regym
 from regym.rl_algorithms.agents import Agent
 
 
-def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_mode: str = '', save_gif=False) -> Tuple:
+def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_mode: str = '', save_gif=True) -> Tuple:
     '''
     Runs a single multi-agent rl loop until termination where each agent
     takes an action simulatenously.
@@ -24,11 +24,13 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
     trajectory = []
     iteration = 0
     images = []
-    
+
     while not done:
         if render_mode != '': rendered_state = env.render(render_mode)
         if render_mode == 'string': print(rendered_state)
-        elif render_mode == 'rgb' and save_gif: images.append(Image.fromarray(env.render(render_mode)))
+        elif render_mode == 'rgb': env.render('rgb')
+        if save_gif:
+            images.append(Image.fromarray(env.render('rgb')))
 
         iteration += 1
         action_vector = [
@@ -40,13 +42,15 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
             for i, agent in enumerate(agent_vector): agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
         observations = succ_observations
 
-    if len(images) > 0: generate_gif_from_images(images)
+    if len(images) > 0:
+        gif_name = env.spec.id + '_' + '_vs_'.join([a.name for a in agent_vector])
+        generate_gif_from_images(gif_name, images)
 
     return trajectory
 
 
-def generate_gif_from_images(images: List[Image.Image]):
-    images[0].save('test.gif',
+def generate_gif_from_images(gif_name: str, images: List[Image.Image]):
+    images[0].save(f'{gif_name}.gif',
                save_all=True,
                append_images=images[1:],
                duration=100,
