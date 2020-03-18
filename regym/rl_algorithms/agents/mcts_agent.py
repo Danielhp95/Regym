@@ -49,6 +49,7 @@ class MCTSAgent(Agent):
     def clone(self):
         cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,
                            iteration_budget=self.budget,
+                           rollout_budget=self.rollout_budget,
                            exploration_constant=self.exploration_constant,
                            task_num_agents=self.task_num_agents)
         return cloned
