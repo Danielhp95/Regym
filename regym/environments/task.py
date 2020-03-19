@@ -1,3 +1,4 @@
+from copy import deepcopy
 from enum import Enum
 from typing import List, Callable, Any, Dict
 from dataclasses import dataclass, field
@@ -110,6 +111,24 @@ class Task:
                 agent_index += 1
 
         return extended_agent_vector
+
+    def clone(self):
+        cloned = Task(
+                name=self.name,
+                env=deepcopy(self.env),
+                env_type=self.env_type,
+                state_space_size=self.state_space_size,
+                action_space_size=self.action_space_size,
+                observation_dim=self.observation_dim,
+                observation_type=self.observation_type,
+                action_dim=self.action_dim,
+                action_type=self.action_type,
+                num_agents=self.num_agents,
+                hash_function=self.hash_function)
+        cloned.extended_agents = {k: agent.clone()
+                                  for k, agent in self.extended_agents}
+        cloned.total_episodes_run = self.total_episodes_run
+        return cloned
 
     def __repr__(self):
         s = \
