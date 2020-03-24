@@ -66,6 +66,7 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
     :param config: Dictionary whose entries contain hyperparameters for the A2C agents:
         - 'budget': (Int) Number of iterations of the MCTS loop that will be carried
                     out before an action is selected.
+        - 'rollout_budget': (Int) Number of steps to simulate during rollout_phase
     :returns: Agent using an MCTS algorithm to act the :param: tasks's environment
     '''
     if task.env_type == regym.environments.EnvType.SINGLE_AGENT:
