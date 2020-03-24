@@ -31,8 +31,6 @@ def learn_against_fix_opponent(agent, fixed_opponent,
     :param evaluation_method: Whether to consider 'average' trajectory
                               or only the 'last' reward.
     '''
-    maximum_average_reward = maximum_average_reward
-
     training_episodes = int(total_episodes * training_percentage)
     inference_episodes = total_episodes - training_episodes
 
@@ -43,9 +41,10 @@ def learn_against_fix_opponent(agent, fixed_opponent,
     inference_trajectories = simulate(task, agent, fixed_opponent, agent_position,
                                      episodes=inference_episodes, training=False)
 
-    if evaluation_method == 'average':
+    if evaluation_method == 'cumulative':
         inference_reward = average_reward(inference_trajectories,
                                           agent_position)
+
     elif evaluation_method == 'last':
         inference_reward = sum(map(lambda t: last_trajectory_reward(t, agent_position),
                                    inference_trajectories))

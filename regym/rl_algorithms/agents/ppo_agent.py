@@ -1,13 +1,13 @@
-from typing import Dict
+from typing import Dict, List
 import torch
 import copy
 
 import regym
 from regym.rl_algorithms.agents import Agent
-from ..networks import CategoricalActorCriticNet, GaussianActorCriticNet
-from ..networks import FCBody, LSTMBody
-from ..networks import PreprocessFunction
-from ..PPO import PPOAlgorithm
+from regym.rl_algorithms.networks import CategoricalActorCriticNet, GaussianActorCriticNet
+from regym.rl_algorithms.networks import FCBody, LSTMBody
+from regym.rl_algorithms.networks import PreprocessFunction
+from regym.rl_algorithms.PPO import PPOAlgorithm
 
 import torch.nn.functional as F
 import numpy as np
@@ -89,14 +89,16 @@ class PPOAgent(Agent):
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def take_action(self, state):
+    def take_action(self, state, legal_actions: List[int] = None):
         state = self.state_preprocessing(state)
 
         if self.recurrent:
             self._pre_process_rnn_states()
-            self.current_prediction = self.algorithm.model(state, rnn_states=self.rnn_states)
+            self.current_prediction = self.algorithm.model(state, rnn_states=self.rnn_states,
+                                                           legal_actions=legal_actions)
         else:
-            self.current_prediction = self.algorithm.model(state)
+            self.current_prediction = self.algorithm.model(state,
+                                                           legal_actions=legal_actions)
         self.current_prediction = self._post_process(self.current_prediction)
 
         action = self.current_prediction['a'].numpy()

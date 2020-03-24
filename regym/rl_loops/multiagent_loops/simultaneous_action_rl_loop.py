@@ -1,11 +1,14 @@
 from typing import List, Tuple
 from copy import deepcopy
+
+from PIL import Image
+
 import gym
 import regym
 from regym.rl_algorithms.agents import Agent
 
 
-def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_mode: str = '') -> Tuple:
+def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_mode: str = '', save_gif=True) -> Tuple:
     '''
     Runs a single multi-agent rl loop until termination where each agent
     takes an action simulatenously.
@@ -20,16 +23,27 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
     done = False
     trajectory = []
     iteration = 0
+    # Unfortunately, OpenAIGym does not have a standardized interface
+    # To support which actions are legal at an initial state. These can only be extracted
+    # via the "info" dictionary given by the env.step(...) function
+    # Thus: Assumption: all actions are permitted on the first state
+    legal_actions: List = None
     while not done:
-        if render_mode != '': print(env.render(render_mode))
+        if render_mode != '': rendered_state = env.render(render_mode)
+        if render_mode == 'string': print(rendered_state)
+        elif render_mode == 'rgb': env.render('rgb')
+
         iteration += 1
         action_vector = [
-                agent.take_action(deepcopy(env)) if agent.requires_environment_model else agent.take_action(observations[i])
+                agent.take_action(deepcopy(env), player_index=i) if agent.requires_environment_model \
+                        else agent.take_action(observations[i], legal_actions)
                 for i, agent in enumerate(agent_vector)]
         succ_observations, reward_vector, done, info = env.step(action_vector)
         trajectory.append((observations, action_vector, reward_vector, succ_observations, done))
         if training:
             for i, agent in enumerate(agent_vector): agent.handle_experience(observations[i], action_vector[i], reward_vector[i], succ_observations[i], done)
         observations = succ_observations
+
+        if 'legal_actions' in info: legal_actions = info['legal_actions']
 
     return trajectory

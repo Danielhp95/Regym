@@ -93,6 +93,13 @@ class SimultaneousOpenLoopNode:
         self.visits += 1
         self.wins += result
 
+    def depth(self):
+        '''
+        Computes the maximum depth of the tree starting at node :param: self
+        '''
+        if self.child_nodes == []: return 0
+        else: return 1 + max([c.depth() for c in self.child_nodes])
+
     def __repr__(self, indent=0, ignore_chance=True) -> str:
         '''
         For debugging purposes. Prints the tree starting with

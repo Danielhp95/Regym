@@ -3,41 +3,97 @@
 # Permission given to modify the code as long as you keep this        #
 # declaration at the top                                              #
 #######################################################################
+from typing import List
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .ppo_network_utils import BaseNet, layer_init, tensor
-from .ppo_network_bodies import DummyBody
+from regym.rl_algorithms.networks import LeakyReLU
+from regym.rl_algorithms.networks.utils import BaseNet, layer_init, tensor
+from regym.rl_algorithms.networks.bodies import DummyBody
 
 
-class VanillaNet(nn.Module, BaseNet):
-    def __init__(self, output_dim, body):
-        super(VanillaNet, self).__init__()
-        self.fc_head = layer_init(nn.Linear(body.feature_dim, output_dim))
+class CategoricalDQNet(nn.Module, BaseNet):
+
+    def __init__(self,
+                 body: nn.Module,
+                 action_dim: int,
+                 actfn=LeakyReLU,
+                 use_cuda=False):
+        BaseNet.__init__(self)
+        super(CategoricalDQNet, self).__init__()
+
         self.body = body
-        self.to(Config.DEVICE)
+        self.action_dim = action_dim
+        self.use_cuda = use_cuda
 
-    def forward(self, x):
-        phi = self.body(tensor(x))
-        y = self.fc_head(phi)
-        return y
+        self.actfn = actfn
+
+        body_output_features = self.body.feature_dim
+        self.qsa = nn.Linear(body_output_features, self.action_dim)
+
+        if self.use_cuda:
+            self = self.cuda()
+
+    def forward(self, x: torch.Tensor, action: torch.Tensor = None,
+                legal_actions: List[int] = None):
+        # Forward pass till last layer
+        x = self.body(x)
+        # Q values for all actions
+        q_values = self.qsa(x)
+
+        if action is None:
+            q_value, action = q_values.max(dim=1)
+
+        probs = F.softmax(q_values, dim=-1)
+        log_probs = torch.log(probs + self.EPS)
+        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
+
+        return {'a': action,
+                'Q': q_values,
+                'entropy': entropy}
+
+    def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
+        '''
+        TODO: document
+        '''
+        illegal_action_mask = torch.tensor([float(i not in legal_actions)
+                                            for i in range(self.action_dim)])
+        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
+        masked_logits = logits + illegal_logit_penalties
+        return masked_logits
 
 
-class DuelingNet(nn.Module, BaseNet):
-    def __init__(self, action_dim, body):
-        super(DuelingNet, self).__init__()
-        self.fc_value = layer_init(nn.Linear(body.feature_dim, 1))
-        self.fc_advantage = layer_init(nn.Linear(body.feature_dim, action_dim))
+class CategoricalDuelingDQNet(nn.Module, BaseNet):
+
+    def __init__(self,
+                 body: nn.Module,
+                 action_dim: int,
+                 actfn=LeakyReLU):
+        BaseNet.__init__(self)
+        super(CategoricalDuelingDQNet, self).__init__()
+        self.action_dim = action_dim
+
         self.body = body
-        self.to(Config.DEVICE)
 
-    def forward(self, x, to_numpy=False):
-        phi = self.body(tensor(x))
-        value = self.fc_value(phi)
-        advantange = self.fc_advantage(phi)
-        q = value.expand_as(advantange) + (advantange - advantange.mean(1, keepdim=True).expand_as(advantange))
-        return q
+        self.value = layer_init(nn.Linear(body.feature_dim, 1))
+        self.advantage = layer_init(nn.Linear(body.feature_dim, action_dim))
+
+    def forward(self, x, action: torch.Tensor = None,
+                legal_actions: List[int] = None):
+        x = self.body(tensor(x))
+        V = self.value(x)
+        A = self.advantage(x)
+
+        Q = V.expand_as(A) + (A - A.mean(1, keepdim=True))
+
+        probs = F.softmax(Q, dim=-1)
+        log_probs = torch.log(probs + self.EPS)
+        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
+
+        return {'V': V, 'A': A, 'Q': Q, 'a': Q.max(dim=1)[1],
+                'entropy': entropy}
 
 
 class CategoricalNet(nn.Module, BaseNet):
@@ -194,15 +250,19 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
 
 class CategoricalActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
-                 state_dim,
-                 action_dim,
-                 phi_body=None,
-                 actor_body=None,
-                 critic_body=None):
+                 state_dim: int,
+                 action_dim: int,
+                 phi_body: nn.Module = None,
+                 actor_body: nn.Module = None,
+                 critic_body: nn.Module = None):
+        BaseNet.__init__(self)
         super(CategoricalActorCriticNet, self).__init__()
+        self.action_dim = action_dim
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
 
-    def forward(self, obs, action=None, rnn_states=None):
+    # TODO: type hint rnn_states
+    def forward(self, obs: np.ndarray, action: int = None, rnn_states=None,
+                legal_actions: List[int] = None):
         obs = tensor(obs)
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
@@ -222,15 +282,16 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         else:
             phi_v = self.network.critic_body(phi)
 
-        #logits = F.softmax( self.network.fc_action(phi_a), dim=1 )
         logits = self.network.fc_action(phi_a)
+        if legal_actions is not None:
+            logits = self._mask_ilegal_action_logits(logits, legal_actions)
         # batch x action_dim
         v = self.network.fc_critic(phi_v)
         # batch x 1
 
         dist = torch.distributions.Categorical(logits=logits)
         if action is None:
-            action = dist.sample(sample_shape=(logits.size(0),) )
+            action = dist.sample(sample_shape=(logits.size(0),))
             # batch x 1
         log_prob = dist.log_prob(action).unsqueeze(-1)
         # estimates the log likelihood of each action against each batched distributions... : batch x batch x 1
@@ -251,3 +312,13 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                     'log_pi_a': log_prob,
                     'ent': entropy,
                     'v': v}
+
+    def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
+        '''
+        TODO: document 
+        '''
+        illegal_action_mask = torch.tensor([float(i not in legal_actions)
+                                            for i in range(self.action_dim)])
+        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
+        masked_logits = logits + illegal_logit_penalties
+        return masked_logits

@@ -7,7 +7,7 @@ from gym.spaces import Box, Discrete, MultiDiscrete, Tuple
 from regym.environments.task import Task, EnvType
 
 
-def parse_gym_environment(env: gym.Env, env_type: EnvType) -> Task:
+def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
     '''
     Generates a regym.environments.Task by extracting information from the
     already built :param: env.
@@ -22,8 +22,8 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType) -> Task:
     :returns: Task created from :param: env named :param: name
     '''
     name = env.spec.id
-    action_dims, action_type = get_action_dimensions_and_type(env)
-    observation_dims, observation_type = get_observation_dimensions_and_type(env)
+    action_dim, action_type = get_action_dimensions_and_type(env)
+    observation_dim, observation_type = get_observation_dimensions_and_type(env)
     state_space_size = env.state_space_size if hasattr(env, 'state_space_size') else None
     action_space_size = env.action_space_size if hasattr(env, 'action_space_size') else None
     hash_function = env.hash_state if hasattr(env, 'hash_state') else None
@@ -32,9 +32,15 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType) -> Task:
 
     check_env_compatibility_with_env_type(env, env_type)
 
-    return Task(name, env, env_type, state_space_size, action_space_size,
-                observation_dims, observation_type, action_dims, action_type,
-                num_agents, hash_function)
+    return Task(name=name, env=env, env_type=env_type,
+                state_space_size=state_space_size,
+                action_space_size=action_space_size,
+                observation_dim=observation_dim,
+                observation_type=observation_type,
+                action_dim=action_dim,
+                action_type=action_type,
+                num_agents=num_agents,
+                hash_function=hash_function)
 
 
 # TODO: box environments are considered continuous.

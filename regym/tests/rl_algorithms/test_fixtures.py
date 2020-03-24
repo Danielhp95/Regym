@@ -48,17 +48,17 @@ def ppo_rnn_config_dict():
 @pytest.fixture
 def dqn_config_dict():
     config = dict()
-    config['learning_rate'] = 1.0e-3
-    config['epsstart'] = 1
-    config['epsend'] = 0.1
-    config['epsdecay'] = 5.0e4
+    config['learning_rate'] = 1.0e-5
+    config['epsstart'] = 0.4
+    config['epsend'] = 0.01
+    config['epsdecay'] = 5.0e3
     config['double'] = False
     config['dueling'] = False
     config['use_cuda'] = False
     config['use_PER'] = False
     config['PER_alpha'] = 0.07
-    config['min_memory'] = 1.e03
-    config['memoryCapacity'] = 1.e03
+    config['min_memory'] = 2.e03
+    config['memoryCapacity'] = 2.e03
     config['nbrTrainIteration'] = 8
     config['batch_size'] = 256
     config['gamma'] = 0.99
@@ -101,6 +101,7 @@ def a2c_config_dict():
 def mcts_config_dict():
     config = dict()
     config['budget'] = 1
+    config['rollout_budget'] = 100000
     return config
 
 @pytest.fixture
@@ -122,6 +123,13 @@ def PendulumTask(): # Continuous Action / Observation space
 def RPSTask():
     import gym_rock_paper_scissors
     return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
+
+
+@pytest.fixture
+def RPSTaskSingleRepetition():
+    import gym_rock_paper_scissors
+    return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION,
+                         max_repetitions=1, stacked_observations=3)
 
 
 @pytest.fixture

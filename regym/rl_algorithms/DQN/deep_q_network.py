@@ -1,15 +1,19 @@
+from typing import Dict
 import copy
 
 import torch
 import torch.optim as optim
 from torch.autograd import Variable
 
-from ..replay_buffers import ReplayBuffer, PrioritizedReplayBuffer, EXP, EXPPER
-from ..networks import hard_update
+from regym.rl_algorithms.replay_buffers import ReplayBuffer, PrioritizedReplayBuffer, EXP, EXPPER
+from regym.rl_algorithms.networks.utils import hard_update
+from regym.rl_algorithms.networks.utils import compute_weights_decay_loss
+from regym.rl_algorithms.DQN.dqn_loss import compute_loss
 
 
 class DeepQNetworkAlgorithm():
-    def __init__(self, kwargs, model, target_model=None):
+    def __init__(self, kwargs: Dict[str, object],
+                 model: torch.nn.Module, target_model: torch.nn.Module = None):
         """
         :param kwargs:
             "use_cuda": boolean to specify whether to use CUDA.
@@ -39,40 +43,43 @@ class DeepQNetworkAlgorithm():
         self.kwargs = kwargs
         self.use_cuda = kwargs["use_cuda"]
 
+        # DQN extensions
+        self.use_double = kwargs['double']
+        self.use_dueling = kwargs['dueling']
+
+        # Setting neural network models (target and normal model)
         self.model = model
+        self.target_model = target_model if target_model else copy.deepcopy(self.model)
+
         if self.use_cuda:
             self.model = self.model.cuda()
-
-        if target_model is None:
-            target_model = copy.deepcopy(self.model)
-
-        self.target_model = target_model
-        self.target_model.share_memory()
-
-        hard_update(self.target_model, self.model)
-        if self.use_cuda:
             self.target_model = self.target_model.cuda()
 
-        if self.kwargs['replayBuffer'] is None:
-            if kwargs["use_PER"]:
-                self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"], alpha=kwargs["PER_alpha"])
-            else:
-                self.replayBuffer = ReplayBuffer(capacity=kwargs["replay_capacity"])
+        self.target_model.share_memory()
+
+        # Replay buffer parameters
+        if kwargs["use_PER"]:
+            self.replayBuffer = PrioritizedReplayBuffer(capacity=kwargs["replay_capacity"], alpha=kwargs["PER_alpha"])
         else:
-            self.replayBuffer = self.kwargs['replayBuffer']
+            self.replayBuffer = ReplayBuffer(capacity=kwargs["replay_capacity"])
 
         self.min_capacity = kwargs["min_capacity"]
         self.batch_size = kwargs["batch_size"]
 
-        self.lr = kwargs["lr"]
+        # Target network update parameters
         self.TAU = kwargs["tau"]
         self.target_update_interval = int(1.0/self.TAU)
         self.target_update_count = 0
-        self.GAMMA = kwargs["gamma"]
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
 
+        # Learning rate parameters
+        self.lr = kwargs["lr"]
+        self.GAMMA = kwargs["gamma"]
+        self.optimizer: torch.optim = optim.Adam(self.model.parameters(), lr=self.lr)
+
+        # PreprocessFunction
         self.preprocess = kwargs["preprocess"]
 
+        # Exploration rate parameters
         self.epsend = kwargs['epsend']
         self.epsstart = kwargs['epsstart']
         self.epsdecay = kwargs['epsdecay']
@@ -85,6 +92,9 @@ class DeepQNetworkAlgorithm():
         cloned_target_model.share_memory()
         cloned = DeepQNetworkAlgorithm(kwargs=cloned_kwargs, model=cloned_model, target_model=cloned_target_model)
         return cloned
+
+    def is_ready_to_train(self):
+        return self.replayBuffer.current_size >= self.min_capacity
 
     def optimize_model(self, gradient_clamping_value=None):
         """
@@ -100,76 +110,76 @@ class DeepQNetworkAlgorithm():
                                         and gradients are clamped.
         :returns loss_np: numpy scalar of the estimated loss function.
         """
-
-        if len(self.replayBuffer) < self.min_capacity:
-            return None
-
-        if self.kwargs['use_PER']:
-            # Create batch with PrioritizedReplayBuffer/PER:
-            transitions, importanceSamplingWeights = self.replayBuffer.sample(self.batch_size)
-            batch = EXPPER(*zip(*transitions))
-            importanceSamplingWeights = torch.from_numpy(importanceSamplingWeights)
-        else:
-            # Create Batch with replayBuffer :
-            transitions = self.replayBuffer.sample(self.batch_size)
-            batch = EXP(*zip(*transitions))
-
-        next_state_batch = Variable(torch.cat(batch.next_state), requires_grad=False)
-        state_batch = Variable(torch.cat(batch.state), requires_grad=False)
-        action_batch = Variable(torch.cat(batch.action), requires_grad=False)
-        reward_batch = Variable(torch.cat(batch.reward), requires_grad=False).view((-1, 1))
-        done_batch = [0.0 if batch.done[i] else 1.0 for i in range(len(batch.done))]
-        done_batch = Variable(torch.FloatTensor(done_batch), requires_grad=False).view((-1, 1))
-
-        if self.use_cuda:
-            if self.kwargs['use_PER']: importanceSamplingWeights = importanceSamplingWeights.cuda()
-            next_state_batch = next_state_batch.cuda()
-            state_batch = state_batch.cuda()
-            action_batch = action_batch.cuda()
-            reward_batch = reward_batch.cuda()
-            done_batch = done_batch.cuda()
+        # TODO: worry about this later
+        # if self.kwargs['use_PER']:
+        #     # Create batch with PrioritizedReplayBuffer/PER:
+        #     transitions, importance_sampling_weights = self.replayBuffer.sample(self.batch_size)
+        #     batch = EXPPER(*zip(*transitions))
+        #     importance_sampling_weights = torch.from_numpy(importance_sampling_weights)
+        #     if self.use_cuda:
+        #         importance_sampling_weights = importance_sampling_weights.cuda()
 
         self.optimizer.zero_grad()
+        transitions, batch = self.sample_from_replay_buffer(self.batch_size)
 
-        state_action_values = self.model(state_batch)
-        state_action_values_g = state_action_values.gather(dim=1, index=action_batch)
+        next_state_batch, state_batch, action_batch, reward_batch, \
+        non_terminal_batch = self.create_tensors_for_optimization(batch,
+                                                                  use_cuda=self.use_cuda)
 
-        ############################
-        targetQ_nextS_A_values = self.target_model(next_state_batch)
-        argmaxA_targetQ_nextS_A_values, index_argmaxA_targetQ_nextS_A_values = targetQ_nextS_A_values.max(1)
-        argmaxA_targetQ_nextS_A_values = argmaxA_targetQ_nextS_A_values.view(-1, 1)
-        ############################
+        dqn_loss = compute_loss(states=state_batch,
+                                actions=action_batch,
+                                next_states=next_state_batch,
+                                rewards=reward_batch,
+                                non_terminals=non_terminal_batch,
+                                model=self.model,
+                                target_model=self.target_model,
+                                gamma=self.GAMMA,
+                                use_double=self.use_double,
+                                use_dueling=self.use_dueling,
+                                iteration_count=self.target_update_count)
 
-        # Compute the expected Q values
-        gamma_next = (self.GAMMA * argmaxA_targetQ_nextS_A_values)
-        expected_state_action_values = reward_batch + done_batch*gamma_next
-
-        # Compute loss:
-        diff = expected_state_action_values - state_action_values_g
-        if self.kwargs['use_PER']:
-            diff_squared = importanceSamplingWeights.unsqueeze(1) * diff.pow(2.0)
-        else:
-            diff_squared = diff.pow(2.0)
-        loss_per_item = diff_squared
-        loss = torch.mean(diff_squared)
-        loss.backward()
+        dqn_loss.backward()
 
         if gradient_clamping_value is not None:
             torch.nn.utils.clip_grad_norm(self.model.parameters(), gradient_clamping_value)
 
-        weights_decay_lambda = 1e-0
-        weights_decay_loss = weights_decay_lambda * 0.5*sum([torch.mean(param*param) for param in self.model.parameters()])
-        weights_decay_loss.backward()
-
         self.optimizer.step()
 
-        loss_np = loss_per_item.cpu().data.numpy()
-        if self.kwargs['use_PER']:
-            for (idx, new_error) in zip(batch.idx, loss_np):
-                new_priority = self.replayBuffer.priority(new_error)
-                self.replayBuffer.update(idx, new_priority)
+        # TODO: Worry about this later
+        #loss_per_item = dqn_loss
+        #loss_np = loss_per_item.cpu().data.numpy()
+        #if self.kwargs['use_PER']:
+        #    for (idx, new_error) in zip(batch.idx, loss_np):
+        #        new_priority = self.replayBuffer.priority(new_error)
+        #        self.replayBuffer.update(idx, new_priority)
 
-        return loss_np
+        #return loss_np
+
+    def create_tensors_for_optimization(self, batch, use_cuda: bool):
+        '''
+        TODO: document
+        '''
+        next_state_batch = Variable(torch.cat(batch.next_state), requires_grad=False)
+        state_batch = Variable(torch.cat(batch.state), requires_grad=False)
+        action_batch = Variable(torch.cat(batch.action), requires_grad=False)
+        reward_batch = Variable(torch.cat(batch.reward), requires_grad=False).view((-1, 1))
+        non_terminal_batch = [float(not batch.done[i]) for i in range(len(batch.done))]
+        non_terminal_batch = Variable(torch.FloatTensor(non_terminal_batch), requires_grad=False).view((-1, 1))
+
+        if use_cuda:
+            next_state_batch = next_state_batch.cuda()
+            state_batch = state_batch.cuda()
+            action_batch = action_batch.cuda()
+            reward_batch = reward_batch.cuda()
+            non_terminal_batch = non_terminal_batch.cuda()
+
+        return next_state_batch, state_batch, action_batch, \
+               reward_batch, non_terminal_batch
+
+    def sample_from_replay_buffer(self, batch_size: int):
+        transitions = self.replayBuffer.sample(self.batch_size)
+        batch = EXP(*zip(*transitions))
+        return transitions, batch
 
     def handle_experience(self, experience):
         '''
@@ -184,11 +194,18 @@ class DeepQNetworkAlgorithm():
         else:
             self.replayBuffer.push(experience)
 
-    def train(self, iteration=1):
-        self.target_update_count += iteration
-        for t in range(iteration):
-            lossnp = self.optimize_model()
+    def train(self, iterations: int):
+        self.target_update_count += iterations
+        for t in range(iterations):
+            _ = self.optimize_model()
 
-        if self.target_update_count > self.target_update_interval:
-            self.target_update_count = 0
-            hard_update(self.target_model,self.model)
+        def weight_decay_closure():
+            self.optimizer.zero_grad()
+            weights_decay_loss = compute_weights_decay_loss(self.model)
+            weights_decay_loss.backward()
+            return weights_decay_loss
+        self.optimizer.step(weight_decay_closure)
+
+        # Update target network
+        if self.target_update_count % self.target_update_interval == 0:
+            hard_update(self.target_model, self.model)

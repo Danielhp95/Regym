@@ -39,9 +39,18 @@ def play_single_match(task, agent_vector, keep_trajectories=False):
 
 
 def extract_winner(trajectory, break_ties=random.choice):
-    reward_vector = lambda t: t[2]
-    number_of_agents = len(reward_vector(trajectory[0]))
-    individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
-    cumulative_reward_vector = [individal_agent_trajectory_reward(trajectory, i) for i in range(number_of_agents)]
+    cumulative_reward_vector = extract_cumulative_rewards(trajectory)
     indexes_max_score = np.argwhere(cumulative_reward_vector == np.amax(cumulative_reward_vector))
     return break_ties(indexes_max_score.flatten().tolist())
+
+
+def extract_cumulative_rewards(trajectory):
+    reward_vector = lambda t: t[2]
+    number_of_agents = len(reward_vector(trajectory[0])) if isinstance(reward_vector(trajectory[0]), list) else 1
+    if number_of_agents == 1:
+        cum_reward = sum(map(lambda experience: reward_vector(experience),
+                             trajectory))
+    else:
+        individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
+        cum_reward = [individal_agent_trajectory_reward(trajectory, i) for i in range(number_of_agents)]
+    return cum_reward

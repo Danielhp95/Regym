@@ -30,5 +30,11 @@ def RPSTask():
 
 
 @pytest.fixture
+def RPSTask2Repetitions():
+    import gym_rock_paper_scissors
+    return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION, max_repetitions=2)
+
+
+@pytest.fixture
 def pendulum_task():
     return generate_task('Pendulum-v0')

@@ -1,8 +1,10 @@
 from .agent import Agent
 
 # Useful basic agents
-from .random_agent import build_Random_Agent, RandomAgent
+from .deterministic_agent import build_Deterministic_Agent, DeterministicAgent
 from .mixed_strategy_agent import MixedStrategyAgent
+from .random_agent import build_Random_Agent, RandomAgent
+from .human_agent import build_Human_Agent, HumanAgent
 
 # Tabular agents
 from .tabular_q_learning_agent import build_TabularQ_Agent, TabularQLearningAgent
@@ -15,6 +17,7 @@ from .ppo_agent import build_PPO_Agent, PPOAgent
 from .reinforce_agent import build_Reinforce_Agent, ReinforceAgent
 from .a2c_agent import build_A2C_Agent, A2CAgent
 
+# Search based agents
 from .mcts_agent import build_MCTS_Agent, MCTSAgent
 
 rockAgent     = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent')
