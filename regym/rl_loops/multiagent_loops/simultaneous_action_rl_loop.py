@@ -30,7 +30,7 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
         if render_mode == 'string': print(rendered_state)
         elif render_mode == 'rgb': env.render('rgb')
         if save_gif:
-            images.append(Image.fromarray(env.render('rgb')))
+            pass #  images.append(Image.fromarray(env.render('rgb')))
 
         iteration += 1
         action_vector = [
