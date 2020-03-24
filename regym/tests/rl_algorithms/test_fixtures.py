@@ -104,6 +104,18 @@ def mcts_config_dict():
     config['rollout_budget'] = 100000
     return config
 
+
+@pytest.fixture
+def expert_iteration_config_dict():
+    config = dict()
+    # Higher level ExIt params
+    # MCTS config
+    config['mcts_budget'] = 1
+    config['mcts_rollout_budget'] = 100000
+    # Neural net config
+    return config
+
+
 @pytest.fixture
 def FrozenLakeTask(): # Discrete Action / Observation space
     return generate_task('FrozenLake-v0')
@@ -142,7 +154,6 @@ def KuhnTask():
 def Connect4Task():
     import gym_connect4
     return generate_task('Connect4-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
-
 
 
 @pytest.fixture
