@@ -17,10 +17,7 @@ from .ppo_agent import build_PPO_Agent, PPOAgent
 from .reinforce_agent import build_Reinforce_Agent, ReinforceAgent
 from .a2c_agent import build_A2C_Agent, A2CAgent
 
-<<<<<<< HEAD
 # Search based agents
-=======
->>>>>>> 4fe8e908e20d5cfcc4777e50808e37c442e0d263
 from .mcts_agent import build_MCTS_Agent, MCTSAgent
 
 from .deterministic_agent import build_Deterministic_Agent, DeterministicAgent
