@@ -1,19 +1,21 @@
 import copy
-from ..TQL import TabularQLearningAlgorithm
-from ..TQL import RepeatedUpdateQLearningAlgorithm
+from regym.rl_algorithms.TQL import TabularQLearningAlgorithm
+from regym.rl_algorithms.TQL import RepeatedUpdateQLearningAlgorithm
 
+from regym.rl_algorithms.agents import Agent
 
-class TabularQLearningAgent():
+class TabularQLearningAgent(Agent):
+
     def __init__(self, name, algorithm):
-        self.name = name
-        self.training = True
+        super(TabularQLearningAgent, self).__init__(name=name,
+                                                    requires_environment_model=False)
         self.algorithm = algorithm
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         if self.training:
             self.algorithm.update_q_table(s, a, r, succ_s)
 
-    def take_action(self, state):
+    def take_action(self, state, legal_actions):
         return self.algorithm.find_moves(state, exploration=self.training)
 
     def clone(self, training=None):

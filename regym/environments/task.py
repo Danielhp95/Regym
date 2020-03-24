@@ -1,5 +1,8 @@
+from copy import deepcopy
 from enum import Enum
 from typing import List, Callable, Any, Dict
+from dataclasses import dataclass, field
+
 import gym
 
 import regym
@@ -16,6 +19,7 @@ class EnvType(Enum):
     MULTIAGENT_SEQUENTIAL_ACTION = 'multiagent-sequential'
 
 
+@dataclass
 class Task:
     r'''
     A Task is a thin layer of abstraction over OpenAI gym environments and
@@ -50,32 +54,22 @@ class Task:
     >>> sequential_task   = generate_task('SequentialsEnv-v0',  EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     '''
 
-    def __init__(self, name: str,
-                 env: gym.Env,
-                 env_type: EnvType,
-                 state_space_size: int,
-                 action_space_size: int,
-                 observation_dim: int,
-                 observation_type: str,
-                 action_dim: int,
-                 action_type: str,
-                 num_agents: int,
-                 hash_function: Callable[[Any], int]):
-        self.name = name
-        self.env = env
-        self.env_type = env_type
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
-        self.observation_dim = observation_dim
-        self.observation_type = observation_type
-        self.action_dim = action_dim
-        self.action_type = action_type
-        self.num_agents = num_agents
-        self.hash_function = hash_function
-        self.extended_agents = {}
+    # Properties set on __init__
+    name: str
+    env: gym.Env
+    env_type: EnvType
+    state_space_size: int
+    action_space_size: int
+    observation_dim: int
+    observation_type: str
+    action_dim: int
+    action_type: str
+    num_agents: int
+    hash_function: Callable[[Any], int]
 
-        self.total_episodes_run = 0
-
+    # Properties accessed post initializer
+    extended_agents: Dict = field(default_factory=dict)
+    total_episodes_run: int = 0
 
     def extend_task(self, agents: Dict, force=False):
         ''' TODO: DOCUMENT, TEST '''
@@ -87,8 +81,7 @@ class Task:
                 raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
             self.extended_agents[i] = agent
 
-
-    def run_episode(self, agent_vector, training: bool, render_mode: str):
+    def run_episode(self, agent_vector: List, training: bool, render_mode: str = ''):
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
@@ -100,17 +93,18 @@ class Task:
 
         *The term 'experience' is defined in regym.rl_algorithms.agents.Agent
         '''
+        if len(self.extended_agents) + len(agent_vector) < self.num_agents:
+            raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
         extended_agent_vector = self._extend_agent_vector(agent_vector)
         self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
-            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector, training)
+            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector[0], training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training)
-        self
+            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
 
-    def _extend_agent_vector(self, agent_vector):
+    def _extend_agent_vector(self, agent_vector: List):
         # This should be much prettier
         agent_index = 0
         extended_agent_vector = []
@@ -122,6 +116,24 @@ class Task:
                 agent_index += 1
 
         return extended_agent_vector
+
+    def clone(self):
+        cloned = Task(
+                name=self.name,
+                env=deepcopy(self.env),
+                env_type=self.env_type,
+                state_space_size=self.state_space_size,
+                action_space_size=self.action_space_size,
+                observation_dim=self.observation_dim,
+                observation_type=self.observation_type,
+                action_dim=self.action_dim,
+                action_type=self.action_type,
+                num_agents=self.num_agents,
+                hash_function=self.hash_function)
+        cloned.extended_agents = {k: agent.clone()
+                                  for k, agent in self.extended_agents}
+        cloned.total_episodes_run = self.total_episodes_run
+        return cloned
 
     def __repr__(self):
         s = \

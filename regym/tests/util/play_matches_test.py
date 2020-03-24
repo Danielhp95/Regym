@@ -32,7 +32,7 @@ def test_can_play_sequential_action_environments(Kuhn_task):
             super(FixedAgent, self).__init__(name=f'FixedAction: {action}')
             self.action = action
 
-        def take_action(self, *args):
+        def take_action(self, state, legal_actions):
             return self.action
 
         def handle_experience(self, *args):

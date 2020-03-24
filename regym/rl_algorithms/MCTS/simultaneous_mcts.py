@@ -3,8 +3,10 @@ from math import sqrt
 
 import random
 import gym
+
 from regym.rl_algorithms.MCTS.util import UCB1
 from regym.rl_algorithms.MCTS.simultaneous_open_loop_node import SimultaneousOpenLoopNode
+
 
 
 def selection_phase(nodes: List, state: gym.Env,
@@ -31,9 +33,9 @@ def selection_phase(nodes: List, state: gym.Env,
     expanded = [False for _ in nodes]
     while not (all(expanded) or state.is_over()):
         moves, expanded = choose_moves(nodes, selection_policy, selection_policy_args)
-        state.step(moves)
+        observations, _, _, _ = state.step(moves)
         nodes = [n.descend_and_expand(moves, state) for n in nodes]
-    return nodes
+    return nodes, observations
 
 
 def choose_moves(nodes: List,
@@ -63,9 +65,22 @@ def choose_moves(nodes: List,
     return moves, expanded
 
 
-def rollout_phase(state: gym.Env):
+def rollout_phase(state: gym.Env, rollout_policies: List, observations, rollout_budget: int):
+    '''
+    Exploration phase where :param rollout_policies: will act in
+    until either :param rollout_budget steps have been taken or a terminal node is reached.
+    :param state: Environment where the :param: rollout_policies will act in
+    :param rollout_policies: Policies to be used to take action during rollout
+    :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
+    '''
     # TODO: Currently we just stop once we reach the end of the tree
     # TODO: Implement random acting (adapt from sequential mcts)
+    for i in range(rollout_budget):
+        if state.is_over(): return state
+        action_vector = [policy.take_action(observations[i], state.get_moves(i))
+                         for policy, i in zip(
+                             rollout_policies, range(len(rollout_policies)))]
+        observations, _, _, _ = state.step(action_vector)
     return state
 
 
@@ -98,8 +113,10 @@ def action_selection_phase(nodes: List) -> List[int]:
             for n in nodes]
 
 
-def MCTS_UCT(rootstate, itermax: int, num_agents: int,
-             exploration_factor_ucb1: float = sqrt(2)) -> int:
+def MCTS_UCT(rootstate, budget: int, num_agents: int,
+             rollout_budget: int,
+             rollout_policies: List = [],
+             exploration_factor_ucb1: float = sqrt(2)):
     '''
     Conducts a game tree search using the MCTS-UCT algorithm
     for a total of :param: itermax iterations using an open loop approach
@@ -115,21 +132,26 @@ def MCTS_UCT(rootstate, itermax: int, num_agents: int,
     be extended via opponent modelling.
 
     :param rootstate: The game state for which an action must be selected.
-    :param itermax: number of MCTS iterations to be carried out.
+    :param budget: number of MCTS iterations to be carried out.
                     Also knwon as the computational budget.
     :param exploration_factor_ucb1: 'c' constant in UCB1 equation.
+    :param rollout_policies: Agent policies to be used during rollout phase
+    :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
     :returns: Action to be taken by player
     '''
+    from regym.rl_algorithms.agents import DeterministicAgent
+
+    rollout_policies = [DeterministicAgent(5, 'P1'), DeterministicAgent(5, 'P2')]
     root_nodes = [SimultaneousOpenLoopNode(state=rootstate,
                                            perspective_player=i)
                   for i in range(num_agents)]
 
-    for i in range(itermax):
+    for i in range(budget):
         nodes = root_nodes
         state = rootstate.clone()
-        nodes = selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=[exploration_factor_ucb1])
-        rollout_phase(state)
+        nodes, observations = selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=[exploration_factor_ucb1])
+        rollout_phase(state, rollout_policies, observations, rollout_budget)
         backpropagation_phase(nodes, state)
 
     all_player_actions = action_selection_phase(root_nodes)
-    return all_player_actions[0]  # TODO: this might be problematic. Look into it.
+    return all_player_actions  # TODO: this might be problematic. Look into it.

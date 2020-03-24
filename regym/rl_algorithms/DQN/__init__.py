@@ -1,2 +1,1 @@
 from .deep_q_network import DeepQNetworkAlgorithm
-from .double_deep_q_network import DoubleDeepQNetworkAlgorithm

@@ -35,9 +35,9 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
                                agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
                                total_episodes=500, training_percentage=0.9,
-                               reward_tolerance=0.1,
-                               maximum_average_reward=1.0,
-                               evaluation_method='average')
+                               reward_tolerance=1.,
+                               maximum_average_reward=10.0,
+                               evaluation_method='cumulative')
 
 
 def test_ppo_rnn_can_take_actions(RPSTask, ppo_rnn_config_dict):
@@ -69,9 +69,9 @@ def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
                                agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
                                total_episodes=500, training_percentage=0.9,
-                               reward_tolerance=0.1,
-                               maximum_average_reward=1.0,
-                               evaluation_method='average')
+                               reward_tolerance=1.,
+                               maximum_average_reward=10.0,
+                               evaluation_method='cumulative')
 
 
 def test_ppo_can_take_actions(KuhnTask, ppo_config_dict):
@@ -152,6 +152,6 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
                                agent_position=agent_position,
                                task=kuhn_task,
                                total_episodes=total_episodes, training_percentage=0.9,
-                               reward_tolerance=0.1,
+                               reward_tolerance=1.,
                                maximum_average_reward=max_reward,
                                evaluation_method='last')

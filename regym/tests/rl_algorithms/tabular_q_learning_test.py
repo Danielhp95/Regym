@@ -1,7 +1,7 @@
 from regym.rl_algorithms import rockAgent
 from regym.rl_algorithms.agents import build_TabularQ_Agent
 
-from test_fixtures import tabular_q_learning_config_dict, RPSTask
+from test_fixtures import tabular_q_learning_config_dict, RPSTask, RPSTaskSingleRepetition
 
 
 def test_creation_tabular_q_learning_algorithm_from_task_and_config(RPSTask, tabular_q_learning_config_dict):
@@ -34,21 +34,25 @@ def test_tabular_q_learning_can_take_actions(RPSTask, tabular_q_learning_config_
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
         random_observation = env.observation_space.sample()[0]
-        a = agent.take_action(random_observation)
+        a = agent.take_action(random_observation, legal_actions=[0, 1, 2])
         assert env.action_space.contains([a, a])
 
 
-def test_learns_to_beat_rock_in_RPS(RPSTask, tabular_q_learning_config_dict):
+def test_learns_to_beat_rock_in_RPS(RPSTaskSingleRepetition, tabular_q_learning_config_dict):
     '''
     Test used to make sure that agent is 'learning' by learning a best response
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    from rps_test import learns_against_fixed_opponent_RPS
+    from play_against_fixed_opponent import learn_against_fix_opponent
     tabular_q_learning_config_dict['use_repeated_update_q_learning'] = True
 
-    agent = build_TabularQ_Agent(RPSTask, tabular_q_learning_config_dict, 'TQL_RUQL')
+    agent = build_TabularQ_Agent(RPSTaskSingleRepetition, tabular_q_learning_config_dict, 'TQL_RUQL')
     assert agent.training
-    learns_against_fixed_opponent_RPS(agent, fixed_opponent=rockAgent,
-                                      total_episodes=100000, training_percentage=0.98,
-                                      reward_threshold=0.1)
+    learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
+                               agent_position=0,  # Doesn't matter in RPS
+                               task=RPSTaskSingleRepetition,
+                               total_episodes=500, training_percentage=0.9,
+                               reward_tolerance=0.,
+                               maximum_average_reward=1.0,
+                               evaluation_method='cumulative')
