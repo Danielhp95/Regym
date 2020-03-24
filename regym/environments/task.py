@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
+from copy import deepcopy
 from enum import Enum
 from typing import List, Callable, Any, Dict
+from dataclasses import dataclass, field
 
 import gym
 
@@ -53,7 +54,7 @@ class Task:
     >>> sequential_task   = generate_task('SequentialsEnv-v0',  EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     '''
 
-    # Properties changing in initializer
+    # Properties set on __init__
     name: str
     env: gym.Env
     env_type: EnvType
@@ -66,8 +67,8 @@ class Task:
     num_agents: int
     hash_function: Callable[[Any], int]
 
+    # Properties accessed post initializer
     extended_agents: Dict = field(default_factory=dict)
-
     total_episodes_run: int = 0
 
     def extend_task(self, agents: Dict, force=False):
@@ -79,7 +80,6 @@ class Task:
             if i in self.extended_agents and not force:
                 raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
             self.extended_agents[i] = agent
-
 
     def run_episode(self, agent_vector: List, training: bool, render_mode: str = ''):
         '''
@@ -116,6 +116,24 @@ class Task:
                 agent_index += 1
 
         return extended_agent_vector
+
+    def clone(self):
+        cloned = Task(
+                name=self.name,
+                env=deepcopy(self.env),
+                env_type=self.env_type,
+                state_space_size=self.state_space_size,
+                action_space_size=self.action_space_size,
+                observation_dim=self.observation_dim,
+                observation_type=self.observation_type,
+                action_dim=self.action_dim,
+                action_type=self.action_type,
+                num_agents=self.num_agents,
+                hash_function=self.hash_function)
+        cloned.extended_agents = {k: agent.clone()
+                                  for k, agent in self.extended_agents}
+        cloned.total_episodes_run = self.total_episodes_run
+        return cloned
 
     def __repr__(self):
         s = \

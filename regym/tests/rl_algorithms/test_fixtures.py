@@ -101,6 +101,7 @@ def a2c_config_dict():
 def mcts_config_dict():
     config = dict()
     config['budget'] = 1
+    config['rollout_budget'] = 100000
     return config
 
 @pytest.fixture

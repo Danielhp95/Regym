@@ -2,9 +2,10 @@ from copy import deepcopy
 import pytest
 import numpy as np
 
-from test_fixtures import RPSTask, pendulum_task, ppo_config_dict
+from test_fixtures import RPSTask, RPSTask2Repetitions, pendulum_task, ppo_config_dict
 from regym.environments import generate_task, EnvType
 from regym.rl_algorithms import build_PPO_Agent
+from regym.rl_algorithms import rockAgent, paperAgent, scissorsAgent
 
 from regym.evaluation import benchmark_agents_on_tasks
 
@@ -60,8 +61,6 @@ def test_single_agent_tasks_only_accept_one_agent(pendulum_task, ppo_config_dict
 
 
 def test_can_compute_winrate_for_player1_multiagent_task(RPSTask):
-    from regym.rl_algorithms import rockAgent, paperAgent, scissorsAgent
-
     expected_winrates = [0, 1]
 
     vs_paper = deepcopy(RPSTask)
@@ -75,3 +74,28 @@ def test_can_compute_winrate_for_player1_multiagent_task(RPSTask):
                                                 agents=[rockAgent],
                                                 num_episodes=10)
     np.testing.assert_array_equal(expected_winrates, actual_winrates)
+
+
+def test_can_compute_cumulative_reward_for_agent_single_agent_task(RPSTask2Repetitions):
+    vs_paper = deepcopy(RPSTask2Repetitions)
+    vs_scissors = deepcopy(RPSTask2Repetitions)
+    vs_paper.extend_task(agents={1: paperAgent})
+    vs_scissors.extend_task(agents={1: scissorsAgent})
+
+    expected_cumulative_rewards = [-2., 2]
+
+    actual_winrates, actual_cumulative_rewards = benchmark_agents_on_tasks(tasks=[vs_paper, vs_scissors],
+                                                                        agents=[rockAgent],
+                                                                        keep_cumulative_rewards=True,
+                                                                        num_episodes=10)
+    np.testing.assert_array_equal(expected_cumulative_rewards, actual_cumulative_rewards)
+
+
+def test_single_agent_can_populate_all_agents(RPSTask):
+    expected_winrates = [0.5]
+
+    actual_winrates = benchmark_agents_on_tasks(tasks=[RPSTask],
+                                                agents=[rockAgent],
+                                                num_episodes=200,
+                                                populate_all_agents=True)
+    np.testing.assert_allclose(expected_winrates, actual_winrates, atol=0.1)

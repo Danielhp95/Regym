@@ -37,3 +37,6 @@ class MixedStrategyAgent(Agent):
 
     def clone(self, training=None, path=None):
         return MixedStrategyAgent(support_vector=self.support_vector, name=self.name)
+
+    def __repr__(self):
+        return f'name: {self.name}. strategy support vector: {self.support_vector}'

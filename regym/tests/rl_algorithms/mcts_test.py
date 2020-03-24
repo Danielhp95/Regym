@@ -34,6 +34,7 @@ def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, mcts_co
 
 def test_can_coordinate_in_random_walk(RandomWalkTask, mcts_config_dict):
     mcts_config_dict['budget'] = 100
+    mcts_config_dict['rollout_budget'] = 0
 
     mcts1 = build_MCTS_Agent(RandomWalkTask, mcts_config_dict, agent_name='MCTS1-test')
     mcts2 = build_MCTS_Agent(RandomWalkTask, mcts_config_dict, agent_name='MCTS2-test')

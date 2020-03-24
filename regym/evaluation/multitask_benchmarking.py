@@ -4,14 +4,16 @@ import regym
 
 from regym.environments import Task, EnvType
 from regym.rl_algorithms.agents import Agent
-from regym.util import play_multiple_matches
+from regym.util import play_multiple_matches, extract_cumulative_rewards
 
 
 def benchmark_agents_on_tasks(tasks: List[Task],
                               agents: List[Agent],
                               num_episodes: int,
+                              keep_cumulative_rewards=False,
                               populate_all_agents=False) -> np.ndarray:
     '''
+    TODO: This function does too much. separate into smaller functions?
     Benchmark :param: agents in :param: tasks for :param: num_episodes.
     Tasks must either be ALL EnvType.SINGLE_AGENT
     or ALL multiagent variants.
@@ -35,16 +37,30 @@ def benchmark_agents_on_tasks(tasks: List[Task],
     :param populate_all_agents: If a single agent is provided in :param: agents,
                                 this flag indicates whether that agent's policy
                                 will populate all other agents spots in the environment.
+                                A fresh copy is made for each required agent.
     '''
     check_input_validity(tasks, agents, num_episodes, populate_all_agents)
     # TODO: for single agent tasks we can't pass a vector, change naming
-    winrates = []
+    winrates, cumulative_rewards = [], []
     for t in tasks:
-        player_winrates = play_multiple_matches(task=t,
-                                                agent_vector=agents,
-                                                n_matches=num_episodes)
+        agent_vector = agents if not populate_all_agents else [agents[0].clone()
+                                                               for _ in range(t.num_agents)]
+        if keep_cumulative_rewards:
+            player_winrates, trajectories = play_multiple_matches(task=t,
+                                                                  agent_vector=agent_vector,
+                                                                  n_matches=num_episodes,
+                                                                  keep_trajectories=True)
+            avg_cumulative_reward = np.sum(np.array([extract_cumulative_rewards(t)[0] for t in trajectories])) / len(trajectories)
+            cumulative_rewards.append(avg_cumulative_reward)
+        else:
+            player_winrates = play_multiple_matches(task=t,
+                                                    agent_vector=agent_vector,
+                                                    n_matches=num_episodes)
         winrates.append(player_winrates[0])
-    return winrates
+    if keep_cumulative_rewards:
+        return winrates, cumulative_rewards
+    else:
+        return winrates
 
 
 def check_input_validity(tasks: List[Task], agents: List[Agent],

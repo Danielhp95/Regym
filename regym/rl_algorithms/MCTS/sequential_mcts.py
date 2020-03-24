@@ -20,9 +20,11 @@ def expansion_phase(node, state):
     return node
 
 
-def rollout_phase(state):
-    while (moves := state.get_moves()) != []:
-        state.step(random.choice(moves))
+def rollout_phase(state, rollout_budget: int):
+    for i in range(rollout_budget):
+        moves = state.get_moves()
+        if moves == []: return
+        state.step(random.choice(state.get_moves()))
 
 
 def backpropagation_phase(node, state):
@@ -35,7 +37,8 @@ def action_selection_phase(node):
     return sorted(node.child_nodes, key=lambda c: c.wins / c.visits)[-1].move
 
 
-def MCTS_UCT(rootstate, itermax: int, num_agents: int,
+def MCTS_UCT(rootstate, budget: int, num_agents: int,
+             rollout_budget = 100000,
              exploration_factor_ucb1: float = sqrt(2)):
     """
     Conducts a game tree search using the MCTS-UCT algorithm
@@ -44,17 +47,18 @@ def MCTS_UCT(rootstate, itermax: int, num_agents: int,
     with results being [0.0, 1.0].
 
     :param rootstate: The game state for which an action must be selected.
-    :param itermax: number of MCTS iterations to be carried out. Also knwon as the computational budget.
+    :param budget: number of MCTS iterations to be carried out. Also knwon as the computational budget.
+    :param num_agents: UNUSED
     :returns: (int) Action that will be taken by an agent.
     """
     rootnode = SequentialOpenLoopNode(state=rootstate)
 
-    for _ in range(itermax):
+    for _ in range(budget):
         node  = rootnode
         state = rootstate.clone()
         node  = selection_phase(node, state, selection_policy=UCB1, selection_policy_args=[exploration_factor_ucb1])
         node  = expansion_phase(node, state)
-        rollout_phase(state)
+        rollout_phase(state, rollout_budget)
         backpropagation_phase(node, state)
 
     return action_selection_phase(rootnode)

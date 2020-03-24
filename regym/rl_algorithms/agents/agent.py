@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class Agent(ABC):
     '''
     This Agent class is an abstract interface from to subclass all other agents.

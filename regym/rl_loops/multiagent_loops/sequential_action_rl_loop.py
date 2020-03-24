@@ -33,7 +33,8 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
         if not agent.requires_environment_model:
             action = agent.take_action(observations[current_player],
                                        legal_actions=legal_actions)
-        else: action = agent.take_action(deepcopy(env))
+        else:
+            action = agent.take_action(deepcopy(env), current_player)
 
         # Environment step
         succ_observations, reward_vector, done, info = env.step(action)
