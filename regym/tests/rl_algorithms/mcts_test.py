@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 
 from test_fixtures import mcts_config_dict, Connect4Task, RandomWalkTask
-from utils import can_act_in_environment
 
 from regym.rl_algorithms.agents import build_MCTS_Agent
 from regym.util.play_matches import extract_winner
@@ -17,7 +16,7 @@ def test_non_integer_budget_raises_value_error(Connect4Task):
 
 def test_mcts_can_take_actions_discrete_obvservation_discrete_action(Connect4Task, mcts_config_dict):
     mcts1 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
-    mcts2 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
+    mcts2 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS2-test')
     Connect4Task.run_episode([mcts1, mcts2], training=False)
 
 

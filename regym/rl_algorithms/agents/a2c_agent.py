@@ -1,3 +1,5 @@
+from typing import List
+
 from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.A2C import A2CAlgorithm
 
@@ -27,20 +29,18 @@ class A2CAgent(Agent):
             self.algorithm.train(self.samples, bootstrapped_reward)
             self.samples = []
 
-    def take_action(self, state):
+    def take_action(self, state, legal_actions: List[int]):
         self.current_prediction = self.algorithm.model(state)
         return self.current_prediction['action'].item()
 
     def clone(self, training=None):
-        pass
+        raise NotImplementedError('Cloning A2CAgent not supported')
 
 
 def build_A2C_Agent(task, config, agent_name):
     '''
     :param task: Environment specific configuration
     :param agent_name: String identifier for the agent
-    :param algorithm: Reinforcement Learning algorithm used to update the agent's policy.
-                      Contains the agent's policy, represented as a neural network.
     :param config: Dictionary whose entries contain hyperparameters for the A2C agents:
         - 'discount_factor':       Discount factor (gamma in standard RL equations) used as a -variance / +bias tradeoff.
         - 'n_steps':               'Forward view' timesteps used to compute the Q_values used to approximate the advantage function
