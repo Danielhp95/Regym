@@ -126,6 +126,13 @@ def RPSTask():
 
 
 @pytest.fixture
+def RPSTaskSingleRepetition():
+    import gym_rock_paper_scissors
+    return generate_task('RockPaperScissors-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION,
+                         max_repetitions=1, stacked_observations=3)
+
+
+@pytest.fixture
 def KuhnTask():
     import gym_kuhn_poker
     return generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
