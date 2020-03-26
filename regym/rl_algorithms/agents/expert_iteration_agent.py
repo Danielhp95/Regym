@@ -92,9 +92,9 @@ def build_ExpertIteration_Agent(task, config, agent_name):
         - 'mcts_rollout_budget': (Int) Number of steps to simulate during
                                  rollout_phase
 TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in DPIQN paper
-        
+
         Neural Network params:
-TODO    - 'batch_size': (Int) Minibatch size used during training 
+TODO    - 'batch_size': (Int) Minibatch size used during training
         - 'feature_extractor_arch': (str) Architechture for the feature extractor
 
         For Convolutional2DBody:
