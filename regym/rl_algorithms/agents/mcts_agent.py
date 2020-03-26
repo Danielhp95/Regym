@@ -55,7 +55,7 @@ class MCTSAgent(Agent):
         return cloned
 
     def __repr__(self):
-        s = f'MCTSAgent: {self.name}. Budget: {self.budget}'
+        s = f'MCTSAgent: {self.name}.\nBudget: {self.budget}\nRollout budget: {self.rollout_budget}\nExploration cnst: {self.exploration_constant}'
         return s
 
 
