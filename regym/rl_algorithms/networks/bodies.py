@@ -3,12 +3,14 @@
 # Permission given to modify the code as long as you keep this        #
 # declaration at the top                                              #
 #######################################################################
+from typing import List, Callable
 from functools import reduce
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from regym.rl_algorithms.networks.utils import layer_init, layer_init_lstm
+from regym.rl_algorithms.networks.utils import convolutional_layer_output_dimensions
 
 
 
@@ -28,6 +30,81 @@ class NatureConvBody(nn.Module):
         y = y.view(y.size(0), -1)
         y = F.relu(self.fc4(y))
         return y
+
+
+class Convolutional2DBody(nn.Module):
+    def __init__(self, input_shape: List[int],
+                 channels: List[int], kernel_sizes: List[int],
+                 paddings: List[int], strides: List[int],
+                 use_batch_normalization=True,
+                 gating_function: Callable = F.relu):
+        '''
+        TODO
+        '''
+        super().__init__()
+
+        self.check_input_validity(channels, kernel_sizes,
+                                  paddings, strides)
+
+        self.gating_function = gating_function
+        height_in, width_in = input_shape
+
+        self.convolutions, (dim_height, dim_width) = \
+                self.create_convolutional_layers(height_in, width_in, channels,
+                                                 kernel_sizes, paddings, strides,
+                                                 use_batch_normalization=use_batch_normalization)
+        # TODO: get feature_dim should be set here
+        self.feature_dim = dim_height * dim_width * channels[-1]
+
+    def create_convolutional_layers(self, height_in: int, width_in: int,
+                                    channels: List[int], kernel_sizes: List[int],
+                                    paddings: List[int],
+                                    strides: List[int],
+                                    use_batch_normalization: bool) -> nn.ModuleList:
+        # We compute the dimension of the input. Useful for debuggin too
+        self.dimensions = [(height_in, width_in)]
+
+        dim_height, dim_width = height_in, width_in
+
+        # Create convolutions and re-compute dimensions as
+        # new conv layers are added
+        convolutions = nn.ModuleList()
+        for c_in, c_out, k, p, s in zip(
+                channels, channels[1:], kernel_sizes, paddings, strides):
+            convolutions.append(
+                    layer_init(
+                        nn.Conv2d(in_channels=c_in, out_channels=c_out,
+                                  kernel_size=k, stride=s, padding=p))
+                    )
+
+            if use_batch_normalization: convolutions.append(nn.BatchNorm2d(c_out))
+
+            dim_height, dim_width = convolutional_layer_output_dimensions(
+                    height=dim_height, width=dim_width, kernel_size=k,
+                    dilation=1,  # TODO: support dilation, if it ever becomes useful.
+                    padding=p, stride=s)
+            if dim_height < 1 or dim_width < 1:
+                raise ValueError(f'At Convolutional layer {len(self.dimensions)} the dimensions of the convoluional map became invalid (less than 1): height = {dim_height}, width = {dim_width}')
+            self.dimensions.append((dim_height, dim_width))
+
+        return convolutions, (dim_height, dim_width)
+
+    def forward(self, x):
+        x = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
+        x = x.flatten()
+        x = self.gating_function(x)
+        return x
+
+    def check_input_validity(self, channels, kernel_sizes, paddings, strides):
+        if len(channels) < 2: raise ValueError('At least 2 channels must be specified')
+        if len(kernel_sizes) != (len(channels) - 1):
+            raise ValueError(f'{len(kernel_sizes)} kernel_sizes were specified, but exactly {len(channels) -1} are required')
+        if len(kernel_sizes) != (len(channels) - 1):
+            raise ValueError(f'{len(kernel_sizes)} kernel_sizes were specified, but exactly {len(channels) -1} are required')
+        if len(paddings) != (len(channels) - 1):
+            raise ValueError(f'{len(paddings)} paddings were specified, but exactly {len(channels) -1} are required')
+        if len(strides) != (len(channels) - 1):
+            raise ValueError(f'{len(strides)} strides were specified, but exactly {len(channels) -1} are required')
 
 
 class DDPGConvBody(nn.Module):

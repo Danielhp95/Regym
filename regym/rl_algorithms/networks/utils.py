@@ -1,4 +1,6 @@
+from typing import Tuple
 import os
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -121,3 +123,16 @@ def random_sample(indices, batch_size):
     remainder = len(indices) % batch_size
     if remainder:
         yield indices[-remainder:]
+
+
+def convolutional_layer_output_dimensions(height: int, width: int,
+                                          kernel_size: int, dilation: int, padding: int,
+                                          stride: int) -> Tuple[int, int]:
+    '''
+    From https://pytorch.org/docs/stable/nn.html?highlight=torch%20nn%20conv2d#torch.nn.Conv2d
+    '''
+    height_out = 1 + ((height + 2 * padding - dilation * (kernel_size - 1) - 1) \
+                      // stride)
+    width_out = 1 + ((width + 2 * padding - dilation * (kernel_size - 1) - 1) \
+                      // stride)
+    return height_out, width_out
