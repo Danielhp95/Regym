@@ -3,7 +3,7 @@
 # Permission given to modify the code as long as you keep this        #
 # declaration at the top                                              #
 #######################################################################
-from typing import List, Callable
+from typing import List, Callable, Iterable
 from functools import reduce
 
 import torch
@@ -12,6 +12,20 @@ import torch.nn.functional as F
 from regym.rl_algorithms.networks.utils import layer_init, layer_init_lstm
 from regym.rl_algorithms.networks.utils import convolutional_layer_output_dimensions
 
+
+
+class SequentialBody(nn.Module):
+    '''
+    A wrapper around torch.nn.Sequential so that it exposes property 'feature_dim'
+    '''
+
+    def __init__(self, *bodies: Iterable[nn.Module]):
+        super().__init__()
+        self.sequence = nn.Sequential(*bodies)
+        self.feature_dim = self.sequence[-1].feature_dim
+
+    def forward(self, x: torch.Tensor):
+        return self.sequence(x)
 
 
 class NatureConvBody(nn.Module):
@@ -90,10 +104,10 @@ class Convolutional2DBody(nn.Module):
         return convolutions, (dim_height, dim_width)
 
     def forward(self, x):
-        x = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
-        x = x.flatten()
-        x = self.gating_function(x)
-        return x
+        conv_map = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
+        flattened_conv_map = conv_map.flatten()
+        flat_embedding = self.gating_function(flattened_conv_map)
+        return flat_embedding
 
     def check_input_validity(self, channels, kernel_sizes, paddings, strides):
         if len(channels) < 2: raise ValueError('At least 2 channels must be specified')

@@ -261,9 +261,8 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
 
     # TODO: type hint rnn_states
-    def forward(self, obs: np.ndarray, action: int = None, rnn_states=None,
+    def forward(self, obs: torch.Tensor, action: int = None, rnn_states=None,
                 legal_actions: List[int] = None):
-        obs = tensor(obs)
         if rnn_states is not None:
             next_rnn_states = {k: None for k in rnn_states}
 
