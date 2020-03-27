@@ -57,7 +57,7 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
         if 'legal_actions' in info: legal_actions = info['legal_actions']
 
-    propagate_last_experience(agent_vector, trajectory, reward_vector, succ_observations)
+    if training: propagate_last_experience(agent_vector, trajectory, reward_vector, succ_observations)
     return trajectory
 
 
