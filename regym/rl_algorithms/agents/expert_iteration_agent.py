@@ -14,6 +14,7 @@ class ExpertIterationAgent(Agent):
 
     def __init__(self, name: str,
                  expert: MCTSAgent, apprentice: nn.Module,
+                 use_apprentice_in_expert: bool,
                  memory_size: int,
                  use_agent_modelling: bool = False  # TODO: remove default val
                  ):
@@ -21,13 +22,19 @@ class ExpertIterationAgent(Agent):
         :param name: String identifier for the agent
         :param expert: Agent used to take actions in the environment
                        and create optimization targets for the apprentice
-        :param memory_size: size of "replay buffer"
         :param apprentice: TODO
+        :param use_apprentice_in_expert: whether to bias MCTS's selection
+                                         phase and expansion phase with the
+                                         apprentice.
+        :param memory_size: size of "replay buffer"
         '''
         super().__init__(name=name, requires_environment_model=True)
         self.expert = expert
         self.apprentice = apprentice
+
+        # Algorithmic variations
         self.use_agent_modelling = use_agent_modelling
+        self.use_apprentice_in_expert = use_apprentice_in_expert
 
         self.current_prediction: Dict = {}
         self.storage = self.init_storage(size=memory_size)
@@ -48,11 +55,9 @@ class ExpertIterationAgent(Agent):
         self.storage.add({'normalized_child_visitations': normalized_visits,
                           's': s})
 
-
     def normalize(self, x):
         total = sum(x)
         return [x_i / total for x_i in x]
-
 
     def take_action(self, env: gym.Env, player_index: int):
         action = self.expert.take_action(env, player_index)
@@ -108,6 +113,12 @@ def build_ExpertIteration_Agent(task, config, agent_name):
     :param config: Dict contain hyperparameters for the ExpertIterationAgent:
         Higher level params:
         - 'memory_size': (Int) size of "replay buffer"
+        - 'use_apprentice_in_expert': (Bool) whether to bias MCTS's selection
+                                      phase and expansion phase with the apprentice.
+                                      If False, Expert Iteration becomes the
+                                      DAGGER algorithm:
+                                      https://www.cs.cmu.edu/~sross1/publications/Ross-AIStats11-NoRegret.pdf
+
 
         MCTS params:
         - 'mcts_budget': (Int) Number of iterations of the MCTS loop that will be carried
@@ -118,6 +129,7 @@ TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in D
 
         Neural Network params:
 TODO    - 'batch_size': (Int) Minibatch size used during training
+TODO    - 'learning_rate': (Float) Learning rate for neural network optimizer
         - 'feature_extractor_arch': (str) Architechture for the feature extractor
             + For Convolutional2DBody:
             - 'preprocessed_input_dimensions': Tuple[int] Input dimensions for each channel
@@ -131,5 +143,6 @@ TODO    - 'batch_size': (Int) Minibatch size used during training
     return ExpertIterationAgent(name=agent_name,
                                 expert=expert,
                                 apprentice=apprentice,
+                                use_apprentice_in_expert=config['use_apprentice_in_expert'],
                                 memory_size=config['memory_size'],
                                 use_agent_modelling=bool(config['use_agent_modelling']))
