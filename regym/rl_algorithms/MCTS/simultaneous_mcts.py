@@ -115,6 +115,7 @@ def action_selection_phase(nodes: List) -> List[int]:
 
 def MCTS_UCT(rootstate, budget: int, num_agents: int,
              rollout_budget: int,
+             player_index: int,
              rollout_policies: List = [],
              exploration_factor_ucb1: float = sqrt(2)):
     '''
@@ -134,6 +135,7 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
     :param rootstate: The game state for which an action must be selected.
     :param budget: number of MCTS iterations to be carried out.
                     Also knwon as the computational budget.
+    :param player_index: Player whom called this algorithm
     :param exploration_factor_ucb1: 'c' constant in UCB1 equation.
     :param rollout_policies: Agent policies to be used during rollout phase
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
@@ -154,4 +156,5 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
         backpropagation_phase(nodes, state)
 
     all_player_actions = action_selection_phase(root_nodes)
-    return all_player_actions  # TODO: this might be problematic. Look into it.
+    child_visitations = [n.visits for n in root_nodes[player_index].child_nodes]
+    return all_player_actions[player_index], child_visitations

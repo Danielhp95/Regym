@@ -38,7 +38,8 @@ def action_selection_phase(node):
 
 
 def MCTS_UCT(rootstate, budget: int, num_agents: int,
-             rollout_budget = 100000,
+             player_index: int,
+             rollout_budget = 100000,  # Large value = unbounded rollout_phase
              exploration_factor_ucb1: float = sqrt(2)):
     """
     Conducts a game tree search using the MCTS-UCT algorithm
@@ -48,6 +49,7 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
 
     :param rootstate: The game state for which an action must be selected.
     :param budget: number of MCTS iterations to be carried out. Also knwon as the computational budget.
+    :param player_index: Player whom called this algorithm
     :param num_agents: UNUSED
     :returns: (int) Action that will be taken by an agent.
     """
@@ -61,4 +63,6 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
         rollout_phase(state, rollout_budget)
         backpropagation_phase(node, state)
 
-    return action_selection_phase(rootnode)
+    action = action_selection_phase(rootnode)
+    child_visitations = [n.visits for n in rootnode.child_nodes]
+    return action, child_visitations

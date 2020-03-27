@@ -32,16 +32,20 @@ class MCTSAgent(Agent):
         self.rollout_budget = rollout_budget
         self.exploration_constant = exploration_constant
         self.task_num_agents = task_num_agents
+        self.current_prediction: Dict = {}
 
     def take_action(self, env: gym.Env, player_index: int):
-        player_actions = self.algorithm(
+        action, child_visitations = self.algorithm(
+                player_index=player_index,
                 rootstate=env,
                 budget=self.budget,
                 rollout_budget=self.rollout_budget,
                 num_agents=self.task_num_agents,
                 exploration_factor_ucb1=self.exploration_constant)
-        if isinstance(player_actions, list): return player_actions[player_index]
-        return player_actions
+
+        self.current_prediction['action'] = action
+        self.current_prediction['child_visitations'] = child_visitations
+        return action
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)

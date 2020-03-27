@@ -47,4 +47,3 @@ def test_can_coordinate_in_random_walk(RandomWalkTask, mcts_config_dict):
 
     np.testing.assert_array_equal(expected_end_state, actual_end_state_p1)
     np.testing.assert_array_equal(expected_end_state, actual_end_state_p2)
-
