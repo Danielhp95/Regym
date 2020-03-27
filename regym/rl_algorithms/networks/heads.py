@@ -103,7 +103,6 @@ class CategoricalNet(nn.Module, BaseNet):
         self.action_dim = action_dim
         self.num_atoms = num_atoms
         self.body = body
-        self.to(Config.DEVICE)
 
     def forward(self, x):
         phi = self.body(tensor(x))
