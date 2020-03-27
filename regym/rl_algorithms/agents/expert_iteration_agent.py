@@ -3,6 +3,7 @@ from typing import List, Dict
 import gym
 import torch.nn as nn
 
+from regym.rl_algorithms.replay_buffers import Storage
 from regym.rl_algorithms.networks import Convolutional2DBody, FCBody, CategoricalActorCriticNet, SequentialBody
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
@@ -13,12 +14,14 @@ class ExpertIterationAgent(Agent):
 
     def __init__(self, name: str,
                  expert: MCTSAgent, apprentice: nn.Module,
+                 memory_size: int,
                  use_agent_modelling: bool = False  # TODO: remove default val
                  ):
         '''
         :param name: String identifier for the agent
         :param expert: Agent used to take actions in the environment
                        and create optimization targets for the apprentice
+        :param memory_size: size of "replay buffer"
         :param apprentice: TODO
         '''
         super().__init__(name=name, requires_environment_model=True)
@@ -26,15 +29,33 @@ class ExpertIterationAgent(Agent):
         self.apprentice = apprentice
         self.use_agent_modelling = use_agent_modelling
 
+        self.current_prediction: Dict = {}
+        self.storage = self.init_storage(size=memory_size)
+
+    def init_storage(self, size: int):
+        storage = Storage(size=size)
+        storage.add_key('normalized_child_visitations')
+        return storage
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super().handle_experience(s, a, r, succ_s, done)
 
+        normalized_visits = self.normalize(
+                self.expert.current_prediction['child_visitations'])
+
+        # TODO: get opponents action from current_prediction
+
+        self.storage.add({'normalized_child_visitations': normalized_visits,
+                          's': s})
+
+
+    def normalize(self, x):
+        total = sum(x)
+        return [x_i / total for x_i in x]
+
+
     def take_action(self, env: gym.Env, player_index: int):
-        # Use expert to get an action / node visitation
         action = self.expert.take_action(env, player_index)
-        # Store action in storage (check Daniel's implementation)
-        # return action
         return action
 
     def clone(self):
@@ -85,8 +106,10 @@ def build_ExpertIteration_Agent(task, config, agent_name):
     :param task: Environment specific configuration
     :param agent_name: String identifier for the agent
     :param config: Dict contain hyperparameters for the ExpertIterationAgent:
+        Higher level params:
+        - 'memory_size': (Int) size of "replay buffer"
 
-        MCTS params
+        MCTS params:
         - 'mcts_budget': (Int) Number of iterations of the MCTS loop that will be carried
                                  out before an action is selected.
         - 'mcts_rollout_budget': (Int) Number of steps to simulate during
@@ -96,12 +119,11 @@ TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in D
         Neural Network params:
 TODO    - 'batch_size': (Int) Minibatch size used during training
         - 'feature_extractor_arch': (str) Architechture for the feature extractor
-
-        For Convolutional2DBody:
-        - 'preprocessed_input_dimensions': Tuple[int] Input dimensions for each channel
-        - 'channels': Tuple[int]
-        - 'kernel_sizes': Tuple[int]
-        - 'paddings': Tuple[int]
+            + For Convolutional2DBody:
+            - 'preprocessed_input_dimensions': Tuple[int] Input dimensions for each channel
+            - 'channels': Tuple[int]
+            - 'kernel_sizes': Tuple[int]
+            - 'paddings': Tuple[int]
     '''
 
     apprentice = build_apprentice_model(task, config)
@@ -109,4 +131,5 @@ TODO    - 'batch_size': (Int) Minibatch size used during training
     return ExpertIterationAgent(name=agent_name,
                                 expert=expert,
                                 apprentice=apprentice,
+                                memory_size=config['memory_size'],
                                 use_agent_modelling=bool(config['use_agent_modelling']))

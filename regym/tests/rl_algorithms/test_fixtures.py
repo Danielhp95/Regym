@@ -110,6 +110,7 @@ def expert_iteration_config_dict():
     config = dict()
     # Higher level ExIt params
     config['use_agent_modelling'] = False
+    config['memory_size'] = 50
     # MCTS config
     config['mcts_budget'] = 1
     config['mcts_rollout_budget'] = 100000

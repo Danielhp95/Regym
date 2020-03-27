@@ -20,5 +20,6 @@ def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, expert_
 
     trajectory = Connect4Task.run_episode([ex_it, random_agent], training=False)
     assert extract_winner(trajectory) == 0  # First player (index 0) has a much higher budget
+
     trajectory = Connect4Task.run_episode([random_agent, ex_it], training=False)
     assert extract_winner(trajectory) == 1  # Second player (index 1) has a much higher budget
