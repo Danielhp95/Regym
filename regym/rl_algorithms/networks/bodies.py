@@ -50,7 +50,7 @@ class Convolutional2DBody(nn.Module):
     def __init__(self, input_shape: List[int],
                  channels: List[int], kernel_sizes: List[int],
                  paddings: List[int], strides: List[int],
-                 use_batch_normalization=True,
+                 use_batch_normalization=False,
                  gating_function: Callable = F.relu):
         '''
         TODO
@@ -105,7 +105,8 @@ class Convolutional2DBody(nn.Module):
 
     def forward(self, x):
         conv_map = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
-        flattened_conv_map = conv_map.flatten()
+        # Without start_dim, we are flattening over the entire batch!
+        flattened_conv_map = conv_map.flatten(start_dim=1)
         flat_embedding = self.gating_function(flattened_conv_map)
         return flat_embedding
 
