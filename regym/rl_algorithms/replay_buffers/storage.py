@@ -35,3 +35,8 @@ class Storage:
     def cat(self, keys):
         data = [getattr(self, k)[:self.size] for k in keys]
         return data
+
+    def __repr__(self):
+        keys_and_item_numbers = [(k, len(getattr(self, k)))
+                                 for k in self.keys if getattr(self, k) != []]
+        return f'Storage. Size: {self.size}. Used keys: {keys_and_item_numbers}'
