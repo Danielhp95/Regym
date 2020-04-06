@@ -9,11 +9,11 @@ from regym.rl_algorithms import build_ExpertIteration_Agent
 def test_expert_iteration_can_take_actions_discrete_obvservation_discrete_action(Connect4Task, expert_iteration_config_dict):
     exIt_agent_1 = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt1-test')
     exIt_agent_2 = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt2-test')
-    Connect4Task.run_episode([exIt_agent_1, exIt_agent_2], training=False)
+    Connect4Task.run_episode([exIt_agent_1, exIt_agent_2], training=True)
 
 
 def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, expert_iteration_config_dict):
-    expert_iteration_config_dict['mcts_budget'] = 50
+    expert_iteration_config_dict['mcts_budget'] = 100
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='MCTS1-test')
 
     random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')

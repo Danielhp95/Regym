@@ -37,6 +37,6 @@ class Storage:
         return data
 
     def __repr__(self):
-        keys_and_item_numbers = [(k, len(getattr(self, k)))
+        keys_and_item_numbers = [('key: ' + k, 'items: ' + str(len(getattr(self, k))))
                                  for k in self.keys if getattr(self, k) != []]
         return f'Storage. Size: {self.size}. Used keys: {keys_and_item_numbers}'

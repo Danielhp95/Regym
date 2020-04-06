@@ -113,12 +113,16 @@ def expert_iteration_config_dict():
     config['memory_size'] = 50
     config['use_apprentice_in_expert'] = False
     # MCTS config
-    config['mcts_budget'] = 1
+    config['mcts_budget'] = 20
     config['mcts_rollout_budget'] = 100000
     # Neural net config
+    config['batch_size'] = 2
+    config['batches_per_train_iteration'] = 2
     config['learning_rate'] = 3.0e-4
+
+    # NN: Feature extractor
     config['feature_extractor_arch'] = 'CNN'
-    config['preprocessed_input_dimensions'] = [6, 7]  # To play Connect 4
+    config['preprocessed_input_dimensions'] = [7, 6]  # To play Connect 4
     config['channels'] = [3, 4, 1]  # To play Connect 4
     config['kernel_sizes'] = [4, 2]  # To play Connect 4
     config['paddings'] = [0, 0]  # To play Connect 4

@@ -115,6 +115,17 @@ class PreprocessFunction():
             return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
 
+def from_numpy_to_one_element_batch(self, x: np.ndarray, use_cuda=False):
+    '''
+    Transforms :param: array x into a tensor of dimensions 1 x (x.shape)
+    '''
+    x = np.concatenate(x, axis=None)
+    if use_cuda:
+        return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
+    else:
+        return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+
+
 def random_sample(indices, batch_size):
     indices = np.asarray(np.random.permutation(indices))
     batches = indices[:len(indices) // batch_size * batch_size].reshape(-1, batch_size)

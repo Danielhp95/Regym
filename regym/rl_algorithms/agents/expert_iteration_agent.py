@@ -1,6 +1,7 @@
 from typing import List, Dict
 
 import gym
+import torch
 import torch.nn as nn
 
 from regym.rl_algorithms.replay_buffers import Storage
@@ -140,7 +141,14 @@ TODO    - 'learning_rate': (Float) Learning rate for neural network optimizer
 
     apprentice = build_apprentice_model(task, config)
     expert = build_expert(task, config, expert_name=f'Expert:{agent_name}')
-    return ExpertIterationAgent(name=agent_name,
+
+    algorithm = ExpertIterationAlgorithm(model_to_train=apprentice,
+                                         batch_size=config['batch_size'],
+                                         batches_per_train_iteration=config['batches_per_train_iteration'],
+                                         learning_rate=config['learning_rate'])
+
+    return ExpertIterationAgent(algorithm=algorithm,
+                                name=agent_name,
                                 expert=expert,
                                 apprentice=apprentice,
                                 use_apprentice_in_expert=config['use_apprentice_in_expert'],
