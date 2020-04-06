@@ -35,8 +35,6 @@ def compute_loss(states: torch.Tensor,
     # Opponent modelling loss (cross entropy loss)
 
     # Sumary writer:
-    # Value loss
-    # policy loss
     # Policy inference (opponent modelling) loss
     # Policy inference weight
     # Total loss
@@ -44,4 +42,5 @@ def compute_loss(states: torch.Tensor,
     if summary_writer is not None:
         summary_writer.add_scalar('Training/Policy_loss', policy_loss.cpu().item(), iteration_count)
         summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)
     return total_loss
