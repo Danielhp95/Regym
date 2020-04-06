@@ -298,18 +298,13 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         entropy = dist.entropy().unsqueeze(-1)
         # retrieve the the entropy of each batched distribution: batch x 1
 
-        if rnn_states is not None:
-            return {'a': action,
-                    'log_pi_a': log_prob,
-                    'ent': entropy,
-                    'v': v,
-                    'rnn_states': rnn_states,
-                    'next_rnn_states': next_rnn_states}
-        else:
-            return {'a': action,
-                    'log_pi_a': log_prob,
-                    'ent': entropy,
-                    'v': v}
+        prediction = {'a': action,
+                      'log_pi_a': log_prob,
+                      'ent': entropy,
+                      'v': v,
+                      'probs': dist.probs}
+        if rnn_states is not None: prediction.update({'rnn_states': rnn_states, 'next_rnn_states': next_rnn_states})
+        return prediction
 
     def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
         '''
