@@ -34,21 +34,28 @@ class ExpertIterationAlgorithm():
 
     def train(self, apprentice_model: nn.Module,
               game_buffer: Storage):
-        # We look at number of 's' states, but we could have used anything else.
-
+        self.num_apprentice_updates += 1
         # We are concatenating the entire datasat, this might be too memory expensive?
         s, v    = torch.cat(game_buffer.s), torch.cat(game_buffer.v)
         mcts_pi = torch.Tensor(game_buffer.normalized_child_visitations)
 
+        # We look at number of 's' states, but we could have used anything else.
         dataset_size = len(game_buffer.s)
         for i in range(self.batches_per_train_iteration):
             # Prepare batch
-            batch = np.random.randint(dataset_size, size=self.batch_size)
-            sampled_s = s[batch]
-            sampled_v = v[batch]
-            sampled_mcts_pi = mcts_pi[batch]
-
-            # Compute loss from tensored batch
+            batch_indices = np.random.randint(dataset_size, size=self.batch_size)
             self.optimizer.zero_grad()
-            loss = compute_loss(sampled_s, sampled_mcts_pi,
-                                sampled_v, apprentice_model)
+            loss = self.compute_loss_from_batch(s, batch_indices, v, mcts_pi,
+                                                apprentice_model)
+            loss.backward()
+            self.optimizer.step()
+
+    def compute_loss_from_batch(self, s, batch_indices, v, mcts_pi, apprentice_model):
+        sampled_s = s[batch_indices]
+        sampled_v = v[batch_indices]
+        sampled_mcts_pi = mcts_pi[batch_indices]
+
+        loss = compute_loss(sampled_s, sampled_mcts_pi,
+                            sampled_v, apprentice_model,
+                            iteration_count=self.num_apprentice_updates)
+        return loss

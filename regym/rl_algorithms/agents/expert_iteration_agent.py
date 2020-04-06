@@ -10,51 +10,85 @@ from regym.rl_algorithms.networks import Convolutional2DBody, FCBody, Categorica
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 from regym.rl_algorithms.agents import Agent, MCTSAgent
 
+from regym.rl_algorithms.expert_iteration import ExpertIterationAlgorithm
+
 
 class ExpertIterationAgent(Agent):
 
-    def __init__(self, name: str,
+    def __init__(self, algorithm: ExpertIterationAlgorithm,
+                 name: str,
                  expert: MCTSAgent, apprentice: nn.Module,
                  use_apprentice_in_expert: bool,
                  memory_size: int,
-                 use_agent_modelling: bool = False  # TODO: remove default val
+                 use_agent_modelling: bool
                  ):
         '''
+        :param algorithm: TODO
         :param name: String identifier for the agent
         :param expert: Agent used to take actions in the environment
                        and create optimization targets for the apprentice
         :param apprentice: TODO
+        :param use_agent_modelling: TODO
         :param use_apprentice_in_expert: whether to bias MCTS's selection
                                          phase and expansion phase with the
                                          apprentice.
         :param memory_size: size of "replay buffer"
         '''
         super().__init__(name=name, requires_environment_model=True)
+        self.algorithm = algorithm
         self.expert = expert
         self.apprentice = apprentice
 
-        # Algorithmic variations
+        #### Algorithmic variations  ####
+        self.use_apprentice_in_expert = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
         self.use_agent_modelling = use_agent_modelling
-        self.use_apprentice_in_expert = use_apprentice_in_expert
 
         self.current_prediction: Dict = {}
+
+        # Replay buffer style storage
         self.storage = self.init_storage(size=memory_size)
+        self.current_episode_length = 0
+
+        self.state_preprocess_function = lambda x: torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+
+
 
     def init_storage(self, size: int):
         storage = Storage(size=size)
         storage.add_key('normalized_child_visitations')
+        # TODO: it might be necessary to add a `legal_actions` key
         return storage
 
-    def handle_experience(self, s, a, r, succ_s, done=False):
+    def handle_experience(self, s, a, r: float, succ_s, done=False):
         super().handle_experience(s, a, r, succ_s, done)
+        self.current_episode_length += 1
 
-        normalized_visits = self.normalize(
-                self.expert.current_prediction['child_visitations'])
+        s, r = self.process_environment_signals(s, r)
 
+        normalized_visits = self.normalize(self.expert.current_prediction['child_visitations'])
+
+        self.update_storage(s, r, done,
+                            mcts_policy=normalized_visits)
+
+        if done:
+            self.current_episode_length = 0
+            self.algorithm.train(self.apprentice,
+                                 game_buffer=self.storage)
+
+    def process_environment_signals(self, s, r: float):
+        processed_s = self.state_preprocess_function(s)
+        processed_r = torch.Tensor([r]).float()
+        return processed_s, processed_r
+
+    def update_storage(self, s: torch.Tensor, r: torch.Tensor, done: bool,
+                       mcts_policy: torch.Tensor):
         # TODO: get opponents action from current_prediction
-
-        self.storage.add({'normalized_child_visitations': normalized_visits,
+        self.storage.add({'normalized_child_visitations': mcts_policy,
                           's': s})
+        if done:
+            for _ in range(self.current_episode_length):
+                self.storage.add({'v': r})
+        # TODO: If storage gets too big, remove it? 
 
     def normalize(self, x):
         total = sum(x)
