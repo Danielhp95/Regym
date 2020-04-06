@@ -1,5 +1,6 @@
 from math import sqrt
 import random
+
 from .util import UCB1
 from .sequential_open_loop_node import SequentialOpenLoopNode
 
@@ -64,5 +65,5 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
         backpropagation_phase(node, state)
 
     action = action_selection_phase(rootnode)
-    child_visitations = [n.visits for n in rootnode.child_nodes]
+    child_visitations = {n.move: n.visits for n in rootnode.child_nodes}
     return action, child_visitations

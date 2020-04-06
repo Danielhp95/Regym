@@ -156,5 +156,5 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
         backpropagation_phase(nodes, state)
 
     all_player_actions = action_selection_phase(root_nodes)
-    child_visitations = [n.visits for n in root_nodes[player_index].child_nodes]
+    child_visitations = {n.move: n.visits for n in root_nodes[player_index].child_nodes}
     return all_player_actions[player_index], child_visitations

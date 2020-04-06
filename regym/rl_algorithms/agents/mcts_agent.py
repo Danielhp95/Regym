@@ -14,7 +14,8 @@ class MCTSAgent(Agent):
 
     def __init__(self, name: str, algorithm,
                  iteration_budget: int, rollout_budget: int,
-                 exploration_constant: float, task_num_agents: int):
+                 exploration_constant: float, task_num_agents: int,
+                 task_action_dim: int):
         '''
         Agent for various algorithms of the Monte Carlo Tree Search family (MCTS).
         MCTS algorithms are model based (aka, statistical forward planners). which will require
@@ -32,16 +33,20 @@ class MCTSAgent(Agent):
         self.rollout_budget = rollout_budget
         self.exploration_constant = exploration_constant
         self.task_num_agents = task_num_agents
+        self.action_dim = task_action_dim
         self.current_prediction: Dict = {}
 
     def take_action(self, env: gym.Env, player_index: int):
-        action, child_visitations = self.algorithm(
+        action, visitations = self.algorithm(
                 player_index=player_index,
                 rootstate=env,
                 budget=self.budget,
                 rollout_budget=self.rollout_budget,
                 num_agents=self.task_num_agents,
                 exploration_factor_ucb1=self.exploration_constant)
+
+        child_visitations = [visitations[move_id] if move_id in visitations else 0.
+                             for move_id in range(self.action_dim)]
 
         self.current_prediction['action'] = action
         self.current_prediction['child_visitations'] = child_visitations
@@ -90,7 +95,8 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                       iteration_budget=budget,
                       rollout_budget=rollout_budget,
                       exploration_constant=exploration_constant,
-                      task_num_agents=task.num_agents)
+                      task_num_agents=task.num_agents,
+                      task_action_dim=task.action_dim)
     return agent
 
 
