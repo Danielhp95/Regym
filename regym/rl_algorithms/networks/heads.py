@@ -300,7 +300,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
         prediction = {'a': action,
                       'log_pi_a': log_prob,
-                      'ent': entropy,
+                      'entropy': entropy,
                       'v': v,
                       'probs': dist.probs}
         if rnn_states is not None: prediction.update({'rnn_states': rnn_states, 'next_rnn_states': next_rnn_states})
