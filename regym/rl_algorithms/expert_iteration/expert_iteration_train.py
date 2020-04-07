@@ -24,7 +24,6 @@ class ExpertIterationAlgorithm():
         :param model_to_train: TODO say that we only want it to get its parameters
         :param learning_rate: learning rate for the optimizer
         '''
-
         self.batches_per_train_iteration = batches_per_train_iteration
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -36,17 +35,24 @@ class ExpertIterationAlgorithm():
         self.num_batches_sampled = 0
 
     def train(self, apprentice_model: nn.Module,
-              game_buffer: Storage):
+              dataset: Storage):
+        '''
+        Highest level function.
+        '''
         self.num_apprentice_updates += 1
 
+        self.curate_dataset(dataset, dataset.size,
+                            keys=['s', 'v', 'normalized_child_visitations'])
+
         # We are concatenating the entire datasat, this might be too memory expensive?
-        s, v    = torch.cat(game_buffer.s), torch.cat(game_buffer.v)
-        mcts_pi = torch.Tensor(game_buffer.normalized_child_visitations)
+        s, v    = torch.cat(dataset.s), torch.cat(dataset.v)
+        mcts_pi = torch.Tensor(dataset.normalized_child_visitations)
 
         # We look at number of 's' states, but we could have used anything else
-        dataset_size = len(game_buffer.s)
+        dataset_size = len(dataset.s)
         self.regress_against_dataset(s, v, mcts_pi, apprentice_model,
                                      indices=np.arange(dataset_size),
+                                     batch_size=self.batch_size,
                                      num_batches=self.batches_per_train_iteration)
 
     def regress_against_dataset(self, s, v, mcts_pi, apprentice_model,
@@ -60,22 +66,29 @@ class ExpertIterationAlgorithm():
         :param: indices.
         '''
         batches = 0
-        for batch_indices in random_sample(indices, self.batch_size):
+        for batch_indices in random_sample(indices, batch_size):
             if batches >= num_batches: break
+            self.num_batches_sampled += 1
             batches += 1
 
             self.optimizer.zero_grad()
-            loss = self.compute_loss_from_batch(s, batch_indices, v, mcts_pi,
-                                                apprentice_model)
+            loss = compute_loss(s[batch_indices],
+                                mcts_pi[batch_indices],
+                                v[batch_indices],
+                                apprentice_model,
+                                iteration_count=self.num_batches_sampled)
             loss.backward()
             self.optimizer.step()
 
-    def compute_loss_from_batch(self, s, batch_indices, v, mcts_pi, apprentice_model):
-        self.num_batches_sampled += 1
-        sampled_s = s[batch_indices]
-        sampled_v = v[batch_indices]
-        sampled_mcts_pi = mcts_pi[batch_indices]
+    def curate_dataset(self, dataset: Storage, max_memory: int,
+                       keys: List[str]):
+        '''
+        Removes old experiences from :param: dataset so that it keeps at most
+        :param: max_memory datapoints in it.
 
-        return compute_loss(sampled_s, sampled_mcts_pi,
-                            sampled_v, apprentice_model,
-                            iteration_count=self.num_batches_sampled)
+        ASSUMPTION: ALL "keys" have the same number of datapoints
+        '''
+        oversize = len(dataset.s) - dataset.size
+        if oversize > 0:
+            for k in keys: del getattr(dataset, k)[:oversize]
+        assert len(dataset.s) <= max_memory

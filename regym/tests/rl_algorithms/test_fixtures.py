@@ -110,7 +110,7 @@ def expert_iteration_config_dict():
     config = dict()
     # Higher level ExIt params
     config['use_agent_modelling'] = False
-    config['memory_size'] = 50
+    config['memory_size'] = 5
     config['use_apprentice_in_expert'] = False
     # MCTS config
     config['mcts_budget'] = 20
@@ -124,8 +124,8 @@ def expert_iteration_config_dict():
     config['feature_extractor_arch'] = 'CNN'
     config['preprocessed_input_dimensions'] = [7, 6]  # To play Connect 4
     config['channels'] = [3, 4, 1]  # To play Connect 4
-    config['kernel_sizes'] = [4, 2]  # To play Connect 4
-    config['paddings'] = [0, 0]  # To play Connect 4
+    config['kernel_sizes'] = [3, 2]  # To play Connect 4
+    config['paddings'] = [1, 0]  # To play Connect 4
     config['strides'] = [1, 1]  # To play Connect 4
     return config
 

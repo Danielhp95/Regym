@@ -29,6 +29,7 @@ class ExpertIterationAgent(Agent):
                        and create optimization targets for the apprentice
         :param apprentice: TODO
         :param use_agent_modelling: TODO
+        :param memory_size: Max number of datapoints to be stored from game examples. TODO: not passing memory here?
         :param use_apprentice_in_expert: whether to bias MCTS's selection
                                          phase and expansion phase with the
                                          apprentice.
@@ -49,9 +50,10 @@ class ExpertIterationAgent(Agent):
         self.storage = self.init_storage(size=memory_size)
         self.current_episode_length = 0
 
-        self.state_preprocess_function = lambda x: torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+        self.state_preprocess_function = self.PRE_PROCESSING
 
-
+    def PRE_PROCESSING(self, x):
+        return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
     def init_storage(self, size: int):
         storage = Storage(size=size)
@@ -73,7 +75,7 @@ class ExpertIterationAgent(Agent):
         if done:
             self.current_episode_length = 0
             self.algorithm.train(self.apprentice,
-                                 game_buffer=self.storage)
+                                 dataset=self.storage)
 
     def process_environment_signals(self, s, r: float):
         processed_s = self.state_preprocess_function(s)
@@ -185,6 +187,6 @@ TODO    - 'learning_rate': (Float) Learning rate for neural network optimizer
                                 name=agent_name,
                                 expert=expert,
                                 apprentice=apprentice,
-                                use_apprentice_in_expert=config['use_apprentice_in_expert'],
                                 memory_size=config['memory_size'],
+                                use_apprentice_in_expert=config['use_apprentice_in_expert'],
                                 use_agent_modelling=bool(config['use_agent_modelling']))
