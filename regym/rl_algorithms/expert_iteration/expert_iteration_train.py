@@ -15,12 +15,23 @@ class ExpertIterationAlgorithm():
 
     def __init__(self, batch_size, num_epochs_per_iteration: int,
                  learning_rate: float,
+                 initial_memory_size: int,
+                 memory_size_increase_frequency: int,
+                 end_memory_size: int,
                  model_to_train: nn.Module):
         '''
         :param batch_size: TODO
         :param model_to_train: TODO say that we only want it to get its parameters
         :param learning_rate: learning rate for the optimizer
+
+        :param initial_memory_size: TODO
+        :param memory_size_increase_frequency: (Int) Number of iterations to elapse before increasing dataset size.
+        :param end_memory_size: TODO
         '''
+        self.initial_memory_size = initial_memory_size
+        self.memory_size_increase_frequency = memory_size_increase_frequency
+        self.end_memory_size = end_memory_size
+
         self.num_epochs_per_iteration = num_epochs_per_iteration
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -28,7 +39,7 @@ class ExpertIterationAlgorithm():
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
                                           lr=self.learning_rate)
 
-        self.num_apprentice_updates = 0
+        self.generation = 0
         self.num_batches_sampled = 0
 
     def train(self, apprentice_model: nn.Module,
@@ -36,12 +47,12 @@ class ExpertIterationAlgorithm():
         '''
         Highest level function.
         '''
-        self.num_apprentice_updates += 1
+        self.generation += 1
 
         # TODO: later make this function:
         # - Enlarge dataset up to a max
         # - Remove duplicates
-        self.curate_dataset(dataset, dataset.size,
+        self.update_storage(dataset, dataset.size,
                             keys=['s', 'v', 'normalized_child_visitations'])
 
         # We are concatenating the entire datasat, this might be too memory expensive?
@@ -66,7 +77,6 @@ class ExpertIterationAlgorithm():
         :param: indices.
         '''
         for e in range(num_epochs):
-            import ipdb; ipdb.set_trace()
             for batch_indices in random_sample(indices, batch_size):
                 self.num_batches_sampled += 1
 
@@ -80,6 +90,16 @@ class ExpertIterationAlgorithm():
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+
+    def update_storage(self, dataset, max_memory, keys):
+        self.update_storage_size(dataset)
+        self.curate_dataset(dataset, dataset.size,
+                            keys=['s', 'v', 'normalized_child_visitations'])
+
+    def update_storage_size(self, dataset):
+        if self.generation % self.memory_size_increase_frequency == 0 \
+                and dataset.size < self.end_memory_size:
+            dataset.size += self.initial_memory_size
 
     def curate_dataset(self, dataset: Storage, max_memory: int,
                        keys: List[str]):

@@ -152,7 +152,6 @@ def build_ExpertIteration_Agent(task, config, agent_name):
     :param agent_name: String identifier for the agent
     :param config: Dict contain hyperparameters for the ExpertIterationAgent:
         Higher level params:
-        - 'memory_size': (Int) size of "replay buffer"
         - 'use_apprentice_in_expert': (Bool) whether to bias MCTS's selection
                                       phase and expansion phase with the apprentice.
                                       If False, Expert Iteration becomes the
@@ -167,10 +166,15 @@ def build_ExpertIteration_Agent(task, config, agent_name):
                                  rollout_phase
 TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in DPIQN paper
 
-        Neural Network params:
+        (Collected) Dataset params:
+        - 'initial_memory_size': (Int) Initial maximum size of replay buffer
+        - 'memory_size_increase_frequency': (Int) Number of iterations to elapse before increasing dataset size.
+TODO    - 'end_memory_size': (Int) Ceiling on the size of replay buffer
         - 'num_epochs_per_iteration': (Int) Training epochs to over the game dataset per iteration
 TODO    - 'num_games_per_iteration': (Int) Number of episodes to collect before doing a training
         - 'batch_size': (Int) Minibatch size used during training
+
+        Neural Network params:
         - 'learning_rate': (Float) Learning rate for neural network optimizer
         - 'feature_extractor_arch': (str) Architechture for the feature extractor
             + For Convolutional2DBody:
@@ -186,12 +190,15 @@ TODO    - 'num_games_per_iteration': (Int) Number of episodes to collect before 
     algorithm = ExpertIterationAlgorithm(model_to_train=apprentice,
                                          batch_size=config['batch_size'],
                                          num_epochs_per_iteration=config['num_epochs_per_iteration'],
-                                         learning_rate=config['learning_rate'])
+                                         learning_rate=config['learning_rate'],
+                                         memory_size_increase_frequency=config['memory_size_increase_frequency'],
+                                         initial_memory_size=config['initial_memory_size'],
+                                         end_memory_size=config['end_memory_size'])
 
     return ExpertIterationAgent(algorithm=algorithm,
                                 name=agent_name,
                                 expert=expert,
                                 apprentice=apprentice,
-                                memory_size=config['memory_size'],
+                                memory_size=config['initial_memory_size'],  # TODO: remove this from here
                                 use_apprentice_in_expert=config['use_apprentice_in_expert'],
                                 use_agent_modelling=bool(config['use_agent_modelling']))

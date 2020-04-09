@@ -110,8 +110,11 @@ def expert_iteration_config_dict():
     config = dict()
     # Higher level ExIt params
     config['use_agent_modelling'] = False
-    config['memory_size'] = 5
     config['use_apprentice_in_expert'] = False
+    # Dataset params
+    config['initial_memory_size'] = 3
+    config['memory_size_increase_frequency'] = 1
+    config['end_memory_size'] = 9
     # MCTS config
     config['mcts_budget'] = 20
     config['mcts_rollout_budget'] = 100000
