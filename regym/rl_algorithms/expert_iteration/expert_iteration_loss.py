@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import torch
 import torch.nn as nn
@@ -31,17 +31,16 @@ def compute_loss(states: torch.Tensor,
     # returns policy loss (cross entropy against normalized_child_visitations):
 
     # learning to copy expert: cross entropy
-    entropy_pi_mcts = distributions.Categorical(probs=pi_mcts).entropy()
-    kl_divergence_mcts_apprentice = kl_div(predictions['probs'].log(), pi_mcts,
-                                           reduction='batchmean')
-    cross_entropy_policy_loss = entropy_pi_mcts.mean() + kl_divergence_mcts_apprentice
+    cross_entropy_policy_loss, kl_divergence = cross_entropy_loss(pi_mcts, predictions['probs'])
 
     # Learning game outcomes: Mean Square Error
     value_loss = nn.MSELoss()(values, predictions['v'])
 
+    # Opponent modelling loss (cross entropy loss)
+    opponent_modelling_loss = None  # TODO: cross_entropy_policy_loss between opponet targets and predictions
+
     total_loss = cross_entropy_policy_loss + value_loss
 
-    # Opponent modelling loss (cross entropy loss)
 
     # Sumary writer:
     # Policy inference (opponent modelling) loss
@@ -50,6 +49,13 @@ def compute_loss(states: torch.Tensor,
         summary_writer.add_scalar('Training/Policy_loss', cross_entropy_policy_loss.cpu().item(), iteration_count)
         summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
         summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)
-        summary_writer.add_scalar('Training/Kullback-Leibler_divergence', kl_divergence_mcts_apprentice.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/Kullback-Leibler_divergence', kl_divergence.cpu().item(), iteration_count)
         summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
     return total_loss
+
+
+def cross_entropy_loss(target: torch.Tensor,
+                       model_predictions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    entropy_target = distributions.Categorical(probs=target).entropy()
+    kl_divergence  = kl_div(model_predictions.log(), target, reduction='batchmean')
+    return (entropy_target.mean() + kl_divergence), kl_divergence

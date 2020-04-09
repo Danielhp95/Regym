@@ -117,7 +117,7 @@ def expert_iteration_config_dict():
     config['mcts_rollout_budget'] = 100000
     # Neural net config
     config['batch_size'] = 2
-    config['batches_per_train_iteration'] = 2
+    config['num_epochs_per_iteration'] = 2
     config['learning_rate'] = 3.0e-4
 
     # NN: Feature extractor

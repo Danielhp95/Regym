@@ -53,6 +53,9 @@ class ExpertIterationAgent(Agent):
         self.state_preprocess_function = self.PRE_PROCESSING
 
     def PRE_PROCESSING(self, x):
+        '''
+        Required to save model, as it was previously in lambda function
+        '''
         return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
     def init_storage(self, size: int):
@@ -165,8 +168,10 @@ def build_ExpertIteration_Agent(task, config, agent_name):
 TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in DPIQN paper
 
         Neural Network params:
-TODO    - 'batch_size': (Int) Minibatch size used during training
-TODO    - 'learning_rate': (Float) Learning rate for neural network optimizer
+        - 'num_epochs_per_iteration': (Int) Training epochs to over the game dataset per iteration
+TODO    - 'num_games_per_iteration': (Int) Number of episodes to collect before doing a training
+        - 'batch_size': (Int) Minibatch size used during training
+        - 'learning_rate': (Float) Learning rate for neural network optimizer
         - 'feature_extractor_arch': (str) Architechture for the feature extractor
             + For Convolutional2DBody:
             - 'preprocessed_input_dimensions': Tuple[int] Input dimensions for each channel
@@ -180,7 +185,7 @@ TODO    - 'learning_rate': (Float) Learning rate for neural network optimizer
 
     algorithm = ExpertIterationAlgorithm(model_to_train=apprentice,
                                          batch_size=config['batch_size'],
-                                         batches_per_train_iteration=config['batches_per_train_iteration'],
+                                         num_epochs_per_iteration=config['num_epochs_per_iteration'],
                                          learning_rate=config['learning_rate'])
 
     return ExpertIterationAgent(algorithm=algorithm,
