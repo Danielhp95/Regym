@@ -111,6 +111,7 @@ def expert_iteration_config_dict():
     # Higher level ExIt params
     config['use_agent_modelling'] = False
     config['use_apprentice_in_expert'] = False
+    config['games_per_iteration'] = 2
     # Dataset params
     config['initial_memory_size'] = 3
     config['memory_size_increase_frequency'] = 1
@@ -121,8 +122,7 @@ def expert_iteration_config_dict():
     # Neural net config
     config['batch_size'] = 2
     config['num_epochs_per_iteration'] = 2
-    config['learning_rate'] = 3.0e-4
-
+    config['learning_rate'] = 1.0e-3
     # NN: Feature extractor
     config['feature_extractor_arch'] = 'CNN'
     config['preprocessed_input_dimensions'] = [7, 6]  # To play Connect 4
