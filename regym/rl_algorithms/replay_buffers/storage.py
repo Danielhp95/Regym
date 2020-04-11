@@ -1,8 +1,8 @@
-import torch
+from typing import Dict, List
 
 
 class Storage:
-    def __init__(self, size, keys=None):
+    def __init__(self, size, keys: List[str] = None):
         if keys is None:
             keys = []
         keys = keys + ['s', 'a', 'r', 'non_terminal',
@@ -13,14 +13,21 @@ class Storage:
         self.size = size
         self.reset()
 
-    def add_key(self, key):
+    def add_key(self, key: str):
         self.keys += [key]
         setattr( self, key, [])
         
-    def add(self, data):
+    def add(self, data: Dict):
         for k, v in data.items():
             assert k in self.keys
-            getattr(self, k).append(v)
+            storage_element = getattr(self, k)
+
+            # Hack: if it's list of lists
+            if isinstance(v, list) and isinstance(v[0], list):
+                storage_element += v
+            elif isinstance(v, list):
+                storage_element += v
+            else: storage_element.append(v)
 
     def placeholder(self):
         for k in self.keys:
@@ -32,7 +39,7 @@ class Storage:
         for key in self.keys:
             setattr(self, key, [])
 
-    def cat(self, keys):
+    def cat(self, keys: List[str]):
         data = [getattr(self, k)[:self.size] for k in keys]
         return data
 
