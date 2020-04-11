@@ -30,22 +30,15 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
         agent = agent_vector[current_player]
 
         # Take action
-        if not agent.requires_environment_model:
-            action = agent.take_action(observations[current_player],
-                                       legal_actions=legal_actions)
-        else:
-            action = agent.take_action(deepcopy(env), current_player)
+        action = choose_action(agent, env, observations[current_player], current_player, legal_actions)
 
         # Environment step
         succ_observations, reward_vector, done, info = env.step(action)
         trajectory.append((observations, action, reward_vector, succ_observations, done))
 
         # Update agents
-        if training and len(trajectory) >= len(agent_vector):
-            agent_to_update = len(trajectory) % len(agent_vector)
-            update_agent(agent_to_update, trajectory, agent_vector,
-                         reward_vector[agent_to_update],
-                         succ_observations[agent_to_update], done)
+        if training: propagate_experience(agent_vector, trajectory,
+                                          reward_vector, succ_observations, done)
 
         # Update observation
         observations = succ_observations
@@ -59,6 +52,24 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
     if training: propagate_last_experience(agent_vector, trajectory, reward_vector, succ_observations)
     return trajectory
+
+
+def choose_action(agent, env, observation, current_player, legal_actions):
+    if not agent.requires_environment_model:
+        action = agent.take_action(observation,
+                                   legal_actions=legal_actions)
+    else:
+        action = agent.take_action(deepcopy(env), current_player)
+    return action
+
+
+def propagate_experience(agent_vector: List, trajectory: List, reward_vector: List, succ_observations: List, done: bool):
+    if len(trajectory) >= len(agent_vector):
+        agent_to_update = len(trajectory) % len(agent_vector)
+        if agent_vector[agent_to_update].training:
+            update_agent(agent_to_update, trajectory, agent_vector,
+                         reward_vector[agent_to_update],
+                         succ_observations[agent_to_update], done)
 
 
 def update_agent(agent_id: int, trajectory: List, agent_vector: List,
@@ -88,11 +99,12 @@ def propagate_last_experience(agent_vector: List, trajectory: List,
     This function propagates this reward signal to all agents
     who have not received it.
     '''
-    agents_to_update = list(range(len(agent_vector)))
+    agent_indices = list(range(len(agent_vector)))
     # This agent already processed the last experience
-    agents_to_update.pop(len(trajectory) % len(agent_vector))
+    agent_indices.pop(len(trajectory) % len(agent_vector))
 
-    for i in agents_to_update:
+    for i in agent_indices:
+        if not agent_vector[i].training: continue
         update_agent(i, trajectory, agent_vector, reward_vector[i],
                      succ_observations[i], True)
 
