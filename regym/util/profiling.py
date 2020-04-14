@@ -17,7 +17,6 @@ def profile(filename: str = ''):
 
     def wrap(func):
         def wrapped_f(*args, **kwargs):
-            import ipdb; ipdb.set_trace()
             pr = cProfile.Profile()
             pr.enable()
             retval = func(*args, **kwargs)
