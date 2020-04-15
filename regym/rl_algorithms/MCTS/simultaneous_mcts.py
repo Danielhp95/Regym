@@ -4,13 +4,13 @@ from math import sqrt
 import random
 import gym
 
-from regym.rl_algorithms.MCTS.util import UCB1
+from regym.rl_algorithms.MCTS.util import UCB1, PUCT
 from regym.rl_algorithms.MCTS.simultaneous_open_loop_node import SimultaneousOpenLoopNode
 
 
 
-def selection_phase(nodes: List, state: gym.Env,
-                    selection_policy: Callable[[object], float] = UCB1,
+def selection_phase(nodes: List, state: gym.Env, policy_fn,
+                    selection_policy: Callable[[object], float],
                     selection_policy_args: List = []) -> List:
     '''
     This function joins the selection and expansion phase of the vanilla
@@ -116,8 +116,10 @@ def action_selection_phase(nodes: List) -> List[int]:
 def MCTS_UCT(rootstate, budget: int, num_agents: int,
              rollout_budget: int,
              player_index: int,
-             rollout_policies: List = [],
-             exploration_factor_ucb1: float = sqrt(2)):
+             selection_strat: str,
+             policy_fn: Callable[[object], List[float]],
+             exploration_factor: float,
+             rollout_policies: List = []):
     '''
     Conducts a game tree search using the MCTS-UCT algorithm
     for a total of :param: itermax iterations using an open loop approach
@@ -141,17 +143,19 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
     :returns: Action to be taken by player
     '''
-    from regym.rl_algorithms.agents import DeterministicAgent
+    if selection_strat   == 'ucb1': selection_policy = UCB1
+    elif selection_strat == 'puct': selection_policy = PUCT
+    else: raise ValueError(f'Unknown :param: selection strat: {selection_strat}')
 
-    rollout_policies = [DeterministicAgent(5, 'P1'), DeterministicAgent(5, 'P2')]
-    root_nodes = [SimultaneousOpenLoopNode(state=rootstate,
-                                           perspective_player=i)
+    root_nodes = [SimultaneousOpenLoopNode(state=rootstate, perspective_player=i)
                   for i in range(num_agents)]
 
     for i in range(budget):
         nodes = root_nodes
         state = rootstate.clone()
-        nodes, observations = selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=[exploration_factor_ucb1])
+        nodes, observations = selection_phase(nodes, state, policy_fn,
+                                              selection_policy=selection_policy,
+                                              selection_policy_args=[exploration_factor])
         rollout_phase(state, rollout_policies, observations, rollout_budget)
         backpropagation_phase(nodes, state)
 

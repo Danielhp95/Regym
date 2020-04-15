@@ -1,3 +1,4 @@
+from typing import List
 from abc import ABC, abstractmethod
 
 
@@ -40,9 +41,9 @@ class Agent(ABC):
         self.training = True
         self.handled_experiences = 0
 
-    @abstractmethod
-    def take_action(self, state_or_environment):
+    def model_based_take_action(self, state_or_environment):
         '''
+        TODO: Update
         This function is called inside of an regym.rl_loops, asking
         the Agent to take an action at a given state in the environment
         so that the environment model may move forward.
@@ -51,7 +52,13 @@ class Agent(ABC):
          or a copy of the environment being played. Whether an agent receives a
          state or an environment depends on its flag `Agent.requires_environment_model`.
         '''
-        pass
+        raise NotImplementedError('To be implemented in Subclass')
+
+    def model_free_take_action(self, state, legal_actions: List[int]):
+        '''
+        TODO
+        '''
+        raise NotImplementedError('To be implemented in Subclass')
 
     @abstractmethod
     def handle_experience(self, s, a, r, succ_s, done=False):

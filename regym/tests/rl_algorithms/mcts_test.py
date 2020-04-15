@@ -19,8 +19,18 @@ def test_mcts_can_take_actions_discrete_obvservation_discrete_action(Connect4Tas
     mcts2 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS2-test')
     Connect4Task.run_episode([mcts1, mcts2], training=False)
 
+def test_can_defeat_random_play_in_connect4_both_positions_using_ucb1(Connect4Task, mcts_config_dict):
+    mcts_config_dict['selection_phase'] = 'ucb1'
+    win_task_in_both_positions(Connect4Task, mcts_config_dict) # First player (index 0) has a much higher budget
 
-def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, mcts_config_dict):
+
+
+def test_can_defeat_random_play_in_connect4_both_positions_using_puct(Connect4Task, mcts_config_dict):
+    mcts_config_dict['selection_phase'] = 'puct'
+    win_task_in_both_positions(Connect4Task, mcts_config_dict)  # First player (index 0) has a much higher budget
+
+
+def win_task_in_both_positions(Connect4Task, mcts_config_dict):
     mcts1 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
     mcts_config_dict['budget'] = 50
     mcts2 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS2-test')
@@ -31,7 +41,7 @@ def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, mcts_co
     assert extract_winner(trajectory) == 0  # First player (index 0) has a much higher budget
 
 
-def test_can_coordinate_in_random_walk(RandomWalkTask, mcts_config_dict):
+def test_can_coordinate_in_simulatenous_random_walk(RandomWalkTask, mcts_config_dict):
     mcts_config_dict['budget'] = 100
     mcts_config_dict['rollout_budget'] = 0
 

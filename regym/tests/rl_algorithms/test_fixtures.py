@@ -1,3 +1,4 @@
+from math import sqrt
 import pytest
 from regym.environments import generate_task
 from regym.environments import EnvType
@@ -102,6 +103,9 @@ def mcts_config_dict():
     config = dict()
     config['budget'] = 1
     config['rollout_budget'] = 100000
+    config['selection_phase'] = 'ucb1'
+    config['exploration_factor_puct'] = 2.5
+    config['exploration_factor_ucb1'] = sqrt(2)
     return config
 
 

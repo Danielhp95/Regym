@@ -56,10 +56,10 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
 def choose_action(agent, env, observation, current_player, legal_actions):
     if not agent.requires_environment_model:
-        action = agent.take_action(observation,
-                                   legal_actions=legal_actions)
+        action = agent.model_free_take_action(observation,
+                                              legal_actions=legal_actions)
     else:
-        action = agent.take_action(deepcopy(env), current_player)
+        action = agent.model_based_take_action(deepcopy(env), current_player)
     return action
 
 

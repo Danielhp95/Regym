@@ -35,8 +35,8 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
 
         iteration += 1
         action_vector = [
-                agent.take_action(deepcopy(env), player_index=i) if agent.requires_environment_model \
-                        else agent.take_action(observations[i], legal_actions)
+                agent.model_based_take_action(deepcopy(env), player_index=i) if agent.requires_environment_model \
+                        else agent.model_free_take_action(observations[i], legal_actions)
                 for i, agent in enumerate(agent_vector)]
         succ_observations, reward_vector, done, info = env.step(action_vector)
         trajectory.append((observations, action_vector, reward_vector, succ_observations, done))
