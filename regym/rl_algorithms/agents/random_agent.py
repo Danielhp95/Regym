@@ -20,6 +20,11 @@ class RandomAgent(Agent):
         super(RandomAgent, self).__init__(name, requires_environment_model=False)
         self.action_space = action_space
 
+    def model_free_take_action(self, state, legal_actions: List[int]):
+        if legal_actions is not None: action = random.choice(legal_actions)
+        else: action = self.action_space.sample()
+        return action
+
     def take_action(self, state_or_environment, legal_actions: List[int] = None):
         if legal_actions is not None: action = random.choice(legal_actions)
         else: action = self.action_space.sample()
