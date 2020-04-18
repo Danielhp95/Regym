@@ -42,7 +42,7 @@ def win_task_in_both_positions(Connect4Task, mcts_config_dict):
 
 
 def test_can_coordinate_in_simulatenous_random_walk(RandomWalkTask, mcts_config_dict):
-    mcts_config_dict['budget'] = 10
+    mcts_config_dict['budget'] = 50
     mcts_config_dict['rollout_budget'] = 0
 
     mcts1 = build_MCTS_Agent(RandomWalkTask, mcts_config_dict, agent_name='MCTS1-test')
