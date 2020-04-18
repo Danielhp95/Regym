@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Callable
 from math import sqrt
 
 import numpy as np
@@ -6,7 +6,9 @@ import gym
 
 import regym
 from regym.rl_algorithms.agents import Agent
-from regym.rl_algorithms.MCTS import sequential_mcts
+
+from regym.rl_algorithms.MCTS.selection_strategies import UCB1, new_UCB1, new_PUCT
+from regym.rl_algorithms.MCTS import new_sequential_mcts, sequential_mcts
 from regym.rl_algorithms.MCTS import simultaneous_mcts
 
 
@@ -15,7 +17,7 @@ class MCTSAgent(Agent):
     def __init__(self, name: str, algorithm, selection_strat: str,
                  iteration_budget: int, rollout_budget: int,
                  exploration_constant: float, task_num_agents: int,
-                 task_action_dim: int):
+                 task_action_dim: int, use_dirichlet: bool, dirichlet_alpha: float):
         '''
         Agent for various algorithms of the Monte Carlo Tree Search family (MCTS).
         MCTS algorithms are model based (aka, statistical forward planners). which will require
@@ -36,27 +38,37 @@ class MCTSAgent(Agent):
         self.action_dim = task_action_dim
 
         # Different MCTS variations
-        self.selection_strat = selection_strat
-        self.policy_fn = self.random_selection_policy
+        self.selection_strat: Callable = selection_strat
+        self.policy_fn: Callable = self.random_selection_policy
+
+        # Adding exploration to root nodes
+        self.use_dirichlet = use_dirichlet
+        self.dirichlet_alpha = dirichlet_alpha
 
         self.current_prediction: Dict = {}
 
     def random_selection_policy(self, obs, legal_actions: List[int]):
+        if legal_actions == []: return []
         num_legal_actions = len(legal_actions)
         action_probability = 1 / num_legal_actions
-        return np.array([action_probability] * num_legal_actions)
+        return [action_probability if a_i in legal_actions else 0.
+                for a_i in range(self.action_dim)]
 
-    def model_based_take_action(self, env: gym.Env, player_index: int):
+    def model_based_take_action(self, env: gym.Env, observation, player_index: int):
         action, visitations = self.algorithm(
                 player_index=player_index,
                 rootstate=env,
+                observation=observation,
                 budget=self.budget,
                 rollout_budget=self.rollout_budget,
                 num_agents=self.task_num_agents,
                 selection_strat=self.selection_strat,
                 policy_fn=self.policy_fn,
-                exploration_factor=self.exploration_constant)
+                exploration_factor=self.exploration_constant,
+                use_dirichlet=self.use_dirichlet,
+                dirichlet_alpha=self.dirichlet_alpha)
 
+        # Figure out if we need this, I don't think so
         child_visitations = [visitations[move_id] if move_id in visitations else 0.
                              for move_id in range(self.action_dim)]
 
@@ -104,32 +116,31 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                            probabilities or dirichlet noise
     '''
     check_config_validity(config, task)
-    if task.env_type == regym.environments.EnvType.SINGLE_AGENT:
-        raise NotImplementedError('MCTS does not currently support single agent environments')
+    check_task_compatibility(task)
+
+    if config['selection_phase'] == 'ucb1':
+        selection_strat, exploration_constant = new_UCB1, config['exploration_factor_ucb1']
+    if config['selection_phase'] == 'puct':
+        selection_strat, exploration_constant = new_PUCT, config['exploration_factor_puct']
+
     if task.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-        algorithm = simultaneous_mcts.MCTS_UCT
+        algorithm, selection_strat = simultaneous_mcts.MCTS_UCT, UCB1
     if task.env_type == regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-        algorithm = sequential_mcts.MCTS_UCT
+        algorithm = new_sequential_mcts.MCTS
 
+    use_dirichlet = (config['selection_phase'] == 'puct') and config['use_dirichlet']
 
-    budget = config['budget']
-    rollout_budget = config['rollout_budget']
-    selection_phase = config['selection_phase']
-    exploration_constant = get_exploration_constant(config, selection_phase)
-
-    agent = MCTSAgent(name=agent_name, algorithm=algorithm,
-                      iteration_budget=budget,
-                      rollout_budget=rollout_budget,
-                      selection_strat=selection_phase,
+    agent = MCTSAgent(name=agent_name,
+                      algorithm=algorithm,
+                      iteration_budget=config['budget'],
+                      rollout_budget=config['rollout_budget'],
+                      selection_strat=selection_strat,
                       exploration_constant=exploration_constant,
                       task_num_agents=task.num_agents,
-                      task_action_dim=task.action_dim)
+                      task_action_dim=task.action_dim,
+                      use_dirichlet=use_dirichlet,
+                      dirichlet_alpha=config['dirichlet_alpha'])
     return agent
-
-
-def get_exploration_constant(config: Dict, selection_phase: str) -> float:
-    if selection_phase == 'ucb1': return config['exploration_factor_ucb1']
-    if selection_phase == 'puct': return config['exploration_factor_puct']
 
 
 def check_config_validity(config: Dict, task: regym.environments.Task):
@@ -146,3 +157,8 @@ def check_config_validity(config: Dict, task: regym.environments.Task):
     if task.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION \
             and 'puct' == config['selection_phase']:
         raise NotImplementedError(f'MCTSAgent does not currently support PUCT selection phase for tasks of type EnvType.MULTIAGENT_SIMULTANEOUS_ACTION, such as {task.name}')
+
+
+def check_task_compatibility(task: regym.environments.Task):
+    if task.env_type == regym.environments.EnvType.SINGLE_AGENT:
+        raise NotImplementedError('MCTS does not currently support single agent environments')

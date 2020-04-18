@@ -6,7 +6,7 @@ import random
 import numpy as np
 import gym
 
-from .util import UCB1, PUCT
+from .selection_strategies import UCB1, PUCT
 from .sequential_open_loop_node import SequentialOpenLoopNode
 
 

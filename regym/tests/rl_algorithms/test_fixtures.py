@@ -101,11 +101,13 @@ def a2c_config_dict():
 @pytest.fixture
 def mcts_config_dict():
     config = dict()
-    config['budget'] = 1
+    config['budget'] = 2
     config['rollout_budget'] = 100000
     config['selection_phase'] = 'ucb1'
-    config['exploration_factor_puct'] = 2.5
+    config['exploration_factor_puct'] = 4
     config['exploration_factor_ucb1'] = sqrt(2)
+    config['use_dirichlet'] = True
+    config['dirichlet_alpha'] = sqrt(2)
     return config
 
 

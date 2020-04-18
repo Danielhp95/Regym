@@ -59,7 +59,7 @@ def choose_action(agent, env, observation, current_player, legal_actions):
         action = agent.model_free_take_action(observation,
                                               legal_actions=legal_actions)
     else:
-        action = agent.model_based_take_action(deepcopy(env), current_player)
+        action = agent.model_based_take_action(deepcopy(env), observation, current_player)
     return action
 
 

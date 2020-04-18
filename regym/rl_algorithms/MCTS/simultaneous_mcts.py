@@ -4,7 +4,7 @@ from math import sqrt
 import random
 import gym
 
-from regym.rl_algorithms.MCTS.util import UCB1, PUCT
+from regym.rl_algorithms.MCTS.selection_strategies import UCB1, PUCT
 from regym.rl_algorithms.MCTS.simultaneous_open_loop_node import SimultaneousOpenLoopNode
 
 
@@ -73,8 +73,6 @@ def rollout_phase(state: gym.Env, rollout_policies: List, observations, rollout_
     :param rollout_policies: Policies to be used to take action during rollout
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
     '''
-    # TODO: Currently we just stop once we reach the end of the tree
-    # TODO: Implement random acting (adapt from sequential mcts)
     for i in range(rollout_budget):
         if state.is_over(): return state
         action_vector = [policy.take_action(observations[i], state.get_moves(i))
@@ -113,12 +111,16 @@ def action_selection_phase(nodes: List) -> List[int]:
             for n in nodes]
 
 
-def MCTS_UCT(rootstate, budget: int, num_agents: int,
+def MCTS_UCT(rootstate, observation,
+             budget: int,
+             num_agents: int,
              rollout_budget: int,
              player_index: int,
-             selection_strat: str,
+             selection_strat: Callable,
              policy_fn: Callable[[object], List[float]],
              exploration_factor: float,
+             use_dirichlet: bool,
+             dirichlet_alpha: float,
              rollout_policies: List = []):
     '''
     Conducts a game tree search using the MCTS-UCT algorithm
@@ -143,10 +145,6 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
     :returns: Action to be taken by player
     '''
-    if selection_strat   == 'ucb1': selection_policy = UCB1
-    elif selection_strat == 'puct': selection_policy = PUCT
-    else: raise ValueError(f'Unknown :param: selection strat: {selection_strat}')
-
     root_nodes = [SimultaneousOpenLoopNode(state=rootstate, perspective_player=i)
                   for i in range(num_agents)]
 
@@ -154,7 +152,7 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
         nodes = root_nodes
         state = rootstate.clone()
         nodes, observations = selection_phase(nodes, state, policy_fn,
-                                              selection_policy=selection_policy,
+                                              selection_policy=selection_strat,
                                               selection_policy_args=[exploration_factor])
         rollout_phase(state, rollout_policies, observations, rollout_budget)
         backpropagation_phase(nodes, state)

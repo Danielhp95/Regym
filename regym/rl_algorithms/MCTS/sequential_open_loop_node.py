@@ -65,8 +65,7 @@ class SequentialOpenLoopNode:
         Source code is messy, it was made in a jam ;).
         '''
         prior = 'p={:.2f}'.format(self.prior) if self.prior else ''
-        s = reduce(lambda acc, x: x + acc, ['.' for i in range(indent)], '') \
-            + f'{self.move}: {self.wins}/{self.visits} ' + prior + '\n'
+        s = ('.' * indent) + f'{self.move}: {self.wins}/{self.visits} ' + prior + '\n'
         for n in self.child_nodes:
             s += n.__repr__(indent=indent + 1)
         return s
