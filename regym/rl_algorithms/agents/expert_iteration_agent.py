@@ -67,18 +67,17 @@ class ExpertIterationAgent(Agent):
     def handle_experience(self, s, a, r: float, succ_s, done=False):
         super().handle_experience(s, a, r, succ_s, done)
         self.current_episode_length += 1
-
         s, r = self.process_environment_signals(s, r)
+        normalized_visits = torch.Tensor(self.normalize(self.expert.current_prediction['child_visitations']))
+        self.update_storage(s, r, done, mcts_policy=normalized_visits)
+        if done: self.handle_end_of_episode()
 
-        normalized_visits = self.normalize(self.expert.current_prediction['child_visitations'])
-
-        self.update_storage(s, r, done,
-                            mcts_policy=normalized_visits)
-
-        if done:
-            self.current_episode_length = 0
-            self.algorithm.train(self.apprentice,
-                                 dataset=self.storage)
+    def handle_end_of_episode(self):
+        self.current_episode_length = 0
+        self.algorithm.add_episode_trajectory(self.storage)
+        self.storage.reset()
+        if self.algorithm.should_train():
+            self.algorithm.train(self.apprentice)
 
     def process_environment_signals(self, s, r: float):
         processed_s = self.state_preprocess_function(s)
@@ -93,15 +92,20 @@ class ExpertIterationAgent(Agent):
         if done:
             for _ in range(self.current_episode_length):
                 self.storage.add({'v': r})
-        # TODO: If storage gets too big, remove it? 
 
     def normalize(self, x):
         total = sum(x)
         return [x_i / total for x_i in x]
 
-    def take_action(self, env: gym.Env, player_index: int):
-        action = self.expert.take_action(env, player_index)
+    def model_based_take_action(self, env: gym.Env, observation, player_index: int):
+        action = self.expert.model_based_take_action(env, observation, player_index)
         return action
+
+    def model_free_take_action(self, state, legal_actions: List[int]):
+        if self.training: raise RuntimeError('ExpertIterationAgent.model_free_take_action() cannot be called when training is True')
+        prediction = self.apprentice(self.PRE_PROCESSING(state),
+                                     legal_actions=legal_actions)
+        return prediction['a']
 
     def clone(self):
         raise NotImplementedError('Cloning ExpertIterationAgent not supported')
@@ -141,8 +145,14 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
                                      phi_body=feature_and_body)
 
 def build_expert(task, config: Dict, expert_name: str) -> MCTSAgent:
+    selection_phase = 'puct' if config['use_apprentice_in_expert'] else 'ucb1'
+    exploration = f'exploration_factor_{selection_phase}'
     expert_config = {'budget': config['mcts_budget'],
-                     'rollout_budget': config['mcts_rollout_budget']}
+                     'rollout_budget': config['mcts_rollout_budget'],
+                     'selection_phase': selection_phase,
+                     'use_dirichlet': config['mcts_use_dirichlet'],
+                     exploration: config['mcts_exploration_factor'],
+                     'dirichlet_alpha': config['mcts_dirichlet_alpha']}
     return build_MCTS_Agent(task, expert_config, agent_name=expert_name)
 
 
@@ -158,20 +168,27 @@ def build_ExpertIteration_Agent(task, config, agent_name):
                                       DAGGER algorithm:
                                       https://www.cs.cmu.edu/~sross1/publications/Ross-AIStats11-NoRegret.pdf
 
+                                      If True, PUCT will be used as a selection
+                                      strategy in MCTS, otherwise UCB1 will be used
+TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in DPIQN paper
+
 
         MCTS params:
         - 'mcts_budget': (Int) Number of iterations of the MCTS loop that will be carried
                                  out before an action is selected.
         - 'mcts_rollout_budget': (Int) Number of steps to simulate during
                                  rollout_phase
-TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in DPIQN paper
+        - 'mcts_exploration_factor': (Float) PUCT exploration constant
+        - 'mcts_use_dirichlet': (Bool) Whether to add dirichlet noise to the
+                                MCTS rootnode's action probabilities (see PUCT)
+        - 'mcts_dirichlet_alpha': Parameter of Dirichlet distribution
 
         (Collected) Dataset params:
         - 'initial_memory_size': (Int) Initial maximum size of replay buffer
         - 'memory_size_increase_frequency': (Int) Number of iterations to elapse before increasing dataset size.
-TODO    - 'end_memory_size': (Int) Ceiling on the size of replay buffer
+        - 'end_memory_size': (Int) Ceiling on the size of replay buffer
         - 'num_epochs_per_iteration': (Int) Training epochs to over the game dataset per iteration
-TODO    - 'num_games_per_iteration': (Int) Number of episodes to collect before doing a training
+        - 'num_games_per_iteration': (Int) Number of episodes to collect before doing a training
         - 'batch_size': (Int) Minibatch size used during training
 
         Neural Network params:
@@ -187,18 +204,21 @@ TODO    - 'num_games_per_iteration': (Int) Number of episodes to collect before 
     apprentice = build_apprentice_model(task, config)
     expert = build_expert(task, config, expert_name=f'Expert:{agent_name}')
 
-    algorithm = ExpertIterationAlgorithm(model_to_train=apprentice,
-                                         batch_size=config['batch_size'],
-                                         num_epochs_per_iteration=config['num_epochs_per_iteration'],
-                                         learning_rate=config['learning_rate'],
-                                         memory_size_increase_frequency=config['memory_size_increase_frequency'],
-                                         initial_memory_size=config['initial_memory_size'],
-                                         end_memory_size=config['end_memory_size'])
+    algorithm = ExpertIterationAlgorithm(
+            model_to_train=apprentice,
+            batch_size=config['batch_size'],
+            num_epochs_per_iteration=config['num_epochs_per_iteration'],
+            learning_rate=config['learning_rate'],
+            games_per_iteration=config['games_per_iteration'],
+            memory_size_increase_frequency=config['memory_size_increase_frequency'],
+            initial_memory_size=config['initial_memory_size'],
+            end_memory_size=config['end_memory_size'])
 
-    return ExpertIterationAgent(algorithm=algorithm,
-                                name=agent_name,
-                                expert=expert,
-                                apprentice=apprentice,
-                                memory_size=config['initial_memory_size'],  # TODO: remove this from here
-                                use_apprentice_in_expert=config['use_apprentice_in_expert'],
-                                use_agent_modelling=bool(config['use_agent_modelling']))
+    return ExpertIterationAgent(
+            algorithm=algorithm,
+            name=agent_name,
+            expert=expert,
+            apprentice=apprentice,
+            memory_size=config['initial_memory_size'],  # TODO: remove this from here
+            use_apprentice_in_expert=config['use_apprentice_in_expert'],
+            use_agent_modelling=config['use_agent_modelling'])

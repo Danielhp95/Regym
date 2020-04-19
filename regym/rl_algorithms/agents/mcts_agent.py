@@ -100,16 +100,14 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                              SUPPORTED: ['ucb1', 'puct']
         - 'exploration_constant_ucb1': UCB1 exploration constant
         - 'exploration_constant_puct': PUCT exploration constant
+        - 'use_dirichlet': Whether to add dirichlet noise the the normalized child visitations.
+                           Intuition behind why this is useful:
+                           https://medium.com/oracledevs/lessons-from-alphazero-part-3-parameter-tweaking-4dceb78ed1e5
+        - 'dirichlet_alpha': Parameter of Dirichlet distribution
     :returns: Agent using an MCTS algorithm to act the :param: tasks's environment
     '''
     '''
     TODO: THIS SHOULD BE SOMEWHERE IN MCTS CODE
-    - 'use_dirichlet': Whether to add dirichlet noise the the normalized child visitations.
-                       Intuition behind why this is useful:
-                       https://medium.com/oracledevs/lessons-from-alphazero-part-3-parameter-tweaking-4dceb78ed1e5
-    - 'dirichlet_alpha': Parameter of Dirichlet distribution
-    - 'dirichlet_epsilon': Weight for deciding wether to prefer NN prior
-                           probabilities or dirichlet noise
     '''
     check_config_validity(config, task)
     check_task_compatibility(task)

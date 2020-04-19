@@ -15,6 +15,7 @@ class ExpertIterationAlgorithm():
 
     def __init__(self, batch_size, num_epochs_per_iteration: int,
                  learning_rate: float,
+                 games_per_iteration: int,
                  initial_memory_size: int,
                  memory_size_increase_frequency: int,
                  end_memory_size: int,
@@ -23,11 +24,17 @@ class ExpertIterationAlgorithm():
         :param batch_size: TODO
         :param model_to_train: TODO say that we only want it to get its parameters
         :param learning_rate: learning rate for the optimizer
-
+        :param games_per_iteration: Number of game trajectories to be collected before training
         :param initial_memory_size: TODO
         :param memory_size_increase_frequency: (Int) Number of iterations to elapse before increasing dataset size.
         :param end_memory_size: TODO
         '''
+        self.games_per_iteration = games_per_iteration
+
+        # Init dataset
+        self.memory = Storage(size=initial_memory_size)
+        self.memory.add_key('normalized_child_visitations')
+
         self.initial_memory_size = initial_memory_size
         self.memory_size_increase_frequency = memory_size_increase_frequency
         self.end_memory_size = end_memory_size
@@ -39,28 +46,38 @@ class ExpertIterationAlgorithm():
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
                                           lr=self.learning_rate)
 
+        self.episodes_collected_since_last_train = 0
         self.generation = 0
         self.num_batches_sampled = 0
 
-    def train(self, apprentice_model: nn.Module,
-              dataset: Storage):
+    def should_train(self):
+        return self.episodes_collected_since_last_train >= self.games_per_iteration
+
+    def add_episode_trajectory(self, episode_trajectory: Storage):
+        self.episodes_collected_since_last_train += 1
+        self.memory.add({'normalized_child_visitations': episode_trajectory.normalized_child_visitations,
+                         's': episode_trajectory.s,
+                         'v': episode_trajectory.v})
+
+    def train(self, apprentice_model: nn.Module):
         '''
         Highest level function.
         '''
+        import ipdb; ipdb.set_trace()
+        self.episodes_collected_since_last_train = 0
         self.generation += 1
 
         # TODO: later make this function:
-        # - Enlarge dataset up to a max
         # - Remove duplicates
-        self.update_storage(dataset, dataset.size,
+        self.update_storage(self.memory, self.memory.size,
                             keys=['s', 'v', 'normalized_child_visitations'])
 
         # We are concatenating the entire datasat, this might be too memory expensive?
-        s, v    = torch.cat(dataset.s), torch.cat(dataset.v)
-        mcts_pi = torch.Tensor(dataset.normalized_child_visitations)
+        s, v    = torch.cat(self.memory.s), torch.cat(self.memory.v)
+        mcts_pi = torch.stack(self.memory.normalized_child_visitations)
 
         # We look at number of 's' states, but we could have used anything else
-        dataset_size = len(dataset.s)
+        dataset_size = len(self.memory.s)
         self.regress_against_dataset(s, v, mcts_pi, apprentice_model,
                                      indices=np.arange(dataset_size),
                                      batch_size=self.batch_size,
@@ -97,6 +114,9 @@ class ExpertIterationAlgorithm():
                             keys=['s', 'v', 'normalized_child_visitations'])
 
     def update_storage_size(self, dataset):
+        '''
+        Increases maximum size of dataset if required
+        '''
         if self.generation % self.memory_size_increase_frequency == 0 \
                 and dataset.size < self.end_memory_size:
             dataset.size += self.initial_memory_size

@@ -125,6 +125,9 @@ def expert_iteration_config_dict():
     # MCTS config
     config['mcts_budget'] = 20
     config['mcts_rollout_budget'] = 100000
+    config['mcts_exploration_factor'] = sqrt(2)
+    config['mcts_use_dirichlet'] = True
+    config['mcts_dirichlet_alpha'] = sqrt(2)
     # Neural net config
     config['batch_size'] = 2
     config['num_epochs_per_iteration'] = 2
