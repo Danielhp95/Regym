@@ -89,7 +89,7 @@ class PPOAgent(Agent):
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def take_action(self, state, legal_actions: List[int] = None):
+    def model_free_take_action(self, state, legal_actions: List[int] = None):
         state = self.state_preprocessing(state)
 
         if self.recurrent:

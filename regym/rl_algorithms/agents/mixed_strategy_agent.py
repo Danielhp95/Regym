@@ -23,7 +23,7 @@ class MixedStrategyAgent(Agent):
             raise ValueError('The sum of all supports in the support_vector should sum up to 1. Given supports: {}'.format(support_vector))
         self.support_vector = support_vector
 
-    def take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int]):
         '''
         Samples an action based on the probabilities presented by the agent's support vector
         :param state: Ignored for fixed agents

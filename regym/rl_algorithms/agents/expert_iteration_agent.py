@@ -53,9 +53,7 @@ class ExpertIterationAgent(Agent):
         self.state_preprocess_function = self.PRE_PROCESSING
 
     def PRE_PROCESSING(self, x):
-        '''
-        Required to save model, as it was previously in lambda function
-        '''
+        ''' Required to save model, as it was previously in lambda function'''
         return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
     def init_storage(self, size: int):
@@ -170,7 +168,7 @@ def build_ExpertIteration_Agent(task, config, agent_name):
 
                                       If True, PUCT will be used as a selection
                                       strategy in MCTS, otherwise UCB1 will be used
-TODO    - 'use_agent_modelling: (Bool) whether to model agent's policies as in DPIQN paper
+TODO    - 'use_agent_modelling': (Bool) whether to model agent's policies as in DPIQN paper
 
 
         MCTS params:

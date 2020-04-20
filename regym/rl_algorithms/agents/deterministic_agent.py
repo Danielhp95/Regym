@@ -9,7 +9,7 @@ class DeterministicAgent(Agent):
         super(DeterministicAgent, self).__init__(name=name)
         self.action = action
 
-    def take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int]):
         return self.action
 
     def clone(self, training=None):

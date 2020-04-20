@@ -1,6 +1,7 @@
 from typing import List
 from abc import ABC, abstractmethod
 
+import gym
 
 class Agent(ABC):
     '''
@@ -41,7 +42,7 @@ class Agent(ABC):
         self.training = True
         self.handled_experiences = 0
 
-    def model_based_take_action(self, state_or_environment):
+    def model_based_take_action(self, env: gym.Env, observation, player_index: int):
         '''
         TODO: Update
         This function is called inside of an regym.rl_loops, asking

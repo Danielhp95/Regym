@@ -2,7 +2,7 @@ from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSTask, KuhnTas
 
 # TODO: get rid of this after refactoring
 from regym.environments import generate_task, EnvType
-from regym.rl_algorithms.agents import Agent
+from regym.rl_algorithms.agents import Agent, build_Deterministic_Agent
 from regym.rl_algorithms.agents import build_PPO_Agent
 from regym.rl_algorithms import rockAgent
 
@@ -14,7 +14,7 @@ def test_ppo_can_take_actions(RPSTask, ppo_config_dict):
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
         random_observation = env.observation_space.sample()[0]
-        a = agent.take_action(random_observation)
+        a = agent.model_free_take_action(random_observation)
         observation, rewards, done, info = env.step([a, a])
         # TODO technical debt
         # assert RPSenv.observation_space.contains([a, a])
@@ -91,7 +91,7 @@ def act_in_task_env(task, agent):
     while not done:
         # asumming that first observation corresponds to observation space of this agent
         random_observation = env.observation_space.sample()[0]
-        a = agent.take_action(random_observation)
+        a = agent.model_free_take_action(random_observation)
         observation, rewards, done, info = env.step(a)
 
 
@@ -131,22 +131,8 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
     '''
     from play_against_fixed_opponent import learn_against_fix_opponent
 
-    class FixedAgent(Agent):
-        def __init__(self, action):
-            super(FixedAgent, self).__init__(name=f'FixedAction: {action}')
-            self.action = action
-
-        def take_action(self, *args):
-            return self.action
-
-        def handle_experience(self, *args):
-            pass
-
-        def clone(self, *args):
-            pass
-
-    fixed_opponent = FixedAgent(fixed_agent_action)
     kuhn_task = generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+    fixed_opponent = build_Deterministic_Agent(kuhn_task, {'action': fixed_agent_action})
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=fixed_opponent,
                                agent_position=agent_position,

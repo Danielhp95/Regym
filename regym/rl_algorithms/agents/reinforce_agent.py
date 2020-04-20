@@ -46,7 +46,7 @@ class ReinforceAgent(Agent):
                 self.trajectories = []
             self.trajectories.append([])
 
-    def take_action(self, state):
+    def model_free_take_action(self, state):
         '''
         :param state: Environment state
         :returns: Action to be executed by the environment conditioned on :param: state

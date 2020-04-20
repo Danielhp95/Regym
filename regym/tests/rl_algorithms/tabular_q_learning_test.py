@@ -34,7 +34,7 @@ def test_tabular_q_learning_can_take_actions(RPSTask, tabular_q_learning_config_
     for i in range(number_of_actions):
         # asumming that first observation corresponds to observation space of this agent
         random_observation = env.observation_space.sample()[0]
-        a = agent.take_action(random_observation, legal_actions=[0, 1, 2])
+        a = agent.model_free_take_action(random_observation, legal_actions=[0, 1, 2])
         assert env.action_space.contains([a, a])
 
 

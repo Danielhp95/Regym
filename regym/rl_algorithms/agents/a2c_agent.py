@@ -29,7 +29,7 @@ class A2CAgent(Agent):
             self.algorithm.train(self.samples, bootstrapped_reward)
             self.samples = []
 
-    def take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int]):
         self.current_prediction = self.algorithm.model(state)
         return self.current_prediction['action'].item()
 

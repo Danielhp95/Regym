@@ -1,3 +1,5 @@
+from typing import List
+
 from regym.rl_algorithms.agents import Agent
 
 
@@ -7,12 +9,16 @@ class HumanAgent(Agent):
         super(HumanAgent, self).__init__(name=name)
         self.number_of_actions = number_of_actions
 
-    def take_action(self, state):
-        action = input(f'Take action for {self.name}: Choose from 0-{self.number_of_actions}: ')
+    def model_free_take_action(self, state, legal_actions: List[int]):
+        if legal_actions is not None:
+            action = input(f'Take action for {self.name}: Choose from {legal_actions}: ')
+        else:
+            action = input(f'Take action for {self.name}: Choose from 0-{self.number_of_actions}: ')
         return int(action)
 
     def clone(self, training=None):
-        pass
+        return HumanAgent(number_of_actions=self.number_of_actions,
+                          name=self.name)
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         pass
