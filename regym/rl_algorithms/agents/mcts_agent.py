@@ -39,7 +39,15 @@ class MCTSAgent(Agent):
 
         # Different MCTS variations
         self.selection_strat: Callable = selection_strat
-        self.policy_fn: Callable = self.random_selection_policy
+        # Function used to obtain a distribution over actions legal actions
+        # given 2 parameters: observation, legal_actions.
+        # In any given node. Used in PUCT selection_strat and ExpertIterationAgent
+        self.policy_fn: Callable[[object, List[int]], List[float]] = self.random_selection_policy
+
+        # Function to compute a value to backpropagate through the MCTS tree
+        # at the end of rollout_phase. 2 parameters: observation, legal_actions.
+        # If None, the value given by the gamestate will be used
+        self.evaluation_fn: Callable[[object, List[int]], List[float]] = None
 
         # Adding exploration to root nodes
         self.use_dirichlet = use_dirichlet
@@ -61,6 +69,7 @@ class MCTSAgent(Agent):
                 observation=observation,
                 budget=self.budget,
                 rollout_budget=self.rollout_budget,
+                evaluation_fn=self.evaluation_fn,
                 num_agents=self.task_num_agents,
                 selection_strat=self.selection_strat,
                 policy_fn=self.policy_fn,

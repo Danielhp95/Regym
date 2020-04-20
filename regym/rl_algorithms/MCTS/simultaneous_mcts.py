@@ -118,6 +118,7 @@ def MCTS_UCT(rootstate, observation,
              player_index: int,
              selection_strat: Callable,
              policy_fn: Callable[[object], List[float]],
+             evaluation_fn: Callable[[object], List[float]],
              exploration_factor: float,
              use_dirichlet: bool,
              dirichlet_alpha: float,
@@ -143,6 +144,8 @@ def MCTS_UCT(rootstate, observation,
     :param exploration_factor_ucb1: 'c' constant in UCB1 equation.
     :param rollout_policies: Agent policies to be used during rollout phase
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
+    :param policy_fn: TODO
+    :param evaluation_fn: TODO
     :returns: Action to be taken by player
     '''
     root_nodes = [SimultaneousOpenLoopNode(state=rootstate, perspective_player=i)

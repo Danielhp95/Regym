@@ -40,9 +40,12 @@ class ExpertIterationAgent(Agent):
         self.expert = expert
         self.apprentice = apprentice
 
-        #### Algorithmic variations  ####
+        #### Algorithmic variations ####
         self.use_apprentice_in_expert = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
+        if use_apprentice_in_expert: self.embed_apprentice_in_expert()
+
         self.use_agent_modelling = use_agent_modelling
+        ####
 
         self.current_prediction: Dict = {}
 
@@ -52,9 +55,24 @@ class ExpertIterationAgent(Agent):
 
         self.state_preprocess_function = self.PRE_PROCESSING
 
+    def embed_apprentice_in_expert(self):
+        self.expert.policy_fn = self.policy_fn
+        self.expert.evaluation_fn = self.evaluation_fn
+
     def PRE_PROCESSING(self, x):
-        ''' Required to save model, as it was previously in lambda function'''
+        '''Required to save model, as it was previously in lambda function'''
         return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+
+    @torch.no_grad()
+    def policy_fn(self, observation, legal_actions):
+        processed_obs = self.PRE_PROCESSING(observation)
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0)
+
+    @torch.no_grad()
+    def evaluation_fn(self, observation, legal_actions):
+        processed_obs = self.PRE_PROCESSING(observation)
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0)
+
 
     def init_storage(self, size: int):
         storage = Storage(size=size)
@@ -213,8 +231,8 @@ TODO    - 'use_agent_modelling': (Bool) whether to model agent's policies as in 
             end_memory_size=config['end_memory_size'])
 
     return ExpertIterationAgent(
-            algorithm=algorithm,
             name=agent_name,
+            algorithm=algorithm,
             expert=expert,
             apprentice=apprentice,
             memory_size=config['initial_memory_size'],  # TODO: remove this from here

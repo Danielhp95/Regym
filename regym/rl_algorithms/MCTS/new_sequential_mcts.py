@@ -31,7 +31,8 @@ def selection_phase(node, state: gym.Env, selection_strat, exploration_factor):
 def expansion_phase_expand_all(node: Node, a_i: int, state: gym.Env,
                                policy_fn, player: int):
     observations, _, _, _ = state.step(a_i)
-    actions, priors = get_actions_and_priors(state, observations, policy_fn)
+    actions, priors = get_actions_and_priors(state, observations[player],
+                                             policy_fn)
     node.add_child(a=a_i, P_a=priors, actions=actions, player=player)
     return node.children[a_i], observations  # NOTE: observations are ignored for now
 
@@ -47,12 +48,17 @@ def action_selection_phase(node: Node):
     return max(node.N_a, key=lambda x: node.N_a.get(x))
 
 
-def rollout_phase(state: gym.Env, obs, rollout_budget: int):
+def rollout_phase(state: gym.Env, node: Node, obs, rollout_budget: int,
+                  evaluation_fn: Callable[[object, List[int]], float]):
     rewards = None
     for i in range(rollout_budget):
         moves = state.get_moves()
-        if moves == []: return
+        if moves == []: break
         obs, rewards, _, _ = state.step(random.choice(state.get_moves()))
+    # We will need to put this in tensor
+    if evaluation_fn: value = evaluation_fn(obs[node.player], state.get_moves())
+    else: value = state.get_result(node.player)
+    return value
 
 
 def MCTS(rootstate, observation,
@@ -62,6 +68,7 @@ def MCTS(rootstate, observation,
          exploration_factor: float,
          player_index: int,
          policy_fn: Callable,
+         evaluation_fn: Callable,
          use_dirichlet: bool,
          dirichlet_alpha: float,
          num_agents: int):
@@ -78,8 +85,8 @@ def MCTS(rootstate, observation,
         if not node.is_terminal:
             node, obs = expansion_phase_expand_all(node, a_i, state, policy_fn,
                                                    player=((node.player + 1) % num_agents))
-            rollout_phase(state, obs, rollout_budget)
-        backpropagation_phase(node, -1 * state.get_result(node.player))
+            value = rollout_phase(state, node, obs, rollout_budget, evaluation_fn)
+        backpropagation_phase(node, -1 * value)
         # Remember to maybe multiple by -1
 
     best_action = action_selection_phase(rootnode)
