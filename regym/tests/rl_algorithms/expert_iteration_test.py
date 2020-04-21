@@ -1,9 +1,9 @@
-from test_fixtures import expert_iteration_config_dict, Connect4Task
+from test_fixtures import expert_iteration_config_dict, mcts_config_dict, Connect4Task
 
 from regym.util import extract_winner
 
 from play_against_fixed_opponent import learn_against_fix_opponent
-from regym.rl_algorithms import rockAgent, build_Random_Agent
+from regym.rl_algorithms import rockAgent, build_Random_Agent, build_MCTS_Agent
 from regym.rl_algorithms import build_ExpertIteration_Agent
 
 
@@ -26,23 +26,46 @@ def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, expert_
     assert extract_winner(trajectory) == 1  # Second player (index 1) has a much higher budget
 
 
-def test_train_against_random_connect4(Connect4Task, expert_iteration_config_dict):
-    # TODO: ADD max size
-    # TODO: ADD num_episodes per update
-    # TODO: add functionality to remove older episodes once max episodes is reached
+def test_can_use_apprentice_in_expert_in_expansion_and_rollout_phase(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['use_apprentice_in_expert'] = True
+    expert_iteration_config_dict['rollout_budget'] = 0
+    exIt_agent_1 = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt1-test')
+    exIt_agent_2 = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt2-test')
+    Connect4Task.run_episode([exIt_agent_1, exIt_agent_2], training=False)
+
+
+def test_train_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):
     from torch.utils.tensorboard import SummaryWriter
     import regym
-    regym.rl_algorithms.expert_iteration.expert_iteration_loss.summary_writer = SummaryWriter('expert_iteration_test')
+    summary_writer = SummaryWriter('expert_iteration_test')
+    regym.rl_algorithms.expert_iteration.expert_iteration_loss.summary_writer = summary_writer
 
-    expert_iteration_config_dict['mcts_budget'] = 100
+    # Train worthy params
+    expert_iteration_config_dict['use_apprentice_in_expert'] = True
+    expert_iteration_config_dict['games_per_iteration'] = 1
+
+    expert_iteration_config_dict['mcts_budget'] = 200
+    expert_iteration_config_dict['initial_memory_size'] = 1000
+    expert_iteration_config_dict['memory_size_increase_frequency'] = 2
+    expert_iteration_config_dict['end_memory_size'] = 2500
+
+    expert_iteration_config_dict['batch_size'] = 50
+    expert_iteration_config_dict['num_epochs_per_iteration'] = 5
+
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExItvsRandom-test')
 
-    random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
+    mcts_config_dict['budget'] = 500
+    mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS:500')
 
-    learn_against_fix_opponent(ex_it, fixed_opponent=random_agent,
+    learn_against_fix_opponent(ex_it, fixed_opponent=mcts_agent,
                                agent_position=0,
                                task=Connect4Task,
-                               total_episodes=13000, training_percentage=0.9,
+                               total_episodes=3000, training_percentage=0.9,
                                reward_tolerance=0.2,
                                maximum_average_reward=1.0,
-                               evaluation_method='last')
+                               evaluation_method='last',
+                               benchmarking_episodes=25,
+                               benchmarking_checkpoints=15,
+                               summary_writer=summary_writer)
+    import torch
+    torch.save(ex_it, 'expert_iteration_vs_random_connect4.pickle')

@@ -77,8 +77,13 @@ class MCTSAgent(Agent):
                 use_dirichlet=self.use_dirichlet,
                 dirichlet_alpha=self.dirichlet_alpha)
 
+        # This is needed to ensure that all actions are represented
+        # because :param: env won't expose non-legal actions
+        child_visitations = [visitations[move_id] if move_id in visitations else 0.
+                             for move_id in range(self.action_dim)]
+
         self.current_prediction['action'] = action
-        self.current_prediction['child_visitations'] = visitations
+        self.current_prediction['child_visitations'] = child_visitations
         return action
 
     def handle_experience(self, s, a, r, succ_s, done=False):

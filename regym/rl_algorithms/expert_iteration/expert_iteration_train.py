@@ -60,10 +60,7 @@ class ExpertIterationAlgorithm():
                          'v': episode_trajectory.v})
 
     def train(self, apprentice_model: nn.Module):
-        '''
-        Highest level function.
-        '''
-        import ipdb; ipdb.set_trace()
+        ''' Highest level function '''
         self.episodes_collected_since_last_train = 0
         self.generation += 1
 

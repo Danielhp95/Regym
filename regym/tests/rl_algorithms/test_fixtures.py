@@ -124,7 +124,7 @@ def expert_iteration_config_dict():
     config['end_memory_size'] = 9
     # MCTS config
     config['mcts_budget'] = 20
-    config['mcts_rollout_budget'] = 100000
+    config['mcts_rollout_budget'] = 0
     config['mcts_exploration_factor'] = sqrt(2)
     config['mcts_use_dirichlet'] = True
     config['mcts_dirichlet_alpha'] = sqrt(2)
