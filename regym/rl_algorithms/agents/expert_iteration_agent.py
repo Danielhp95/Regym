@@ -134,7 +134,8 @@ def choose_feature_extractor(task, config: Dict):
                                     channels=config['channels'],
                                     kernel_sizes=config['kernel_sizes'],
                                     paddings=config['paddings'],
-                                    strides=config['strides'])
+                                    strides=config['strides'],
+                                    use_batch_normalization=config['use_batch_normalization'])
         return model
     else:
         return ValueError('Only convolutional architectures are supported for ExpertIterationAgent')

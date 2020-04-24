@@ -3,7 +3,7 @@
 # Permission given to modify the code as long as you keep this        #
 # declaration at the top                                              #
 #######################################################################
-from typing import List, Callable, Iterable
+from typing import List, Callable, Iterable, Tuple
 from functools import reduce
 
 import torch
@@ -67,48 +67,44 @@ class Convolutional2DBody(nn.Module):
                 self.create_convolutional_layers(height_in, width_in, channels,
                                                  kernel_sizes, paddings, strides,
                                                  use_batch_normalization=use_batch_normalization)
-        # TODO: get feature_dim should be set here
         self.feature_dim = dim_height * dim_width * channels[-1]
 
     def create_convolutional_layers(self, height_in: int, width_in: int,
-                                    channels: List[int], kernel_sizes: List[int],
+                                    channels: List[int],
+                                    kernel_sizes: List[int],
                                     paddings: List[int],
                                     strides: List[int],
-                                    use_batch_normalization: bool) -> nn.ModuleList:
-        # We compute the dimension of the input. Useful for debuggin too
-        self.dimensions = [(height_in, width_in)]
+                                    use_batch_normalization: bool) -> Tuple[nn.ModuleList, Tuple[int, int]]:
 
-        dim_height, dim_width = height_in, width_in
+        self.dimensions = self.compute_intermediate_dimensions(height_in, width_in,
+                                                               channels,
+                                                               kernel_sizes,
+                                                               paddings, strides)
 
         # Create convolutions and re-compute dimensions as
         # new conv layers are added
         convolutions = nn.ModuleList()
-        for c_in, c_out, k, p, s in zip(
-                channels, channels[1:], kernel_sizes, paddings, strides):
-            convolutions.append(
-                    layer_init(
-                        nn.Conv2d(in_channels=c_in, out_channels=c_out,
-                                  kernel_size=k, stride=s, padding=p))
-                    )
+        for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
+            convolutions += [layer_init(nn.Conv2d(in_channels=c_in, out_channels=c_out,
+                                                  kernel_size=k, stride=s, padding=p))]
 
-            if use_batch_normalization: convolutions.append(nn.BatchNorm2d(c_out))
+            if use_batch_normalization: convolutions += [nn.BatchNorm2d(c_out)]
+        output_height, output_width = self.dimensions[-1]
+        return convolutions, (output_height, output_width)
 
+    def compute_intermediate_dimensions(self, height_in, width_in,
+                                        channels, kernel_sizes, paddings,
+                                        strides):
+        dimensions = [(height_in, width_in)]
+        dim_height, dim_width = height_in, width_in
+        for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
             dim_height, dim_width = convolutional_layer_output_dimensions(
                     height=dim_height, width=dim_width, kernel_size=k,
-                    dilation=1,  # TODO: support dilation, if it ever becomes useful.
-                    padding=p, stride=s)
+                    dilation=1, padding=p, stride=s)
             if dim_height < 1 or dim_width < 1:
                 raise ValueError(f'At Convolutional layer {len(self.dimensions)} the dimensions of the convoluional map became invalid (less than 1): height = {dim_height}, width = {dim_width}')
-            self.dimensions.append((dim_height, dim_width))
-
-        return convolutions, (dim_height, dim_width)
-
-    def forward(self, x):
-        conv_map = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
-        # Without start_dim, we are flattening over the entire batch!
-        flattened_conv_map = conv_map.flatten(start_dim=1)
-        flat_embedding = self.gating_function(flattened_conv_map)
-        return flat_embedding
+            dimensions.append((dim_height, dim_width))
+        return dimensions
 
     def check_input_validity(self, channels, kernel_sizes, paddings, strides):
         if len(channels) < 2: raise ValueError('At least 2 channels must be specified')
@@ -120,6 +116,49 @@ class Convolutional2DBody(nn.Module):
             raise ValueError(f'{len(paddings)} paddings were specified, but exactly {len(channels) -1} are required')
         if len(strides) != (len(channels) - 1):
             raise ValueError(f'{len(strides)} strides were specified, but exactly {len(channels) -1} are required')
+
+    def forward(self, x):
+        conv_map = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
+        # Without start_dim, we are flattening over the entire batch!
+        flattened_conv_map = conv_map.flatten(start_dim=1)
+        flat_embedding = self.gating_function(flattened_conv_map)
+        return flat_embedding
+
+
+
+
+class ResidualBlock(nn.Module):
+    def __init__(self, module_in, module_out):
+        pass
+    def forward(self, x):
+        x  = self.module_in(x)
+        x2 = self.module_out(x)
+        # if ??? x = self.modify(x, x2)
+        return x + x2
+
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int,
+                 kernel_size: int, stride: int, padding: int):
+        super().__init__()
+        self.bn1 = nn.BatchNorm2d(in_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.use_1x1conv = (in_channels != out_channels)
+
+        if self.use_1x1conv:
+            self.conv3 = nn.Conv2d(in_channels, out_channels, 1, padding=0)
+
+    def forward(self, x):
+        x2 = self.conv1(F.leaky_relu(self.bn1(x)))
+        x2 = self.conv2(F.leaky_relu(self.bn2(x2)))
+        if self.use_1x1conv:
+            x = self.conv3(x)
+        return x + x2
 
 
 class DDPGConvBody(nn.Module):

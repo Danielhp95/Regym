@@ -7,7 +7,7 @@ import torch.distributions as distributions
 
 from torch.utils.tensorboard import SummaryWriter
 
-summary_writer = None
+summary_writer: SummaryWriter = None
 
 def compute_loss(states: torch.Tensor,
                  pi_mcts: torch.FloatTensor,
@@ -40,7 +40,6 @@ def compute_loss(states: torch.Tensor,
     opponent_modelling_loss = None  # TODO: cross_entropy_policy_loss between opponet targets and predictions
 
     total_loss = cross_entropy_policy_loss + value_loss
-
 
     # Sumary writer:
     # Policy inference (opponent modelling) loss
