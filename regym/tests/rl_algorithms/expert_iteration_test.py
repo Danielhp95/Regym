@@ -42,30 +42,32 @@ def test_train_against_random_connect4(Connect4Task, expert_iteration_config_dic
 
     # Train worthy params
     expert_iteration_config_dict['use_apprentice_in_expert'] = True
-    expert_iteration_config_dict['games_per_iteration'] = 1
+    expert_iteration_config_dict['games_per_iteration'] = 500
 
-    expert_iteration_config_dict['mcts_budget'] = 200
-    expert_iteration_config_dict['initial_memory_size'] = 1000
+    expert_iteration_config_dict['mcts_budget'] = 50
+    expert_iteration_config_dict['initial_memory_size'] = 6000
     expert_iteration_config_dict['memory_size_increase_frequency'] = 2
-    expert_iteration_config_dict['end_memory_size'] = 2500
+    expert_iteration_config_dict['end_memory_size'] = 30000
+    expert_iteration_config_dict['dirichlet_alpha'] = 1
 
-    expert_iteration_config_dict['batch_size'] = 50
-    expert_iteration_config_dict['num_epochs_per_iteration'] = 5
+    expert_iteration_config_dict['batch_size'] = 256
+    expert_iteration_config_dict['num_epochs_per_iteration'] = 4
 
-    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExItvsRandom-test')
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-test')
 
-    mcts_config_dict['budget'] = 500
-    mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS:500')
+    mcts_config_dict['budget'] = 200
+    mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name=f"MCTS:{mcts_config_dict['budget']}")
 
     learn_against_fix_opponent(ex_it, fixed_opponent=mcts_agent,
                                agent_position=0,
                                task=Connect4Task,
-                               total_episodes=3000, training_percentage=0.9,
+                               training_episodes=10,
+                               test_episodes=2,
+                               benchmarking_episodes=2,
+                               benchmark_every_n_episodes=2,
                                reward_tolerance=0.2,
                                maximum_average_reward=1.0,
                                evaluation_method='last',
-                               benchmarking_episodes=25,
-                               benchmarking_checkpoints=15,
                                summary_writer=summary_writer)
     import torch
     torch.save(ex_it, 'expert_iteration_vs_random_connect4.pickle')
