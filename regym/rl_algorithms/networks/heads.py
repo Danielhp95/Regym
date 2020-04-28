@@ -43,6 +43,9 @@ class CategoricalDQNet(nn.Module, BaseNet):
         # Q values for all actions
         q_values = self.qsa(x)
 
+        # TODO: check if this works
+        if legal_actions is not None:
+            q_values = self._mask_ilegal_action_logits(q_values, legal_actions)
         if action is None:
             q_value, action = q_values.max(dim=1)
 

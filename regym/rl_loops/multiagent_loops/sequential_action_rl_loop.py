@@ -63,24 +63,44 @@ def choose_action(agent, env, observation, current_player, legal_actions):
     return action
 
 
-def propagate_experience(agent_vector: List, trajectory: List, reward_vector: List, succ_observations: List, done: bool):
-    if len(trajectory) >= len(agent_vector):
-        agent_to_update = len(trajectory) % len(agent_vector)
-        if agent_vector[agent_to_update].training:
-            update_agent(agent_to_update, trajectory, agent_vector,
-                         reward_vector[agent_to_update],
-                         succ_observations[agent_to_update], done)
+def propagate_experience(agent_vector: List, trajectory: List,
+                         reward_vector: List, succ_observations: List,
+                         done: bool):
+    '''
+    Propagates the experience tuple to the corresponding agent
+
+    ASSUMPTION: Agents take action in a circular fashion:
+        Action order: 0 -> 1 -> ... -> number_agents -> 0 -> 1 -> ...
+    :param agent_vector: List of agents acting in current environment
+    :param reward_vector: Reward vector for environment step
+    :param succ_observations: Succesor observations for current env step
+    :param done: Termination flag, whether the episode has finished
+    '''
+    if len(trajectory) < len(agent_vector): return
+
+    agent_to_update = len(trajectory) % len(agent_vector)
+    if agent_vector[agent_to_update].training:
+        update_agent(agent_to_update, trajectory, agent_vector,
+                     reward_vector[agent_to_update],
+                     succ_observations[agent_to_update], done)
 
 
 def update_agent(agent_id: int, trajectory: List, agent_vector: List,
                  reward: float, succ_observation: np.ndarray, done: bool):
     '''
-    This function assumes that every non-terminal observation corresponds to
-    the an information set uniquely for the player whose turn it is.
+    ASSUMPTION: every non-terminal observation corresponds to
+    the an information set unique for the player whose turn it is.
     This means that each "experience" is from which an RL agent will learn
     (o, a, r, o') is fragmented throughout the trajectory. This function
     "stiches together" the right environmental signals, ensuring that
     each agent only has access to information from their own information sets.
+
+    :param agent_id: Index of agent which will receive a new experience
+    :param trajectory: Current episode trajectory
+    :param agent_vector: List of agents acting in current environment
+    :param reward: Scalar reward for :param: agent_id
+    :param succ_observation: Succesor observation for :param: agent_id
+    :param done: Termination flag, whether the episode has finished
     '''
     o, a = get_last_observation_and_action_for_agent(agent_id,
                                                      trajectory,
@@ -98,6 +118,11 @@ def propagate_last_experience(agent_vector: List, trajectory: List,
 
     This function propagates this reward signal to all agents
     who have not received it.
+
+    :param agent_vector: List of agents acting in current environment
+    :param trajectory: Current (finished) episode trajectory
+    :param reward_vector: Reward vector for terminal environment step
+    :param succ_observations: Succesor observations for current env step
     '''
     agent_indices = list(range(len(agent_vector)))
     # This agent already processed the last experience
@@ -112,18 +137,19 @@ def propagate_last_experience(agent_vector: List, trajectory: List,
 def get_last_observation_and_action_for_agent(target_agent_id: int,
                                               trajectory: List, num_agents: int) -> Tuple:
     '''
+    Obtains the last observation and action for agent :param: target_agent_id
+    from the :param: trajectory.
+
     :param target_agent_id: Index of agent whose last observation / action
                             we are searching for
     :param trajectory: Sequence of (o_i,a_i,r_i,o'_{i+1}) for all players i.
+    :param num_agents: Number of agents acting in the current environment
     :returns: The last observation (information state) and action taken
               at such observation by player :param: target_agent_id.
     '''
     last_agent_to_act = (len(trajectory) - 1) % num_agents
-    if last_agent_to_act >= target_agent_id:
-        offset = target_agent_id - last_agent_to_act - 1
-    else:
-        offset = num_agents - (target_agent_id - last_agent_to_act) - 1
-    previous_timestep = trajectory[offset]
+    # Offsets are negative, exploiting Python's backwards index lookup
+    previous_timestep = trajectory[-num_agents]
     last_observation = previous_timestep[0][target_agent_id]
     last_action = previous_timestep[1]
     return last_observation, last_action

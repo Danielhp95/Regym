@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from regym.rl_algorithms.networks.utils import layer_init, layer_init_lstm
-from regym.rl_algorithms.networks.utils import convolutional_layer_output_dimensions
-
+from regym.rl_algorithms.networks.utils import convolutional_layer_output_dimensions, compute_convolutional_dimension_transforms
+from regym.rl_algorithms.networks.utils import create_convolutional_layers
 
 
 class SequentialBody(nn.Module):
@@ -47,64 +47,50 @@ class NatureConvBody(nn.Module):
 
 
 class Convolutional2DBody(nn.Module):
-    def __init__(self, input_shape: List[int],
+    def __init__(self, input_shape: Tuple[int, int],
                  channels: List[int], kernel_sizes: List[int],
                  paddings: List[int], strides: List[int],
+                 residual_connections: List[Tuple[int, int]] = [],
                  use_batch_normalization=False,
                  gating_function: Callable = F.relu):
         '''
-        TODO
+        :param input_shape: (Height x Width) dimensions of input tensors
+        :param channels: List with number of channels for each convolution
+        :param kernel_sizes: List of 'k' the size of the square kernel sizes for each convolution
+        :param paddings: List with square paddings 'p' for each convolution
+        :param strides: List with square stridings 's' for each convolution
+        :param residual_connections: (l1, l2) tuples denoting that output
+                                     from l1 should be added to input of l2
+        :param use_batch_normalization: Whether to use BatchNorm2d after each convolution
+        :param gating_function: Gating function to use after each convolution
         '''
         super().__init__()
-
-        self.check_input_validity(channels, kernel_sizes,
-                                  paddings, strides)
-
+        self.check_input_validity(channels, kernel_sizes, paddings, strides)
         self.gating_function = gating_function
         height_in, width_in = input_shape
 
-        self.convolutions, (dim_height, dim_width) = \
-                self.create_convolutional_layers(height_in, width_in, channels,
-                                                 kernel_sizes, paddings, strides,
-                                                 use_batch_normalization=use_batch_normalization)
-        self.feature_dim = dim_height * dim_width * channels[-1]
+        self.dimensions = compute_convolutional_dimension_transforms(
+                height_in, width_in, channels, kernel_sizes, paddings, strides)
 
-    def create_convolutional_layers(self, height_in: int, width_in: int,
-                                    channels: List[int],
-                                    kernel_sizes: List[int],
-                                    paddings: List[int],
-                                    strides: List[int],
-                                    use_batch_normalization: bool) -> Tuple[nn.ModuleList, Tuple[int, int]]:
+        if residual_connections != []:
+            self.convolutions = create_convolutional_residual_layers(
+                    input_shape, residual_connections, channels, kernel_sizes,
+                    paddings, strides, use_batch_normalization)
 
-        self.dimensions = self.compute_intermediate_dimensions(height_in, width_in,
-                                                               channels,
-                                                               kernel_sizes,
-                                                               paddings, strides)
-
-        # Create convolutions and re-compute dimensions as
-        # new conv layers are added
-        convolutions = nn.ModuleList()
-        for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
-            convolutions += [layer_init(nn.Conv2d(in_channels=c_in, out_channels=c_out,
-                                                  kernel_size=k, stride=s, padding=p))]
-
-            if use_batch_normalization: convolutions += [nn.BatchNorm2d(c_out)]
+            # This should be placed inside of create_convolutional_residual_layers
+            # As it might be the case that residual layers and non residual ones are mixed
+            last_residual_layer = residual_connections[-1][1]
+            if last_residual_layer < len(channels):
+                cs, ks = channels[last_residual_layer:], kernel_sizes[last_residual_layer:]
+                ps, ss = paddings[last_residual_layer:], strides[last_residual_layer:]
+                self.convolutions += create_convolutional_layers(cs, ks, ps, ss,
+                                                                 use_batch_normalization)
+        else:
+            self.convolutions = create_convolutional_layers(channels, kernel_sizes,
+                                                            paddings, strides,
+                                                            use_batch_normalization)
         output_height, output_width = self.dimensions[-1]
-        return convolutions, (output_height, output_width)
-
-    def compute_intermediate_dimensions(self, height_in, width_in,
-                                        channels, kernel_sizes, paddings,
-                                        strides):
-        dimensions = [(height_in, width_in)]
-        dim_height, dim_width = height_in, width_in
-        for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
-            dim_height, dim_width = convolutional_layer_output_dimensions(
-                    height=dim_height, width=dim_width, kernel_size=k,
-                    dilation=1, padding=p, stride=s)
-            if dim_height < 1 or dim_width < 1:
-                raise ValueError(f'At Convolutional layer {len(self.dimensions)} the dimensions of the convoluional map became invalid (less than 1): height = {dim_height}, width = {dim_width}')
-            dimensions.append((dim_height, dim_width))
-        return dimensions
+        self.feature_dim = output_height * output_width * channels[-1]
 
     def check_input_validity(self, channels, kernel_sizes, paddings, strides):
         if len(channels) < 2: raise ValueError('At least 2 channels must be specified')
@@ -118,47 +104,74 @@ class Convolutional2DBody(nn.Module):
             raise ValueError(f'{len(strides)} strides were specified, but exactly {len(channels) -1} are required')
 
     def forward(self, x):
-        conv_map = reduce(lambda acc, layer: layer(acc), self.convolutions, x)
+        conv_map = reduce(lambda acc, layer: self.gating_function(layer(acc)),
+                          self.convolutions, x)
         # Without start_dim, we are flattening over the entire batch!
         flattened_conv_map = conv_map.flatten(start_dim=1)
         flat_embedding = self.gating_function(flattened_conv_map)
         return flat_embedding
 
 
+class ConvolutionalResidualBlock(nn.Module):
 
-
-class ResidualBlock(nn.Module):
-    def __init__(self, module_in, module_out):
-        pass
-    def forward(self, x):
-        x  = self.module_in(x)
-        x2 = self.module_out(x)
-        # if ??? x = self.modify(x, x2)
-        return x + x2
-
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int,
-                 kernel_size: int, stride: int, padding: int):
+    def __init__(self, input_shape: Tuple[int, int],
+                 channels: List[int], kernel_sizes: List[int],
+                 paddings: List[int], strides: List[int],
+                 use_batch_normalization=False,
+                 gating_function: Callable = F.relu):
         super().__init__()
-        self.bn1 = nn.BatchNorm2d(in_channels)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-
-        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.use_1x1conv = (in_channels != out_channels)
-
+        self.use_1x1conv = channels[0] != channels[-1]
         if self.use_1x1conv:
-            self.conv3 = nn.Conv2d(in_channels, out_channels, 1, padding=0)
+            self.residual_conv = nn.Conv2d(channels[0], channels[-1], kernel_size=1)
+
+        height_in, width_in = input_shape
+        self.dimensions = compute_convolutional_dimension_transforms(height_in,
+                                                                     width_in,
+                                                                     channels,
+                                                                     kernel_sizes,
+                                                                     paddings,
+                                                                     strides)
+        self.convolutions = create_convolutional_layers(channels, kernel_sizes,
+                                                        paddings, strides,
+                                                        use_batch_normalization)
+
+        self.gating_function = gating_function
+        output_height, output_width = self.dimensions[-1]
+        self.feature_dim = output_height * output_width * channels[-1]
 
     def forward(self, x):
-        x2 = self.conv1(F.leaky_relu(self.bn1(x)))
-        x2 = self.conv2(F.leaky_relu(self.bn2(x2)))
-        if self.use_1x1conv:
-            x = self.conv3(x)
+        x2 = reduce(lambda acc, layer: self.gating_function(layer(acc)),
+                    self.convolutions, x)
+        if self.use_1x1conv: x = self.residual_conv(x)
         return x + x2
+
+
+def create_convolutional_residual_layers(input_shape: Tuple[int, int],
+                                         residual_connections: List[Tuple[int, int]],
+                                         channels: List[int],
+                                         kernel_sizes: List[int],
+                                         paddings: List[int],
+                                         strides: List[int],
+                                         use_batch_normalization: bool) -> nn.ModuleList:
+    '''
+    :param residual_connections: TODO
+    :param channels: List with number of channels for each convolution
+    :param kernel_sizes: List of 'k' the size of the square kernel sizes for each convolution
+    :param paddings: List with square paddings 'p' for each convolution
+    :param strides: List with square stridings 's' for each convolution
+    :param use_batch_normalization: Whether to use BatchNorm2d after each convolution
+    '''
+    convolutions = nn.ModuleList()
+    in_dimensions = input_shape
+    for l1, l2 in residual_connections:
+        residual_skip = slice(l1, l2 + 1)
+        cs, ks = channels[residual_skip], kernel_sizes[residual_skip]
+        ps, ss = paddings[residual_skip], strides[residual_skip]
+        res = ConvolutionalResidualBlock(in_dimensions, cs, ks, ps, ss,
+                                         use_batch_normalization)
+        convolutions += [res]
+        in_dimensions = res.dimensions[-1]
+    return convolutions
 
 
 class DDPGConvBody(nn.Module):
