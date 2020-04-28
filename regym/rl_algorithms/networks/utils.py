@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 import os
 
 import numpy as np
@@ -40,7 +40,7 @@ def soft_update(fromm: torch.nn.Module, to: torch.nn.Module, tau: float):
         fp.data.copy_(((1.0 - tau) * fp.data) + (tau * tp.data))
 
 
-def layer_init(layer, w_scale=1.0):
+def layer_init(layer, w_scale=1.0) -> nn.Module:
     nn.init.orthogonal_(layer.weight.data)
     layer.weight.data.mul_(w_scale)
     nn.init.constant_(layer.bias.data, 0)
@@ -147,3 +147,39 @@ def convolutional_layer_output_dimensions(height: int, width: int,
     width_out = 1 + ((width + 2 * padding - dilation * (kernel_size - 1) - 1) \
                       // stride)
     return height_out, width_out
+
+
+def compute_convolutional_dimension_transforms(height_in, width_in,
+                                               channels, kernel_sizes, paddings,
+                                               strides) -> List[Tuple[int, int]]:
+    '''
+    Computes the (height x width) dimension at each conv layer as a
+    tensor of size=(:param: height_in, :param: width_in) passes through them
+    '''
+    dimensions = [(height_in, width_in)]
+    dim_height, dim_width = height_in, width_in
+    for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
+        dim_height, dim_width = convolutional_layer_output_dimensions(dim_height, dim_width, k, 1, p, s)
+        if dim_height < 1 or dim_width < 1:
+            raise ValueError(f'At Convolutional layer {len(self.dimensions)} the dimensions of the convoluional map became invalid (less than 1): height = {dim_height}, width = {dim_width}')
+        dimensions.append((dim_height, dim_width))
+    return dimensions
+
+
+def create_convolutional_layers(channels: List[int], kernel_sizes: List[int],
+                                paddings: List[int], strides: List[int],
+                                use_batch_normalization: bool) -> nn.ModuleList:
+    '''
+    :param channels: List with number of channels for each convolution
+    :param kernel_sizes: List of 'k' the size of the square kernel sizes for each convolution
+    :param paddings: List with square paddings 'p' for each convolution
+    :param strides: List with square stridings 's' for each convolution
+    :param use_batch_normalization: Whether to use BatchNorm2d after each convolution
+    '''
+    convolutions = nn.ModuleList()
+    for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
+        convolutions += [layer_init(nn.Conv2d(in_channels=c_in, out_channels=c_out,
+                                              kernel_size=k, stride=s, padding=p))]
+
+        if use_batch_normalization: convolutions += [nn.BatchNorm2d(c_out)]
+    return convolutions
