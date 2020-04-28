@@ -53,6 +53,7 @@ class DeepQNetworkAgent(Agent):
         action = self.select_action(model=self.algorithm.model,
                                     state=self.preprocessing_function(state),
                                     eps=self.eps,
+                                    legal_actions=legal_actions,
                                     training=self.training)
 
         is_single_int_action = \
@@ -66,14 +67,15 @@ class DeepQNetworkAgent(Agent):
     def reset_eps(self):
         self.eps = self.epsstart
 
-    def select_action(self, model: nn.Module, state, eps: float, training: bool):
+    def select_action(self, model: nn.Module, state, eps: float,
+                      legal_actions: List[int], training: bool):
         sample = np.random.random()
         if not training or sample > eps:
             action = model(state)['a'].detach().cpu()
             return action.numpy()
         else:
-            action = np.random.choice(range(self.algorithm.model.action_dim))
-            return action
+            if legal_actions: return np.random.choice(legal_actions)
+            else: return np.random.choice(range(self.algorithm.model.action_dim))
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
