@@ -36,7 +36,6 @@ class Node:
         # Equation to keep a running mean
         self.Q_a[a_i] = (self.N_a[a_i] * self.Q_a[a_i] + value) / (self.N_a[a_i] + 1)
         self.N_a[a_i] += 1
-        # if abs(self.Q_a[a_i]) > 10000: import ipdb; ipdb.set_trace()
 
     def __repr__(self, indent=0, depth=inf):
         # This if statement is kind of uggly, right?
