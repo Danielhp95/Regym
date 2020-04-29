@@ -56,8 +56,9 @@ def rollout_phase(state: gym.Env, node: Node, obs, rollout_budget: int,
         if moves == []: break
         obs, rewards, _, _ = state.step(random.choice(state.get_moves()))
     # We will need to put this in tensor
-    if evaluation_fn: value = evaluation_fn(obs[node.player], state.get_moves())
-    else: value = state.get_result(node.player)
+    if state.get_moves() == [] or not evaluation_fn:
+        value = state.get_result(node.player)
+    else: value = evaluation_fn(obs[node.player], state.get_moves())
     return value
 
 
@@ -86,8 +87,8 @@ def MCTS(rootstate, observation,
             node, obs = expansion_phase_expand_all(node, a_i, state, policy_fn,
                                                    player=((node.player + 1) % num_agents))
             value = rollout_phase(state, node, obs, rollout_budget, evaluation_fn)
+        # Multiply by -1 because 'node.parent' tries to minimize 'node' reward
         backpropagation_phase(node, -1 * value)
-        # Remember to maybe multiple by -1
 
     best_action = action_selection_phase(rootnode)
     return best_action, rootnode.N_a

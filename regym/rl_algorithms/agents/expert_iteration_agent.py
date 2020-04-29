@@ -66,12 +66,12 @@ class ExpertIterationAgent(Agent):
     @torch.no_grad()
     def policy_fn(self, observation, legal_actions):
         processed_obs = self.PRE_PROCESSING(observation)
-        return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0)
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0).numpy()
 
     @torch.no_grad()
     def evaluation_fn(self, observation, legal_actions):
         processed_obs = self.PRE_PROCESSING(observation)
-        return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0)
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0).numpy()
 
 
     def init_storage(self, size: int):
@@ -135,6 +135,7 @@ def choose_feature_extractor(task, config: Dict):
                                     kernel_sizes=config['kernel_sizes'],
                                     paddings=config['paddings'],
                                     strides=config['strides'],
+                                    residual_connections=config.get('residual_connections', []),
                                     use_batch_normalization=config['use_batch_normalization'])
         return model
     else:
@@ -212,6 +213,7 @@ TODO    - 'use_agent_modelling': (Bool) whether to model agent's policies as in 
         - 'learning_rate': (Float) Learning rate for neural network optimizer
         - 'feature_extractor_arch': (str) Architechture for the feature extractor
             + For Convolutional2DBody:
+            - 'residual_connections': List[Tuple[int, int]] Which layers should hace residual skip connections
             - 'preprocessed_input_dimensions': Tuple[int] Input dimensions for each channel
             - 'channels': Tuple[int]
             - 'kernel_sizes': Tuple[int]
