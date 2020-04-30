@@ -112,8 +112,8 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
         - 'rollout_budget': (Int) Number of steps to simulate during rollout_phase
         - 'selection_phase': (str) Which selection phase to use.
                              SUPPORTED: ['ucb1', 'puct']
-        - 'exploration_constant_ucb1': UCB1 exploration constant
-        - 'exploration_constant_puct': PUCT exploration constant
+        - 'exploration_factor_ucb1': UCB1 exploration constant
+        - 'exploration_factor_puct': PUCT exploration constant
         - 'use_dirichlet': Whether to add dirichlet noise the the normalized child visitations.
                            Intuition behind why this is useful:
                            https://medium.com/oracledevs/lessons-from-alphazero-part-3-parameter-tweaking-4dceb78ed1e5
