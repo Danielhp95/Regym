@@ -107,13 +107,13 @@ class ExpertIterationAlgorithm():
 
     def update_storage(self, dataset, max_memory, keys):
         self.update_storage_size(dataset)
+        dataset.remove_duplicates(target_key='s',
+                                  avg_keys=['normalized_child_visitations', 'v'])
         self.curate_dataset(dataset, dataset.size,
                             keys=['s', 'v', 'normalized_child_visitations'])
 
     def update_storage_size(self, dataset):
-        '''
-        Increases maximum size of dataset if required
-        '''
+        ''' Increases maximum size of dataset if required '''
         if self.generation % self.memory_size_increase_frequency == 0 \
                 and dataset.size < self.end_memory_size:
             dataset.size += self.initial_memory_size
