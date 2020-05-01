@@ -54,7 +54,7 @@ def plot_backwards_graph(tensor: Tensor, model: torch.nn.Module, filename: str):
     '''
     Generates a plot containng :param: tensor's backward computational graph,
     which will be stored in file :param: {filename}.pdf.
-    NOTE: - Two files are created (1) filename (2) filename.pdf
+    NOTE: - Three files are created (1) filename (2) filename.pdf (3) Digraph.gv
           - This function WILL NOT plot in a terminal, only to a file
 
     :param tensor: Tensor's backward computational path
