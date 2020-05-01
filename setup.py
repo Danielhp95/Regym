@@ -39,6 +39,7 @@ setup(
                       'opencv-python',
                       'torch',
                       'torchvision',
+                      'pytorchviz',
                       'cvxopt',
                       'scipy',
                       'seaborn'] + test_requirements,
