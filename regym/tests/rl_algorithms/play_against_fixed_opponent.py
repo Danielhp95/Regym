@@ -3,6 +3,7 @@ from functools import reduce
 import math
 
 from tqdm import tqdm
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from regym.environments import Task
@@ -102,6 +103,7 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
                         starting_episode=(e + benchmark_every_n_episodes),
                         episodes=benchmarking_episodes,
                         summary_writer=summary_writer)
+        torch.save(agent, f'{agent.name}_{task.name}_{e + benchmark_every_n_episodes}.pt')
         agent.training = True
     return training_trajectories
 
