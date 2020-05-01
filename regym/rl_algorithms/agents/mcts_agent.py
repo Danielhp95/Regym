@@ -34,7 +34,7 @@ class MCTSAgent(Agent):
         self.budget = iteration_budget
         self.rollout_budget = rollout_budget
         self.exploration_constant = exploration_constant
-        self.task_num_agents = task_num_agents
+        self.num_agents = task_num_agents
         self.action_dim = task_action_dim
 
         # Different MCTS variations
@@ -70,7 +70,7 @@ class MCTSAgent(Agent):
                 budget=self.budget,
                 rollout_budget=self.rollout_budget,
                 evaluation_fn=self.evaluation_fn,
-                num_agents=self.task_num_agents,
+                num_agents=self.num_agents,
                 selection_strat=self.selection_strat,
                 policy_fn=self.policy_fn,
                 exploration_factor=self.exploration_constant,
@@ -91,10 +91,14 @@ class MCTSAgent(Agent):
 
     def clone(self):
         cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,
+                           selection_strat=self.selection_strat,
                            iteration_budget=self.budget,
                            rollout_budget=self.rollout_budget,
+                           task_action_dim=self.action_dim,
+                           task_num_agents=self.num_agents,
                            exploration_constant=self.exploration_constant,
-                           task_num_agents=self.task_num_agents)
+                           use_dirichlet=self.use_dirichlet,
+                           dirichlet_alpha=self.dirichlet_alpha)
         return cloned
 
     def __repr__(self):
