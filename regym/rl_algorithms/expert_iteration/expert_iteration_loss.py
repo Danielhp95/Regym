@@ -34,7 +34,7 @@ def compute_loss(states: torch.Tensor,
     cross_entropy_policy_loss, kl_divergence = cross_entropy_loss(pi_mcts, predictions['probs'])
 
     # Learning game outcomes: Mean Square Error
-    value_loss = nn.MSELoss()(values, predictions['v'])
+    value_loss = nn.MSELoss()(values.view((-1, 1)), predictions['v'])
 
     # Opponent modelling loss (cross entropy loss)
     opponent_modelling_loss = None  # TODO: cross_entropy_policy_loss between opponet targets and predictions
