@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import List, Dict
 import copy
 
 import regym
@@ -46,7 +46,7 @@ class ReinforceAgent(Agent):
                 self.trajectories = []
             self.trajectories.append([])
 
-    def model_free_take_action(self, state):
+    def model_free_take_action(self, state, legal_actions: List[int]):
         '''
         :param state: Environment state
         :returns: Action to be executed by the environment conditioned on :param: state

@@ -1,12 +1,12 @@
 from test_fixtures import reinforce_config_dict, CartPoleTask
-from utils import can_act_in_environment
 
 from regym.rl_algorithms.agents import build_Reinforce_Agent
 from regym.rl_loops.singleagent_loops.rl_loop import run_episode
 
 
 def test_reinforce_can_take_actions_continuous_obvservation_discrete_action(CartPoleTask, reinforce_config_dict):
-    can_act_in_environment(CartPoleTask, build_Reinforce_Agent, reinforce_config_dict, name=__name__)
+    reinforce_agent = build_Reinforce_Agent(CartPoleTask, reinforce_config_dict, 'Reinforce-Test')
+    CartPoleTask.run_episode([reinforce_agent], training=False)
 
 
 def test_learns_to_solve_cartpole(CartPoleTask, reinforce_config_dict):
@@ -15,5 +15,5 @@ def test_learns_to_solve_cartpole(CartPoleTask, reinforce_config_dict):
     import tqdm
     progress_bar = tqdm.tqdm(range(4000))
     for _ in progress_bar:
-        trajectory = run_episode(CartPoleTask.env, agent, training=True)
+        trajectory = CartPoleTask.run_episode([agent], training=True)
         progress_bar.set_description(f'{agent.name} in {CartPoleTask.env.spec.id}. Episode length: {len(trajectory)}')
