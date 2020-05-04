@@ -107,7 +107,6 @@ class PreprocessFunction():
             return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
 
-
 def random_sample(indices, batch_size):
     indices = np.asarray(np.random.permutation(indices))
     batches = indices[:len(indices) // batch_size * batch_size].reshape(-1, batch_size)
