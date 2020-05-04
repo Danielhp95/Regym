@@ -63,14 +63,6 @@ def tensor(x):
     return x
 
 
-def range_tensor(end):
-    return torch.arange(end).long().to(Config.DEVICE)
-
-
-def to_np(t):
-    return t.cpu().detach().numpy()
-
-
 def random_seed(seed=None):
     np.random.seed(seed)
     torch.manual_seed(np.random.randint(int(1e6)))
@@ -114,16 +106,6 @@ class PreprocessFunction():
         else:
             return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
-
-def from_numpy_to_one_element_batch(self, x: np.ndarray, use_cuda=False):
-    '''
-    Transforms :param: array x into a tensor of dimensions 1 x (x.shape)
-    '''
-    x = np.concatenate(x, axis=None)
-    if use_cuda:
-        return torch.from_numpy(x).unsqueeze(0).type(torch.cuda.FloatTensor)
-    else:
-        return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
 
 
 def random_sample(indices, batch_size):
