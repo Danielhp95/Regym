@@ -72,25 +72,23 @@ class Convolutional2DBody(nn.Module):
         self.dimensions = compute_convolutional_dimension_transforms(
                 height_in, width_in, channels, kernel_sizes, paddings, strides)
 
-        if residual_connections != []:
-            self.convolutions = create_convolutional_residual_layers(
-                    input_shape, residual_connections, channels, kernel_sizes,
-                    paddings, strides, use_batch_normalization)
+        convs = self.layer_connections(self.dimensions, residual_connections,
+                                       i_in=0, i_max=(len(self.dimensions) - 1),  # check i_max is correct
+                                       Cs=channels, Ks=kernel_sizes,
+                                       Ps=paddings, Ss=strides,
+                                       use_batch_normalization=use_batch_normalization)
+        self.convolutions = nn.ModuleList(convs)
 
-            # This should be placed inside of create_convolutional_residual_layers
-            # As it might be the case that residual layers and non residual ones are mixed
-            last_residual_layer = residual_connections[-1][1]
-            if last_residual_layer < len(channels):
-                cs, ks = channels[last_residual_layer:], kernel_sizes[last_residual_layer:]
-                ps, ss = paddings[last_residual_layer:], strides[last_residual_layer:]
-                self.convolutions += create_convolutional_layers(cs, ks, ps, ss,
-                                                                 use_batch_normalization)
-        else:
-            self.convolutions = create_convolutional_layers(channels, kernel_sizes,
-                                                            paddings, strides,
-                                                            use_batch_normalization)
         output_height, output_width = self.dimensions[-1]
         self.feature_dim = output_height * output_width * channels[-1]
+
+    def forward(self, x):
+        conv_map = reduce(lambda acc, layer: self.gating_function(layer(acc)),
+                          self.convolutions, x)
+        # Without start_dim, we are flattening over the entire batch!
+        flattened_conv_map = conv_map.flatten(start_dim=1)
+        flat_embedding = self.gating_function(flattened_conv_map)
+        return flat_embedding
 
     def check_input_validity(self, channels, kernel_sizes, paddings, strides):
         if len(channels) < 2: raise ValueError('At least 2 channels must be specified')
@@ -103,13 +101,30 @@ class Convolutional2DBody(nn.Module):
         if len(strides) != (len(channels) - 1):
             raise ValueError(f'{len(strides)} strides were specified, but exactly {len(channels) -1} are required')
 
-    def forward(self, x):
-        conv_map = reduce(lambda acc, layer: self.gating_function(layer(acc)),
-                          self.convolutions, x)
-        # Without start_dim, we are flattening over the entire batch!
-        flattened_conv_map = conv_map.flatten(start_dim=1)
-        flat_embedding = self.gating_function(flattened_conv_map)
-        return flat_embedding
+    def layer_connections(self, dimensions: List[Tuple[int, int]],
+                          residual_connections: List[Tuple[int, int]],
+                          i_in, i_max,
+                          Cs, Ks, Ps, Ss,
+                          use_batch_normalization) -> List[nn.Module]:
+        if i_in == i_max: return []
+        if residual_connections == []:
+            return [create_convolutional_layers(Cs[i_in:], Ks[i_in:], Ps[i_in:],
+                                                Ss[i_in:], use_batch_normalization)]
+        l_in, l_out = residual_connections[0]
+        if l_in == i_in:  # Start of residual block
+            length = slice(l_in, l_out+1)
+            res = ConvolutionalResidualBlock(dimensions[l_in],
+                     Cs[length], Ks[length], Ps[length], Ss[length],
+                     use_batch_normalization)
+            return [res] + self.layer_connections(dimensions, residual_connections[1:],
+                    l_out, i_max, Cs, Ks, Ps, Ss, use_batch_normalization)
+        if l_in > i_in:  # Start of non-residual block
+            length = slice(i_in, l_in + 1)
+            con = create_convolutional_layers(Cs[length], Ks[length],
+                                              Ps[length], Ss[length],
+                                              use_batch_normalization)
+            return [con] + self.layer_connections(dimensions, residual_connections,
+                    l_in, i_max, Cs, Ks, Ps, Ss, use_batch_normalization)
 
 
 class ConvolutionalResidualBlock(nn.Module):
@@ -125,15 +140,10 @@ class ConvolutionalResidualBlock(nn.Module):
             self.residual_conv = nn.Conv2d(channels[0], channels[-1], kernel_size=1)
 
         height_in, width_in = input_shape
-        self.dimensions = compute_convolutional_dimension_transforms(height_in,
-                                                                     width_in,
-                                                                     channels,
-                                                                     kernel_sizes,
-                                                                     paddings,
-                                                                     strides)
-        self.convolutions = create_convolutional_layers(channels, kernel_sizes,
-                                                        paddings, strides,
-                                                        use_batch_normalization)
+        self.dimensions = compute_convolutional_dimension_transforms(
+                height_in, width_in, channels, kernel_sizes, paddings, strides)
+        self.convolutions = create_convolutional_layers(
+                channels, kernel_sizes, paddings, strides, use_batch_normalization)
 
         self.gating_function = gating_function
         output_height, output_width = self.dimensions[-1]
@@ -144,48 +154,6 @@ class ConvolutionalResidualBlock(nn.Module):
                     self.convolutions, x)
         if self.use_1x1conv: x = self.residual_conv(x)
         return x + x2
-
-
-def create_convolutional_residual_layers(input_shape: Tuple[int, int],
-                                         residual_connections: List[Tuple[int, int]],
-                                         channels: List[int],
-                                         kernel_sizes: List[int],
-                                         paddings: List[int],
-                                         strides: List[int],
-                                         use_batch_normalization: bool) -> nn.ModuleList:
-    '''
-    :param residual_connections: TODO
-    :param channels: List with number of channels for each convolution
-    :param kernel_sizes: List of 'k' the size of the square kernel sizes for each convolution
-    :param paddings: List with square paddings 'p' for each convolution
-    :param strides: List with square stridings 's' for each convolution
-    :param use_batch_normalization: Whether to use BatchNorm2d after each convolution
-    '''
-    convolutions = nn.ModuleList()
-    in_dimensions = input_shape
-    for l1, l2 in residual_connections:
-        residual_skip = slice(l1, l2 + 1)
-        cs, ks = channels[residual_skip], kernel_sizes[residual_skip]
-        ps, ss = paddings[residual_skip], strides[residual_skip]
-        res = ConvolutionalResidualBlock(in_dimensions, cs, ks, ps, ss,
-                                         use_batch_normalization)
-        convolutions += [res]
-        in_dimensions = res.dimensions[-1]
-    return convolutions
-
-
-class DDPGConvBody(nn.Module):
-    def __init__(self, in_channels=4):
-        super(DDPGConvBody, self).__init__()
-        self.feature_dim = 39 * 39 * 32
-        self.conv1 = layer_init(nn.Conv2d(in_channels, 32, kernel_size=3, stride=2))
-        self.conv2 = layer_init(nn.Conv2d(32, 32, kernel_size=3))
-
-    def forward(self, x):
-        y = F.elu(self.conv1(x))
-        y = F.elu(self.conv2(y))
-        y = y.view(y.size(0), -1)
-        return y
 
 
 class FCBody(nn.Module):
@@ -245,33 +213,6 @@ class LSTMBody(nn.Module):
             hidden_states.append(h)
             cell_states.append(h)
         return (hidden_states, cell_states)
-
-class TwoLayerFCBodyWithAction(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_units=(64, 64), gate=F.relu):
-        super(TwoLayerFCBodyWithAction, self).__init__()
-        hidden_size1, hidden_size2 = hidden_units
-        self.fc1 = layer_init(nn.Linear(state_dim, hidden_size1))
-        self.fc2 = layer_init(nn.Linear(hidden_size1 + action_dim, hidden_size2))
-        self.gate = gate
-        self.feature_dim = hidden_size2
-
-    def forward(self, x, action):
-        x = self.gate(self.fc1(x))
-        phi = self.gate(self.fc2(torch.cat([x, action], dim=1)))
-        return phi
-
-
-class OneLayerFCBodyWithAction(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_units, gate=F.relu):
-        super(OneLayerFCBodyWithAction, self).__init__()
-        self.fc_s = layer_init(nn.Linear(state_dim, hidden_units))
-        self.fc_a = layer_init(nn.Linear(action_dim, hidden_units))
-        self.gate = gate
-        self.feature_dim = hidden_units * 2
-
-    def forward(self, x, action):
-        phi = self.gate(torch.cat([self.fc_s(x), self.fc_a(action)], dim=1))
-        return phi
 
 
 class DummyBody(nn.Module):

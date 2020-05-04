@@ -168,7 +168,7 @@ def compute_convolutional_dimension_transforms(height_in, width_in,
 
 def create_convolutional_layers(channels: List[int], kernel_sizes: List[int],
                                 paddings: List[int], strides: List[int],
-                                use_batch_normalization: bool) -> nn.ModuleList:
+                                use_batch_normalization: bool) -> nn.Sequential:
     '''
     :param channels: List with number of channels for each convolution
     :param kernel_sizes: List of 'k' the size of the square kernel sizes for each convolution
@@ -176,10 +176,10 @@ def create_convolutional_layers(channels: List[int], kernel_sizes: List[int],
     :param strides: List with square stridings 's' for each convolution
     :param use_batch_normalization: Whether to use BatchNorm2d after each convolution
     '''
-    convolutions = nn.ModuleList()
+    convolutions = []
     for c_in, c_out, k, p, s in zip(channels, channels[1:], kernel_sizes, paddings, strides):
         convolutions += [layer_init(nn.Conv2d(in_channels=c_in, out_channels=c_out,
                                               kernel_size=k, stride=s, padding=p))]
 
         if use_batch_normalization: convolutions += [nn.BatchNorm2d(c_out)]
-    return convolutions
+    return nn.Sequential(*convolutions)
