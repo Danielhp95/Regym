@@ -1,4 +1,5 @@
-from typing import List, Dict
+from typing import List, Dict, Any, Callable
+import textwrap
 
 import gym
 import torch
@@ -19,41 +20,50 @@ class ExpertIterationAgent(Agent):
                  name: str,
                  expert: MCTSAgent, apprentice: nn.Module,
                  use_apprentice_in_expert: bool,
-                 memory_size: int,
-                 use_agent_modelling: bool
-                 ):
+                 use_agent_modelling: bool):
         '''
-        :param algorithm: TODO
+        :param algorithm: ExpertIterationAlgorithm which will be fed
+                          trajectories computed by this agent, in turn
+                          this will update the parameters of :param: apprentice
         :param name: String identifier for the agent
         :param expert: Agent used to take actions in the environment
                        and create optimization targets for the apprentice
-        :param apprentice: TODO
-        :param use_agent_modelling: TODO
-        :param memory_size: Max number of datapoints to be stored from game examples. TODO: not passing memory here?
+        :param apprentice: Neural network used inside of the expert.
+                           It will be used to compute priors for MCTS nodes
+                           and values to backpropagate.
+                           This neural net will be changed by :param: algorithm
         :param use_apprentice_in_expert: whether to bias MCTS's selection
                                          phase and expansion phase with the
-                                         apprentice.
-        :param memory_size: size of "replay buffer"
+                                         apprentice. If False, this algorithm
+                                         is equivalent to DAGGER
+        :param use_agent_modelling: Wether to model other agent's actions as
+                                    an axuliary task.
         '''
         super().__init__(name=name, requires_environment_model=True)
-        self.algorithm = algorithm
-        self.expert = expert
-        self.apprentice = apprentice
+        self.algorithm: ExpertIterationAlgorithm = algorithm
+        self.expert: Agent = expert
+        self.apprentice: nn.Module = apprentice
+
+        #self.fake_expert = expert.clone()
+        #self.fake_expert.policy_fn = self.expert.random_selection_policy
+        #self.fake_expert.use_dirichlet = False
 
         #### Algorithmic variations ####
-        self.use_apprentice_in_expert = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
-        if use_apprentice_in_expert: self.embed_apprentice_in_expert()
+        self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
+        if use_apprentice_in_expert:
+            self.embed_apprentice_in_expert()
 
-        self.use_agent_modelling = use_agent_modelling
+        self.use_agent_modelling: bool = use_agent_modelling
         ####
 
-        self.current_prediction: Dict = {}
+        self.current_prediction: Dict[str, Any] = {}
 
         # Replay buffer style storage
-        self.storage = self.init_storage(size=memory_size)
+        # Doesn't matter, should not really be using a Storage
+        self.storage = self.init_storage(size=100)
         self.current_episode_length = 0
 
-        self.state_preprocess_function = self.PRE_PROCESSING
+        self.state_preprocess_function: Callable = self.PRE_PROCESSING
 
     def embed_apprentice_in_expert(self):
         self.expert.policy_fn = self.policy_fn
@@ -77,7 +87,6 @@ class ExpertIterationAgent(Agent):
     def init_storage(self, size: int):
         storage = Storage(size=size)
         storage.add_key('normalized_child_visitations')
-        # TODO: it might be necessary to add a `legal_actions` key
         return storage
 
     def handle_experience(self, s, a, r: float, succ_s, done=False):
@@ -114,7 +123,14 @@ class ExpertIterationAgent(Agent):
         return [x_i / total for x_i in x]
 
     def model_based_take_action(self, env: gym.Env, observation, player_index: int):
-        action = self.expert.model_based_take_action(env, observation, player_index)
+        action = self.expert.model_based_take_action(env, observation,
+                                                     player_index)
+        #fake_action = self.fake_expert.model_based_take_action(env, observation, player_index)
+        #fake_pi_mcts = self.normalize(self.fake_expert.current_prediction['child_visitations'])
+        #distance_vector = [abs(pi_a_mcts - pi_a_nn)
+        #                   for pi_a_nn, pi_a_mcts
+        #                   in zip(self.policy_fn(observation, env.get_moves()), fake_pi_mcts)]
+        #print('Depth: ', self.current_episode_length, 'Total', sum(distance_vector), 'Distance: ', distance_vector)
         return action
 
     def model_free_take_action(self, state, legal_actions: List[int]):
@@ -125,6 +141,12 @@ class ExpertIterationAgent(Agent):
 
     def clone(self):
         raise NotImplementedError('Cloning ExpertIterationAgent not supported')
+
+    def __repr__(self):
+        agent_stats = f'Agent modelling: {self.use_agent_modelling}\nUse apprentice in expert: {self.use_apprentice_in_expert}\n'
+        expert = f"Expert:\n{textwrap.indent(str(self.expert), '    ')}\n"
+        algorithm = f"Algorithm:\n{textwrap.indent(str(self.algorithm), '    ')}"
+        return agent_stats + expert + algorithm
 
 
 def choose_feature_extractor(task, config: Dict):
@@ -238,6 +260,5 @@ TODO    - 'use_agent_modelling': (Bool) whether to model agent's policies as in 
             algorithm=algorithm,
             expert=expert,
             apprentice=apprentice,
-            memory_size=config['initial_memory_size'],  # TODO: remove this from here
             use_apprentice_in_expert=config['use_apprentice_in_expert'],
             use_agent_modelling=config['use_agent_modelling'])

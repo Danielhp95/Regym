@@ -13,23 +13,31 @@ from regym.rl_algorithms.expert_iteration.expert_iteration_loss import compute_l
 
 class ExpertIterationAlgorithm():
 
-    def __init__(self, batch_size, num_epochs_per_iteration: int,
+    def __init__(self, games_per_iteration: int,
+                 num_epochs_per_iteration: int,
+                 batch_size: int,
                  learning_rate: float,
-                 games_per_iteration: int,
+                 model_to_train: nn.Module,
                  initial_memory_size: int,
                  memory_size_increase_frequency: int,
-                 end_memory_size: int,
-                 model_to_train: nn.Module):
+                 end_memory_size: int):
         '''
-        :param batch_size: TODO
-        :param model_to_train: TODO say that we only want it to get its parameters
-        :param learning_rate: learning rate for the optimizer
         :param games_per_iteration: Number of game trajectories to be collected before training
-        :param initial_memory_size: TODO
-        :param memory_size_increase_frequency: (Int) Number of iterations to elapse before increasing dataset size.
-        :param end_memory_size: TODO
+        :param num_epochs_per_iteration: Number of times (epochs) that the
+                                         entire dataset will be sampled to
+                                         optimize :param: model_to_train
+        :param batch_size: Number of samples to be used to compute each loss
+        :param learning_rate: learning rate for the optimizer
+        :param model_to_train: Model whose parameters will be updated
+        :param initial_memory_size: Initial maxium memory size
+        :param memory_size_increase_frequency: Number of generations to elapse
+                                               before increasing dataset size.
+        :param end_memory_size: Maximum memory size
         '''
+        self.generation = 0
         self.games_per_iteration = games_per_iteration
+        self.episodes_collected_since_last_train = 0
+        self.num_batches_sampled = 0
 
         # Init dataset
         self.memory = Storage(size=initial_memory_size)
@@ -46,9 +54,6 @@ class ExpertIterationAlgorithm():
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
                                           lr=self.learning_rate)
 
-        self.episodes_collected_since_last_train = 0
-        self.generation = 0
-        self.num_batches_sampled = 0
 
     def should_train(self):
         return self.episodes_collected_since_last_train >= self.games_per_iteration
@@ -130,3 +135,10 @@ class ExpertIterationAlgorithm():
         if oversize > 0:
             for k in keys: del getattr(dataset, k)[:oversize]
         assert len(dataset.s) <= max_memory
+
+    def __repr__(self):
+        gen_stats = f'Generation: {self.generation}\nGames per generation: {self.games_per_iteration}\nEpisodes since last generation: {self.episodes_collected_since_last_train}\n'
+        train_stats = f'Batches sampled: {self.num_batches_sampled}\nBatch size: {self.batch_size}\nLearning rate: {self.learning_rate}\nEpochs per generation: {self.episodes_collected_since_last_train}\n'
+        memory_stats = f'Initial memory size: {self.initial_memory_size}\nMemory increase frequency: {self.memory_size_increase_frequency}\nMax memory size: {self.end_memory_size}\n'
+        return gen_stats + train_stats + memory_stats + str(self.memory)
+

@@ -134,11 +134,13 @@ def expert_iteration_config_dict():
     config['learning_rate'] = 1.0e-3
     # NN: Feature extractor
     config['feature_extractor_arch'] = 'CNN'
+    config['use_batch_normalization'] = False
     config['preprocessed_input_dimensions'] = [7, 6]  # To play Connect 4
-    config['channels'] = [3, 4, 1]  # To play Connect 4
-    config['kernel_sizes'] = [3, 2]  # To play Connect 4
-    config['paddings'] = [1, 0]  # To play Connect 4
-    config['strides'] = [1, 1]  # To play Connect 4
+    config['channels'] = [3, 10, 11, 12, 13, 1]  # To play Connect 4
+    config['kernel_sizes'] = [3, 3, 3, 3, 3]  # To play Connect 4
+    config['paddings'] = [1, 1, 1, 1, 1]  # To play Connect 4
+    config['strides'] = [1, 1, 1, 1, 1]  # To play Connect 4
+    config['residual_connections'] = []
     return config
 
 
