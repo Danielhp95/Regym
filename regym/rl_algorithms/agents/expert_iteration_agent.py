@@ -37,7 +37,7 @@ class ExpertIterationAgent(Agent):
                                          apprentice. If False, this algorithm
                                          is equivalent to DAGGER
         :param use_agent_modelling: Wether to model other agent's actions as
-                                    an axuliary task.
+                                    an axuliary task. As in DPIQN paper
         '''
         super().__init__(name=name, requires_environment_model=True)
         self.algorithm: ExpertIterationAlgorithm = algorithm
@@ -182,6 +182,7 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
 
     return CategoricalActorCriticNet(state_dim=feature_and_body.feature_dim,
                                      action_dim=task.action_dim,
+                                     critic_gate_fn=config.get('critic_gate_fn', None),
                                      phi_body=feature_and_body)
 
 def build_expert(task, config: Dict, expert_name: str) -> MCTSAgent:
@@ -210,8 +211,8 @@ def build_ExpertIteration_Agent(task, config, agent_name):
 
                                       If True, PUCT will be used as a selection
                                       strategy in MCTS, otherwise UCB1 will be used
-TODO    - 'use_agent_modelling': (Bool) whether to model agent's policies as in DPIQN paper
-
+        - 'use_agent_modelling': (Bool) Wether to model other agent's actions
+                                 as an axuliary task. As in DPIQN paper
 
         MCTS params:
         - 'mcts_budget': (Int) Number of iterations of the MCTS loop that will be carried
@@ -240,6 +241,9 @@ TODO    - 'use_agent_modelling': (Bool) whether to model agent's policies as in 
             - 'channels': Tuple[int]
             - 'kernel_sizes': Tuple[int]
             - 'paddings': Tuple[int]
+        - 'critic_gate_fn': Gating function to be applied to critic's
+                            output head. Supported: ['None', 'tanh']
+
     '''
 
     apprentice = build_apprentice_model(task, config)

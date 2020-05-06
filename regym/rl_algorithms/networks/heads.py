@@ -254,12 +254,19 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
                  state_dim: int,
                  action_dim: int,
+                 critic_gate_fn: str,
                  phi_body: nn.Module = None,
                  actor_body: nn.Module = None,
                  critic_body: nn.Module = None):
         BaseNet.__init__(self)
         super(CategoricalActorCriticNet, self).__init__()
         self.action_dim = action_dim
+
+        if critic_gate_fn:
+            gating_fns = {'tanh': nn.functional.tanh}
+            self.critic_gate_fn = gating_fns[critic_gate_fn]
+        else: self.critic_gate_fn = None
+
         self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
 
     # TODO: type hint rnn_states
@@ -288,6 +295,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
             logits = self._mask_ilegal_action_logits(logits, legal_actions)
         # batch x action_dim
         v = self.network.fc_critic(phi_v)
+        if self.critic_gate_fn: v = self.critic_gate_fn(v)
         # batch x 1
 
         dist = torch.distributions.Categorical(logits=logits)
