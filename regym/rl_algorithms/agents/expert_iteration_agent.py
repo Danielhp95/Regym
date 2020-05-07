@@ -116,6 +116,7 @@ class ExpertIterationAgent(Agent):
                           's': s})
         if done:
             for _ in range(self.current_episode_length):
+                # Using MCTS value for current search might be better?
                 self.storage.add({'v': r})
 
     def normalize(self, x):
