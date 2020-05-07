@@ -49,7 +49,7 @@ class Task:
     actions are consumed simultaneously or sequentially by the environment.
     This is done via passing an EnvType to the `generate_task` function.
 
-    >>> from regym.environments import generate_task, EnvType
+    >>> from regym.environments import EnvType
     >>> simultaneous_task = generate_task('SimultaneousEnv-v0', EnvType.MULTIAGENT_SIMULTANEOUS_ACTION)
     >>> sequential_task   = generate_task('SequentialsEnv-v0',  EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     '''

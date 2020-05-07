@@ -3,7 +3,7 @@
 # Permission given to modify the code as long as you keep this        #
 # declaration at the top                                              #
 #######################################################################
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -254,7 +254,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
                  state_dim: int,
                  action_dim: int,
-                 critic_gate_fn: str,
+                 critic_gate_fn: Optional[str] = None,
                  phi_body: nn.Module = None,
                  actor_body: nn.Module = None,
                  critic_body: nn.Module = None):

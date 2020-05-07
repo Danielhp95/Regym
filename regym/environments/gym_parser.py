@@ -4,7 +4,7 @@ import numpy as np
 import gym
 from gym.spaces import Box, Discrete, MultiDiscrete, Tuple
 
-from regym.environments.task import Task, EnvType
+from regym.environments.tasks import Task, EnvType
 
 
 def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
@@ -84,7 +84,7 @@ def compute_multidiscrete_space_size(flattened_multidiscrete_space) -> int:
 def check_env_compatibility_with_env_type(env: gym.Env, env_type: EnvType):
     # Environment is multiagent but it has been declared single agent
     if hasattr(env.observation_space, 'spaces') \
-            and env_type == EnvType.SINGLE_AGENT:
+            and env_type.value == EnvType.SINGLE_AGENT.value:
                 error_msg = \
 f'''
 The environment ({env.spec.id}) appears to be multiagent (it has multiple observation spaces).
@@ -94,7 +94,7 @@ Suggestion: Change to a multiagent EnvType.
                 raise ValueError(error_msg)
     # Environment is single agent but it has been declared multiagent
     if not hasattr(env.observation_space, 'spaces') \
-            and env_type != EnvType.SINGLE_AGENT:
+            and env_type.value != EnvType.SINGLE_AGENT.value:
                 error_msg = \
 f'''
 The environment ({env.spec.id}) appears to be single agent

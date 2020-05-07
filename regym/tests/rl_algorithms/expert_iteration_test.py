@@ -61,7 +61,6 @@ def test_train_against_random_connect4(Connect4Task, expert_iteration_config_dic
     mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name=f"MCTS:{mcts_config_dict['budget']}")
     import ipdb; ipdb.set_trace()
 
-
     learn_against_fix_opponent(ex_it, fixed_opponent=mcts_agent,
                                agent_position=0,
                                task=Connect4Task,

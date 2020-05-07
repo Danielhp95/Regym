@@ -85,7 +85,7 @@ class ExpertIterationAlgorithm():
                                      batch_size=self.batch_size,
                                      num_epochs=self.num_epochs_per_iteration)
 
-    def regress_against_dataset(self, s, v, mcts_pi, apprentice_model,
+    def regress_against_dataset(self, s, v, mcts_pi, apprentice_model: nn.Module,
                                 indices: List[int], batch_size: int,
                                 num_epochs: int):
         '''
