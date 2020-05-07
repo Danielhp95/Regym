@@ -74,4 +74,3 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
             finished_trajectories += [ongoing_trajectories[env_i]]
             ongoing_trajectories[env_i] = []
     return finished_trajectories
-
