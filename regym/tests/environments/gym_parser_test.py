@@ -2,7 +2,7 @@ import pytest
 import gym
 from gym.spaces import MultiDiscrete
 
-from regym.environments.task import Task, EnvType
+from regym.environments import Task, EnvType
 from regym.environments import gym_parser
 
 
