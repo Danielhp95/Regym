@@ -1,11 +1,13 @@
 from copy import deepcopy
 from enum import Enum
-from typing import List, Callable, Any, Dict
+from typing import List, Tuple, Callable, Any, Dict
 from dataclasses import dataclass, field
 
 import gym
 
 import regym
+
+from .regym_worker import RegymAsyncVectorEnv
 
 
 class EnvType(Enum):
@@ -71,17 +73,7 @@ class Task:
     extended_agents: Dict = field(default_factory=dict)
     total_episodes_run: int = 0
 
-    def extend_task(self, agents: Dict, force=False):
-        ''' TODO: DOCUMENT, TEST '''
-        if self.env_type == EnvType.SINGLE_AGENT:
-            raise ValueError('SINGLE_AGENT tasks cannot be extended')
-        for i, agent in agents.items():
-            # Maybe refactor whole scope into a list comprehension
-            if i in self.extended_agents and not force:
-                raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
-            self.extended_agents[i] = agent
-
-    def run_episode(self, agent_vector: List, training: bool, render_mode: str = ''):
+    def run_episode(self, agent_vector: List['Agent'], training: bool, render_mode: str = ''):
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
@@ -104,6 +96,32 @@ class Task:
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
 
+    def run_episodes(self, agent_vector: List['Agent'],
+                     num_episodes: int, num_envs: int,
+                     training: bool) \
+                     -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
+        ''' TODO '''
+        if len(self.extended_agents) + len(agent_vector) < self.num_agents:
+            raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
+        extended_agent_vector = self._extend_agent_vector(agent_vector)
+
+        vector_env = RegymAsyncVectorEnv(self.name, num_envs)
+        if self.env_type == EnvType.SINGLE_AGENT:
+            return regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
+                    vector_env, extended_agent_vector[0], training, num_episodes)
+        else:
+            return NotImplementedError('Gimme a minute')
+
+    def extend_task(self, agents: Dict[int, 'Agent'], force: bool = False):
+        ''' TODO: DOCUMENT, TEST '''
+        if self.env_type == EnvType.SINGLE_AGENT:
+            raise ValueError('SINGLE_AGENT tasks cannot be extended')
+        for i, agent in agents.items():
+            # Maybe refactor whole scope into a list comprehension
+            if i in self.extended_agents and not force:
+                raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
+            self.extended_agents[i] = agent
+
     def _extend_agent_vector(self, agent_vector: List):
         # This should be much prettier
         agent_index = 0
@@ -118,6 +136,7 @@ class Task:
         return extended_agent_vector
 
     def clone(self):
+        ''' REVISIT, might be incomplete '''
         cloned = Task(
                 name=self.name,
                 env=deepcopy(self.env),

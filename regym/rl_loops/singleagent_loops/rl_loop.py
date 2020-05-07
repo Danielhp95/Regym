@@ -1,11 +1,14 @@
-from typing import List, Tuple
+from typing import List, Tuple, Any
 from copy import deepcopy
 import gym
 import regym
 from regym.rl_algorithms.agents import Agent
 
+from regym.environments.tasks import RegymAsyncVectorEnv
 
-def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) -> Tuple:
+
+def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
+                -> List[Tuple[Any, Any, Any, Any, bool]]:
     '''
     Runs a single episode of a single-agent rl loop until termination.
     :param env: OpenAI gym environment
@@ -31,3 +34,44 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) ->
         if 'legal_actions' in info: legal_actions = info['legal_actions']
 
     return trajectory
+
+
+def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
+                      num_episodes: int) \
+                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
+    '''
+    TODO
+
+    NOTE: Unline regular gym.Env. RegymAsyncVectorEnv resets an underlying
+    environment once its ongoing episode finishes.
+    '''
+    ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
+    ongoing_trajectories = [[] for _ in range(env.num_envs)]
+    finished_trajectories = []
+
+    done_envs = lambda dones: [i for i in range(len(dones)) if dones[i]]
+
+    obs = env.reset()
+    legal_actions: List[List] = None  # Revise
+    while len(finished_trajectories) < num_episodes:
+        action_vector = None
+        if agent.requires_environment_model:
+            raise NotImplementedError('Gimme a minute')
+        else:
+            action_vector = agent.model_free_take_action(obs, legal_actions)
+        succ_obs, rewards, dones, infos = env.step(action_vector)
+
+        if 'legal_actions' in infos[0]:
+            legal_actions = [info['legal_actions'] for info in infos]
+
+        for i in range(env.num_envs):
+            e = (obs[i], action_vector[i], rewards[i], succ_obs[i], dones[i])
+            ongoing_trajectories[i] += [e]
+
+        obs = succ_obs
+
+        for env_i in done_envs(dones):
+            finished_trajectories += [ongoing_trajectories[env_i]]
+            ongoing_trajectories[env_i] = []
+    return finished_trajectories
+

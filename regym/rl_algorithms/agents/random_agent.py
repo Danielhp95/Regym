@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Optional, Union, Any
 import random
 
+import numpy as np
 import gym
 
 from regym.environments import EnvType
@@ -20,13 +21,16 @@ class RandomAgent(Agent):
         super(RandomAgent, self).__init__(name, requires_environment_model=False)
         self.action_space = action_space
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
-        if legal_actions is not None: action = random.choice(legal_actions)
-        else: action = self.action_space.sample()
-        return action
+    def model_free_take_action(self, observations: Union[Any, List[Any]],
+                               legal_actions: Optional[Union[List[int], List[List[int]]]] = None):
+        # Can we refactor this in a clever way?
+        if isinstance(observations, np.ndarray):
+            if legal_actions: actions = [random.choice(l_a) for l_a in legal_actions]
+            else: actions = [self.action_space.sample()
+                             for _ in range(len(observations))]
+            return actions
 
-    def take_action(self, state_or_environment, legal_actions: List[int] = None):
-        if legal_actions is not None: action = random.choice(legal_actions)
+        if legal_actions: action = random.choice(legal_actions)
         else: action = self.action_space.sample()
         return action
 
