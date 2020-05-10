@@ -21,6 +21,8 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
                      (i.e all actions simultaneously, or sequentially)
     :returns: Task created from :param: env named :param: name
     '''
+    check_env_compatibility_with_env_type(env, env_type)
+
     name = env.spec.id
     action_dim, action_type = get_action_dimensions_and_type(env)
     observation_dim, observation_type = get_observation_dimensions_and_type(env)
@@ -29,8 +31,6 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
     hash_function = env.hash_state if hasattr(env, 'hash_state') else None
     if env_type == EnvType.SINGLE_AGENT: num_agents = 1
     else: num_agents = len(env.observation_space.spaces)
-
-    check_env_compatibility_with_env_type(env, env_type)
 
     return Task(name=name, env=env, env_type=env_type,
                 state_space_size=state_space_size,
