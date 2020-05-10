@@ -20,7 +20,10 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
                  action_space: Optional[gym.Space] = None,
                  shared_memory=True, copy=True, context=None, daemon=True):
         '''
-        TODO
+        TODO:
+        - Document
+        - Don't allow for all all of the default values above to be used,
+          hard code them instead.
         '''
         worker = _regym_worker_shared_memory
         env_fns = [self._make_env(env_name) for _ in range(num_envs)]

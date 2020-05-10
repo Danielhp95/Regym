@@ -109,8 +109,11 @@ class Task:
         if self.env_type == EnvType.SINGLE_AGENT:
             return regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
                     vector_env, extended_agent_vector[0], training, num_episodes)
-        else:
-            return NotImplementedError('Gimme a minute')
+        elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
+            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.async_run_episode(
+                    vector_env, extended_agent_vector, training, num_episodes)
+        elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
+            raise NotImplementedError('Gimme a minute')
 
     def extend_task(self, agents: Dict[int, 'Agent'], force: bool = False):
         ''' TODO: DOCUMENT, TEST '''
