@@ -24,10 +24,10 @@ class RandomAgent(Agent):
     def model_free_take_action(self, observations: Union[Any, List[Any]],
                                legal_actions: Optional[Union[List[int], List[List[int]]]] = None):
         # Can we refactor this in a clever way?
-        if isinstance(observations, np.ndarray):
-            if legal_actions: actions = [random.choice(l_a) for l_a in legal_actions]
-            else: actions = [self.action_space.sample()
-                             for _ in range(len(observations))]
+        if isinstance(observations, (np.ndarray, list)):
+            actions = [random.choice(legal_actions[i]) if legal_actions[i] else
+                       self.action_space.sample()
+                       for i in range(len(legal_actions))]
             return actions
 
         if legal_actions: action = random.choice(legal_actions)
