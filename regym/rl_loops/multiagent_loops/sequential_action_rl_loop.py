@@ -1,7 +1,14 @@
-from typing import List, Tuple
+from typing import List, Tuple, Any, Dict
 from copy import deepcopy
+
 import numpy as np
 import gym
+
+import regym
+from regym.rl_algorithms.agents import Agent
+from regym.environments.tasks import RegymAsyncVectorEnv
+
+from regym.rl_loops.utils import update_trajectories, update_parallel_sequential_trajectories, update_finished_trajectories
 
 
 def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: str):
@@ -25,7 +32,7 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     # To support which actions are legal at an initial state. These can only be extracted
     # via the "info" dictionary given by the env.step(...) function
     # Thus: Assumption: all actions are permitted on the first state
-    legal_actions: List = None
+    legal_actions: List
     while not done:
         agent = agent_vector[current_player]
 
@@ -54,7 +61,95 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     return trajectory
 
 
+def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bool,
+                      num_episodes: int) \
+                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
+    '''
+    TODO: document, refactor
+    '''
+    ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
+    ongoing_trajectories = [[] for _ in range(env.num_envs)]
+    finished_trajectories = []
+
+    obs = env.reset()
+    current_players: List[int] = [0] * env.num_envs
+    legal_actions: List[List] = [None] * env.num_envs # Revise
+    num_agents = len(agent_vector)
+    while len(finished_trajectories) < num_episodes:
+
+        # Take action
+        action_vector = multi_env_choose_action(
+                agent_vector, env, obs, current_players, legal_actions)
+
+        # Environment step
+        succ_obs, rewards, dones, infos = env.step(action_vector)
+
+        # Update trajectories:
+        update_parallel_sequential_trajectories(ongoing_trajectories, current_players,
+                action_vector, obs, rewards, succ_obs, dones)
+
+        # Update agents
+        #if training:
+        #    for i in range(len(ongoing_trajectories)):
+        #        propagate_experience(agent_vector, ongoing_trajectories[i],
+        #                             rewards[i], succ_obs[i], dones[i])
+
+        done_envs = update_finished_trajectories(ongoing_trajectories,
+                                                 finished_trajectories, dones)
+
+        # Update current players and legal actions
+        legal_actions = [info.get('legal_actions', None) for info in infos]
+        current_players = [info.get('current_player',
+                                    (current_players[e_i] + 1) % num_agents)
+                           for e_i, info in enumerate(infos)]
+        for e_i in done_envs: current_players[e_i] = 0  # This might break?
+
+    return finished_trajectories
+
+
+def multi_env_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
+                            current_players, legal_actions):
+    action_vector = [None] * env.num_envs
+    # Find indices of which envs each player should play, on a dict
+    agent_signals = extract_signals_for_acting_agents(
+            agent_vector, env, obs, current_players, legal_actions)
+
+    for a_i, signals in agent_signals.items():
+        a = agent_vector[a_i]
+        if not a.requires_environment_model:
+            partial_action_vector = a.model_free_take_action(
+                    signals['obs'], legal_actions=signals['legal_actions'])
+        else:
+            raise NotImplementedError('Gimme a minute')
+        # fill action_vector
+        for env_id, action in zip(signals['env_ids'], partial_action_vector):
+            assert action_vector[env_id] is None
+            action_vector[env_id] = action
+    return action_vector
+
+
+def extract_signals_for_acting_agents(agent_vector, env, obs,
+                                      current_players, legal_actions) \
+                                              -> Dict[int, Dict[str, List]]:
+    agent_signals: Dict[int, Dict[str, List]] = dict()
+
+    # Extract signals for each acting agent
+    for e_i, cp in enumerate(current_players):
+        if cp not in agent_signals:
+            agent_signals[cp] = dict()
+            agent_signals[cp]['obs'] = []
+            agent_signals[cp]['legal_actions'] = []
+            agent_signals[cp]['env_ids'] = []
+        agent_signals[cp]['obs'] += [obs[cp][e_i]]
+        agent_signals[cp]['legal_actions'] += [legal_actions[e_i]]
+        agent_signals[cp]['env_ids'] += [e_i]
+    return agent_signals
+
+
 def choose_action(agent, env, observation, current_player, legal_actions):
+    '''
+    TODO: document that we are using this for both async and normal?
+    '''
     if not agent.requires_environment_model:
         action = agent.model_free_take_action(observation,
                                               legal_actions=legal_actions)
