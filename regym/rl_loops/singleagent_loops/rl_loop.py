@@ -50,28 +50,27 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
     ongoing_trajectories = [[] for _ in range(env.num_envs)]
     finished_trajectories = []
 
-    done_envs = lambda dones: [i for i in range(len(dones)) if dones[i]]
-
     obs = env.reset()
     legal_actions: List[List] = None  # Revise
     while len(finished_trajectories) < num_episodes:
-        action_vector = None
+        action_vector: List
         if agent.requires_environment_model:
             raise NotImplementedError('Gimme a minute')
         else:
             action_vector = agent.model_free_take_action(obs, legal_actions)
         succ_obs, rewards, dones, infos = env.step(action_vector)
 
+        update_trajectories(ongoing_trajectories, action_vector, obs,
+                            rewards, succ_obs, dones)
+
+        # TODO: train accordingly.
+
+        obs = succ_obs
         if 'legal_actions' in infos[0]:
             legal_actions = [info['legal_actions'] for info in infos]
 
-        for i in range(env.num_envs):
-            e = (obs[i], action_vector[i], rewards[i], succ_obs[i], dones[i])
-            ongoing_trajectories[i] += [e]
-
-        obs = succ_obs
-
-        for env_i in done_envs(dones):
-            finished_trajectories += [ongoing_trajectories[env_i]]
-            ongoing_trajectories[env_i] = []
+        update_finished_trajectories(ongoing_trajectories,
+                                     finished_trajectories, dones)
+    # What if we end up with more trajectories
+    # than initially specified (i.e two or more episodes end at the same time)
     return finished_trajectories

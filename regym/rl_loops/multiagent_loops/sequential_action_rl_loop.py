@@ -97,6 +97,9 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
         done_envs = update_finished_trajectories(ongoing_trajectories,
                                                  finished_trajectories, dones)
 
+        # Update observation
+        obs = succ_obs
+
         # Update current players and legal actions
         legal_actions = [info.get('legal_actions', None) for info in infos]
         current_players = [info.get('current_player',
