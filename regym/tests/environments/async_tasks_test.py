@@ -98,7 +98,12 @@ def run_parallel_task_with_random_agent(env_name, env_type,
                     for t in trajectories
                     for ex_1, ex_2 in zip(t, t[1:])])
     else:
-        # TODO: think of something
-        pass
+        import ipdb; ipdb.set_trace()
+        # Observation and succ_observation are the same For all agents
+        # ASSUMPTION: observation and succ_observation are numpy array
+        assert all([(ex_1[-2][a_i] == ex_2[0][a_i]).all()
+                    for t in trajectories
+                    for ex_1, ex_2 in zip(t, t[1:])
+                    for a_i in range(task.num_agents)])
 
 # Add tests for MCTS agents (agents that require environment)
