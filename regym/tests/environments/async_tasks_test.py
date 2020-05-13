@@ -36,9 +36,9 @@ def test_singleagent_tasks_run_faster_on_parallel(env_name):
     assert total_multiple < total_single
 
 
-@pytest.mark.parametrize('env_name', ['Connect4-v0'])
-def test_can_run_multiple_async_episodes_of_multiagent_simultaneous_task(env_name):
-    assert False
+#@pytest.mark.parametrize('env_name', ['Connect4-v0'])
+#def test_can_run_multiple_async_episodes_of_multiagent_simultaneous_task(env_name):
+#    assert False
 
 
 @pytest.mark.parametrize('env_name', ['Connect4-v0'])
@@ -69,9 +69,9 @@ def test_multiagent_sequential_tasks_run_faster_on_parallel(env_name):
     assert total_multiple < total_single
 
 
-@pytest.mark.parametrize('env_name', ['CartPole-v0'])
-def test_multiagent_simultaneous_tasks_run_faster_on_parallel(env_name):
-    assert False
+#@pytest.mark.parametrize('env_name', ['CartPole-v0'])
+#def test_multiagent_simultaneous_tasks_run_faster_on_parallel(env_name):
+#    assert False
 
 
 def run_parallel_task_with_random_agent(env_name, env_type,
@@ -87,6 +87,14 @@ def run_parallel_task_with_random_agent(env_name, env_type,
     trajectories = task.run_episodes(agent_vector, num_episodes=num_episodes,
                                      num_envs=num_envs, training=False)
 
+    #from gym_connect4.envs import Connect4Env
+    #for t in trajectories:
+    #    p1 = True
+    #    for (o, a, r, s, d) in t:
+    #        print(a)
+    #        Connect4Env.render_from_observation(s[0], p1=p1)
+
+
     # We have the exact number of trajectories we asked for
     assert len(trajectories) == num_episodes
     # All trajectories finish with a "done" flag
@@ -98,8 +106,7 @@ def run_parallel_task_with_random_agent(env_name, env_type,
                     for t in trajectories
                     for ex_1, ex_2 in zip(t, t[1:])])
     else:
-        import ipdb; ipdb.set_trace()
-        # Observation and succ_observation are the same For all agents
+        # Observation and succ_observation are the same for all agents
         # ASSUMPTION: observation and succ_observation are numpy array
         assert all([(ex_1[-2][a_i] == ex_2[0][a_i]).all()
                     for t in trajectories
