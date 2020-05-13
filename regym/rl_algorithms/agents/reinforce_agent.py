@@ -46,11 +46,12 @@ class ReinforceAgent(Agent):
                 self.trajectories = []
             self.trajectories.append([])
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
         '''
         :param state: Environment state
         :returns: Action to be executed by the environment conditioned on :param: state
         '''
+        # TODO: check action
         self.current_prediction = self.algorithm.model(state)
         return self.current_prediction['action'].item()
 

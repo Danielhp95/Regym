@@ -9,7 +9,8 @@ class HumanAgent(Agent):
         super(HumanAgent, self).__init__(name=name)
         self.number_of_actions = number_of_actions
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
+        if multi_action: raise NotImplementedError('HumanAgent cannot act in multiple environments')
         if legal_actions is not None:
             action = input(f'Take action for {self.name}: Choose from {legal_actions}: ')
         else:

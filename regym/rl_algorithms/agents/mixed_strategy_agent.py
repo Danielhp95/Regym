@@ -23,14 +23,15 @@ class MixedStrategyAgent(Agent):
             raise ValueError('The sum of all supports in the support_vector should sum up to 1. Given supports: {}'.format(support_vector))
         self.support_vector = support_vector
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
         '''
         Samples an action based on the probabilities presented by the agent's support vector
         :param state: Ignored for fixed agents
         '''
         # TODO: make sure that only legal actions are chosen
+        output_size = (len(state)) if multi_action else None
         return np.random.choice([i for i in range(len(self.support_vector))],
-                                p=self.support_vector)
+                                p=self.support_vector, size=output_size)
 
     def handle_experience(self, *args):
         pass

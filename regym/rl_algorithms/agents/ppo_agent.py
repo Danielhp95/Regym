@@ -69,14 +69,14 @@ class PPOAgent(Agent):
     def handle_experience(self, s, a, r, succ_s, done):
         super(PPOAgent, self).handle_experience(s, a, r, succ_s, done)
         non_terminal = torch.ones(1)*(1 - int(done))
-        state = self.state_preprocessing(s)
+        state = self.state_preprocessing(s).view(1, -1)
         r = torch.ones(1)*r
 
         self.algorithm.storage.add(self.current_prediction)
         self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
         if self.training and (self.handled_experiences % self.algorithm.kwargs['horizon']) == 0:
-            next_state = self.state_preprocessing(succ_s)
+            next_state = self.state_preprocessing(succ_s).view(1, -1)
 
             if self.recurrent:
                 self._pre_process_rnn_states(done=done)
@@ -89,22 +89,29 @@ class PPOAgent(Agent):
             self.algorithm.train()
             self.handled_experiences = 0
 
-    def model_free_take_action(self, state, legal_actions: List[int] = None):
-        state = self.state_preprocessing(state)
+    def model_free_take_action(self, state, legal_actions: List[int] = None,
+                               multi_action: bool = False):
+        preprocessed_state = self.state_preprocessing(state)
 
+        self.current_prediction = self.compute_prediction(preprocessed_state,
+                                                          legal_actions)
+
+        action = self.current_prediction['a']
+        if not multi_action:  # Action is a single integer
+            action = np.int(action)
+        if multi_action:  # Action comes from a vector env, one action per environment
+            action = action.view(1, -1).squeeze(0).numpy()
+        return action
+
+    def compute_prediction(self, preprocessed_state, legal_actions) -> Dict:
         if self.recurrent:
             self._pre_process_rnn_states()
-            self.current_prediction = self.algorithm.model(state, rnn_states=self.rnn_states,
-                                                           legal_actions=legal_actions)
+            current_prediction = self.algorithm.model(preprocessed_state,
+                    rnn_states=self.rnn_states, legal_actions=legal_actions)
         else:
-            self.current_prediction = self.algorithm.model(state,
-                                                           legal_actions=legal_actions)
-        self.current_prediction = self._post_process(self.current_prediction)
-
-        action = self.current_prediction['a'].numpy()
-        if action.shape == torch.Size([1, 1]): # If action is a single integer
-            action = np.int(action)
-        return action
+            current_prediction = self.algorithm.model(preprocessed_state,
+                    legal_actions=legal_actions)
+        return self._post_process(current_prediction)
 
     def clone(self, training=None):
         clone = PPOAgent(name=self.name, algorithm=copy.deepcopy(self.algorithm))

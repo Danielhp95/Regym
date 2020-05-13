@@ -9,8 +9,9 @@ class DeterministicAgent(Agent):
         super(DeterministicAgent, self).__init__(name=name)
         self.action = action
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
-        return self.action
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
+        if not multi_action: return self.action
+        else: return [self.action for _ in range(len(state))]
 
     def clone(self, training=None):
         pass

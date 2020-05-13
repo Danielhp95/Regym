@@ -47,7 +47,7 @@ class DeepQNetworkAgent(Agent):
         if self.training and self.algorithm.is_ready_to_train():
             self.algorithm.train(iterations=self.kwargs['nbrTrainIteration'])
 
-    def model_free_take_action(self, state: np.ndarray, legal_actions: List[int]):
+    def model_free_take_action(self, state: np.ndarray, legal_actions: List[int], multi_action: bool = False):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
         action = self.select_action(model=self.algorithm.model,

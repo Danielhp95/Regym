@@ -16,8 +16,13 @@ class TabularQLearningAgent(Agent):
         if self.training:
             self.algorithm.update_q_table(s, a, r, succ_s)
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
-        return self.algorithm.find_moves(state, exploration=self.training)
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
+        if not multi_action:
+            return self.algorithm.find_moves(state, exploration=self.training)
+        if multi_action:
+            return [self.algorithm.find_moves(s, exploration=self.training)
+                    for s in state]
+
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)

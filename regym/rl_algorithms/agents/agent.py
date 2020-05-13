@@ -71,7 +71,7 @@ class Agent(ABC):
         '''
         raise NotImplementedError('To be implemented in Subclass')
 
-    def model_free_take_action(self, observation, legal_actions: List[int]):
+    def model_free_take_action(self, observation, legal_actions: List[int], multi_action: bool):
         '''
         This function is called inside of an regym.rl_loops, asking
         this Agent to take an action at a given state in the environment
@@ -82,7 +82,10 @@ class Agent(ABC):
                             accessed directly from OpenAI gym :param: env.
         :param legal_actions: List of actions available to agent at
                               :param: observation
-        :returns: Action to be executed on the environment
+        :param multi_action: Whether to consider :param: observation as
+                             a list of observations, each corresponding
+                             to the observation of a different environment
+        :returns: Action(s) to be executed on the environment
         '''
         raise NotImplementedError('To be implemented in Subclass')
 

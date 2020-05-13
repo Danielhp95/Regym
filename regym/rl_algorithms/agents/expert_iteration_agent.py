@@ -134,7 +134,7 @@ class ExpertIterationAgent(Agent):
         #print('Depth: ', self.current_episode_length, 'Total', sum(distance_vector), 'Distance: ', distance_vector)
         return action
 
-    def model_free_take_action(self, state, legal_actions: List[int]):
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
         if self.training: raise RuntimeError('ExpertIterationAgent.model_free_take_action() cannot be called when training is True')
         prediction = self.apprentice(self.PRE_PROCESSING(state),
                                      legal_actions=legal_actions)

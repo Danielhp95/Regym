@@ -22,24 +22,28 @@ class RandomAgent(Agent):
         self.action_space = action_space
 
     def model_free_take_action(self, observations: Union[Any, List[Any]],
-                               legal_actions: Optional[Union[List[int], List[List[int]]]] = None):
+                               legal_actions: Optional[Union[List[int], List[List[int]]]] = None,
+                               multi_action: bool = False):
         # Can we refactor this in a clever way?
-        if isinstance(observations, (np.ndarray, list)):
-            actions = [random.choice(legal_actions[i]) if legal_actions[i] else
-                       self.action_space.sample()
-                       for i in range(len(legal_actions))]
+        # THIS BREAKS:
+        if multi_action:
+            if legal_actions:
+                actions = [random.choice(legal_actions[i]) if legal_actions[i] else
+                           self.action_space.sample()
+                           for i in range(len(legal_actions))]
+            else: actions = [self.action_space.sample()
+                             for _ in range(len(observations))]
             return actions
-
-        if legal_actions: action = random.choice(legal_actions)
-        else: action = self.action_space.sample()
-        return action
+        if not multi_action:
+            if legal_actions: action = random.choice(legal_actions)
+            else: action = self.action_space.sample()
+            return action
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(RandomAgent, self).handle_experience(s, a, r, succ_s, done)
 
     def clone(self):
         return RandomAgent(name=self.name, action_space=self.action_space)
-
 
     def __repr__(self):
         return f'{self.name}. Action space: {self.action_space}'

@@ -8,6 +8,7 @@ from regym.environments.tasks import RegymAsyncVectorEnv
 
 from regym.rl_loops.utils import update_trajectories, update_finished_trajectories
 
+
 def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
                 -> List[Tuple[Any, Any, Any, Any, bool]]:
     '''

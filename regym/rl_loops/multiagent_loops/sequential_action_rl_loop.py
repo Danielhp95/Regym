@@ -32,7 +32,7 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     # To support which actions are legal at an initial state. These can only be extracted
     # via the "info" dictionary given by the env.step(...) function
     # Thus: Assumption: all actions are permitted on the first state
-    legal_actions: List
+    legal_actions: List = None
     while not done:
         agent = agent_vector[current_player]
 
@@ -57,7 +57,7 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
         if 'legal_actions' in info: legal_actions = info['legal_actions']
 
-    if training: propagate_last_experience(agent_vector, trajectory, reward_vector, succ_observations)
+    if training: propagate_last_experience(agent_vector, trajectory)
     return trajectory
 
 
@@ -78,7 +78,7 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
     while len(finished_trajectories) < num_episodes:
 
         # Take action
-        action_vector = multi_env_choose_action(
+        action_vector = multienv_choose_action(
                 agent_vector, env, obs, current_players, legal_actions)
 
         # Environment step
@@ -87,15 +87,16 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
         # Update trajectories:
         update_parallel_sequential_trajectories(ongoing_trajectories, current_players,
                 action_vector, obs, rewards, succ_obs, dones)
-
-        # Update agents
-        #if training:
-        #    for i in range(len(ongoing_trajectories)):
-        #        propagate_experience(agent_vector, ongoing_trajectories[i],
-        #                             rewards[i], succ_obs[i], dones[i])
-
         done_envs = update_finished_trajectories(ongoing_trajectories,
                                                  finished_trajectories, dones)
+
+        # Update agents
+        if training:
+            for t in ongoing_trajectories:
+                if len(t) < len(agent_vector): break
+                agent_to_update = len(t) % len(agent_vector)
+                update_agent(agent_to_update, t, agent_vector)
+
 
         # Update observation
         obs = succ_obs
@@ -105,12 +106,19 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
         current_players = [info.get('current_player',
                                     (current_players[e_i] + 1) % num_agents)
                            for e_i, info in enumerate(infos)]
-        for e_i in done_envs: current_players[e_i] = 0  # This might break?
+
+        # Deal with episode termination
+        for i, e_i in enumerate(done_envs):
+            current_players[e_i] = 0
+            if training:
+                propagate_last_experience(agent_vector,
+                                          finished_trajectories[-(i + 1)])
+            ongoing_trajectories[e_i] = []
 
     return finished_trajectories
 
 
-def multi_env_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
+def multienv_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
                             current_players, legal_actions):
     action_vector = [None] * env.num_envs
     # Find indices of which envs each player should play, on a dict
@@ -178,38 +186,32 @@ def propagate_experience(agent_vector: List, trajectory: List,
 
     agent_to_update = len(trajectory) % len(agent_vector)
     if agent_vector[agent_to_update].training:
-        update_agent(agent_to_update, trajectory, agent_vector,
-                     reward_vector[agent_to_update],
-                     succ_observations[agent_to_update], done)
+        update_agent(agent_to_update, trajectory, agent_vector)
 
 
-def update_agent(agent_id: int, trajectory: List, agent_vector: List,
-                 reward: float, succ_observation: np.ndarray, done: bool):
+def update_agent(agent_id: int, trajectory: List, agent_vector: List):
     '''
-    ASSUMPTION: every non-terminal observation corresponds to
-    the an information set unique for the player whose turn it is.
-    This means that each "experience" is from which an RL agent will learn
-    (o, a, r, o') is fragmented throughout the trajectory. This function
-    "stiches together" the right environmental signals, ensuring that
-    each agent only has access to information from their own information sets.
+    ASSUMPTION:
+        - every non-terminal observation corresponds to
+          the an information set unique for the player whose turn it is.
+          This means that each "experience" is from which an RL agent will learn
+          (o, a, r, o') is fragmented throughout the trajectory. This function
+          "stiches together" the right environmental signals, ensuring that
+          each agent only has access to information from their own information sets.
 
     :param agent_id: Index of agent which will receive a new experience
     :param trajectory: Current episode trajectory
     :param agent_vector: List of agents acting in current environment
-    :param reward: Scalar reward for :param: agent_id
-    :param succ_observation: Succesor observation for :param: agent_id
-    :param done: Termination flag, whether the episode has finished
     '''
     o, a = get_last_observation_and_action_for_agent(agent_id,
                                                      trajectory,
                                                      len(agent_vector))
-    experience = (o, a, reward, succ_observation, done)
+    (_, _, reward, succ_observation, done) = trajectory[-1]
+    experience = (o, a, reward[agent_id], succ_observation[agent_id], done)
     agent_vector[agent_id].handle_experience(*experience)
 
 
-def propagate_last_experience(agent_vector: List, trajectory: List,
-                              reward_vector: List[float],
-                              succ_observations: List[np.ndarray]):
+def propagate_last_experience(agent_vector: List, trajectory: List):
     '''
     Sequential environments will often feature a terminal state which yields
     a reward signal to each agent (i.e how much each agent wins / loses on poker).
@@ -219,22 +221,23 @@ def propagate_last_experience(agent_vector: List, trajectory: List,
 
     :param agent_vector: List of agents acting in current environment
     :param trajectory: Current (finished) episode trajectory
-    :param reward_vector: Reward vector for terminal environment step
-    :param succ_observations: Succesor observations for current env step
     '''
+    reward_vector = trajectory[2]
+    succ_observations = trajectory[3]
     agent_indices = list(range(len(agent_vector)))
     # This agent already processed the last experience
     agent_indices.pop(len(trajectory) % len(agent_vector))
 
     for i in agent_indices:
         if not agent_vector[i].training: continue
-        update_agent(i, trajectory, agent_vector, reward_vector[i],
-                     succ_observations[i], True)
+        update_agent(i, trajectory, agent_vector)
 
 
 def get_last_observation_and_action_for_agent(target_agent_id: int,
                                               trajectory: List, num_agents: int) -> Tuple:
     '''
+    # TODO: assume games where turns are taken in cyclic fashion.
+
     Obtains the last observation and action for agent :param: target_agent_id
     from the :param: trajectory.
 
@@ -245,7 +248,6 @@ def get_last_observation_and_action_for_agent(target_agent_id: int,
     :returns: The last observation (information state) and action taken
               at such observation by player :param: target_agent_id.
     '''
-    last_agent_to_act = (len(trajectory) - 1) % num_agents
     # Offsets are negative, exploiting Python's backwards index lookup
     previous_timestep = trajectory[-num_agents]
     last_observation = previous_timestep[0][target_agent_id]
