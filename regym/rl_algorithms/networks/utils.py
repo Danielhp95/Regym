@@ -96,7 +96,6 @@ def sync_grad(target_network, src_network):
 class PreprocessFunction():
 
     def __init__(self, state_space_size, use_cuda=False):
-        self.state_space_size = state_space_size
         self.use_cuda = use_cuda
 
     def __call__(self, x):
