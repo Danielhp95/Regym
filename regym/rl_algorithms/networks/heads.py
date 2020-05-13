@@ -291,17 +291,18 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
             phi_v = self.network.critic_body(phi)
 
         logits = self.network.fc_action(phi_a)
-        if legal_actions is not None:
+        if legal_actions:
             logits = self._mask_ilegal_action_logits(logits, legal_actions)
-        # batch x action_dim
+        # Size: batch x action_dim
         v = self.network.fc_critic(phi_v)
         if self.critic_gate_fn: v = self.critic_gate_fn(v)
-        # batch x 1
+        # Size: batch x 1
 
         dist = torch.distributions.Categorical(logits=logits)
         if action is None:
-            action = dist.sample(sample_shape=(logits.size(0),))
-            # batch x 1
+            # Size: batch x 1
+            action = dist.sample()
+            action = action.view(-1, 1)
         log_prob = dist.log_prob(action).unsqueeze(-1)
         # estimates the log likelihood of each action against each batched distributions... : batch x batch x 1
         log_prob = torch.cat([log_prob[idx][idx].view((1,-1)) for idx in range(log_prob.size(0))], dim=0)
