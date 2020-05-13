@@ -58,13 +58,17 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
         if agent.requires_environment_model:
             raise NotImplementedError('Gimme a minute')
         else:
-            action_vector = agent.model_free_take_action(obs, legal_actions)
+            action_vector = agent.model_free_take_action(obs, legal_actions, multi_action=True)
         succ_obs, rewards, dones, infos = env.step(action_vector)
 
         update_trajectories(ongoing_trajectories, action_vector, obs,
                             rewards, succ_obs, dones)
 
-        # TODO: train accordingly.
+        # TODO: TEST
+        if training:
+            for t in ongoing_trajectories:
+                (o, a, r, succ_o, done) = t[-1]
+                agent.handle_experience(o, a, r, succ_o, done)
 
         obs = succ_obs
         if 'legal_actions' in infos[0]:
