@@ -1,5 +1,6 @@
 from typing import Dict, List, Callable, Any, Union
 from math import sqrt
+from multiprocessing import cpu_count
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
 
@@ -57,7 +58,7 @@ class MCTSAgent(Agent):
         self.use_dirichlet = use_dirichlet
         self.dirichlet_alpha = dirichlet_alpha
 
-        self.current_prediction: Dict = {}
+        self.current_prediction: Union[Dict, Dict[int, Dict]] = {}
 
     def random_selection_policy(self, obs, legal_actions: List[int]):
         if legal_actions == []: return []
@@ -66,31 +67,11 @@ class MCTSAgent(Agent):
         return [action_probability if a_i in legal_actions else 0.
                 for a_i in range(self.action_dim)]
 
-    def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
+    def model_based_take_action(self, env: Union[gym.Env, Dict[int, gym.Env]],
                                 observation, player_index: int, multi_action: bool = False):
         if multi_action:
-            action_vector = [None] * len(env)
-                # NOTE: ordering of parameters depends on the underlying
-                # function in self.algorithm
-            with ProcessPoolExecutor(max_workers=12) as ex:
-                futures = [ex.submit(async_search, i, self.algorithm,
-                                     env_i,
-                                     observation[i],
-                                     self.budget,
-                                     self.rollout_budget,
-                                     self.selection_strat,
-                                     self.exploration_constant,
-                                     player_index,
-                                     self.policy_fn,
-                                     self.evaluation_fn,
-                                     self.use_dirichlet,
-                                     self.dirichlet_alpha,
-                                     self.num_agents)
-                           for i, env_i in enumerate(env)]
-                for f in as_completed(futures):
-                    i, (action, visitation) = f.result()
-                    action_vector[i] = action
-            return action_vector
+            return self.multi_action_model_based_take_action(env, observation,
+                                                             player_index)
         else:
             action, visitations = self.algorithm(
                     player_index=player_index,
@@ -106,17 +87,44 @@ class MCTSAgent(Agent):
                     use_dirichlet=self.use_dirichlet,
                     dirichlet_alpha=self.dirichlet_alpha)
 
-        # This is needed to ensure that all actions are represented
-        # because :param: env won't expose non-legal actions
-        child_visitations = [visitations[move_id] if move_id in visitations else 0.
-                             for move_id in range(self.action_dim)]
+            # This is needed to ensure that all actions are represented
+            # because :param: env won't expose non-legal actions
+            child_visitations = [visitations[move_id] if move_id in visitations else 0.
+                                 for move_id in range(self.action_dim)]
 
-        self.current_prediction['action'] = action
-        self.current_prediction['child_visitations'] = child_visitations
-        return action
+            self.current_prediction['action'] = action
+            self.current_prediction['child_visitations'] = child_visitations
+            return action
+
+    def multi_action_model_based_take_action(self, envs: Dict[int, gym.Env],
+                                             observations: Dict[int, Any],
+                                             player_index: int) -> List[int]:
+        action_vector = []
+        # NOTE: ordering of parameters depends on the underlying
+        # function in self.algorithm
+        with ProcessPoolExecutor(max_workers=min(len(envs), cpu_count())) as ex:
+            futures = [ex.submit(async_search, env_i, self.algorithm,
+                                 env, observations[env_i],
+                                 self.budget, self.rollout_budget,
+                                 self.selection_strat, self.exploration_constant,
+                                 player_index, self.policy_fn,
+                                 self.evaluation_fn, self.use_dirichlet,
+                                 self.dirichlet_alpha, self.num_agents)
+                       for env_i, env in envs.items()]
+            for f in futures:
+                i, (action, visitations) = f.result()
+                action_vector += [action]
+                child_visitations = [visitations[move_id] if move_id in visitations else 0.
+                                     for move_id in range(self.action_dim)]
+
+                self.current_prediction[i] = {}
+                self.current_prediction[i]['action'] = action
+                self.current_prediction[i]['child_visitations'] = child_visitations
+        return action_vector
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
+        self.current_prediction.clear()
 
     def clone(self):
         cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,
