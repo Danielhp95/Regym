@@ -107,13 +107,14 @@ class Task:
 
         vector_env = RegymAsyncVectorEnv(self.name, num_envs)
         if self.env_type == EnvType.SINGLE_AGENT:
-            return regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
+            ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
                     vector_env, extended_agent_vector[0], training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.async_run_episode(
+            ts = regym.rl_loops.multiagent_loops.sequential_action_rl_loop.async_run_episode(
                     vector_env, extended_agent_vector, training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            raise NotImplementedError('Gimme a minute')
+            raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
+        return ts
 
     def extend_task(self, agents: Dict[int, 'Agent'], force: bool = False):
         ''' TODO: DOCUMENT, TEST '''
