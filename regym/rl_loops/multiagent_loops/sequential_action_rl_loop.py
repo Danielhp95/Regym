@@ -129,9 +129,13 @@ def multienv_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
         a = agent_vector[a_i]
         if not a.requires_environment_model:
             partial_action_vector = a.model_free_take_action(
-                    signals['obs'], legal_actions=signals['legal_actions'])
+                    signals['obs'], legal_actions=signals['legal_actions'],
+                    multi_action=True)
         else:
-            raise NotImplementedError('Gimme a minute')
+            envs = env.get_envs()
+            relevant_envs = [envs[e_i] for e_i in signals['env_ids']]
+            partial_action_vector = a.model_based_take_action(
+                    relevant_envs, signals['obs'], a_i, multi_action=True)
         # fill action_vector
         for env_id, action in zip(signals['env_ids'], partial_action_vector):
             assert action_vector[env_id] is None

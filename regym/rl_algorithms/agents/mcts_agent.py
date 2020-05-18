@@ -1,5 +1,7 @@
-from typing import Dict, List, Callable, Any
+from typing import Dict, List, Callable, Any, Union
 from math import sqrt
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import as_completed
 
 import numpy as np
 import gym
@@ -64,20 +66,45 @@ class MCTSAgent(Agent):
         return [action_probability if a_i in legal_actions else 0.
                 for a_i in range(self.action_dim)]
 
-    def model_based_take_action(self, env: gym.Env, observation, player_index: int):
-        action, visitations = self.algorithm(
-                player_index=player_index,
-                rootstate=env,
-                observation=observation,
-                budget=self.budget,
-                rollout_budget=self.rollout_budget,
-                evaluation_fn=self.evaluation_fn,
-                num_agents=self.num_agents,
-                selection_strat=self.selection_strat,
-                policy_fn=self.policy_fn,
-                exploration_factor=self.exploration_constant,
-                use_dirichlet=self.use_dirichlet,
-                dirichlet_alpha=self.dirichlet_alpha)
+    def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
+                                observation, player_index: int, multi_action: bool = False):
+        if multi_action:
+            action_vector = [None] * len(env)
+                # NOTE: ordering of parameters depends on the underlying
+                # function in self.algorithm
+            with ProcessPoolExecutor(max_workers=12) as ex:
+                futures = [ex.submit(async_search, i, self.algorithm,
+                                     env_i,
+                                     observation[i],
+                                     self.budget,
+                                     self.rollout_budget,
+                                     self.selection_strat,
+                                     self.exploration_constant,
+                                     player_index,
+                                     self.policy_fn,
+                                     self.evaluation_fn,
+                                     self.use_dirichlet,
+                                     self.dirichlet_alpha,
+                                     self.num_agents)
+                           for i, env_i in enumerate(env)]
+                for f in as_completed(futures):
+                    i, (action, visitation) = f.result()
+                    action_vector[i] = action
+            return action_vector
+        else:
+            action, visitations = self.algorithm(
+                    player_index=player_index,
+                    rootstate=env,
+                    observation=observation,
+                    budget=self.budget,
+                    rollout_budget=self.rollout_budget,
+                    evaluation_fn=self.evaluation_fn,
+                    num_agents=self.num_agents,
+                    selection_strat=self.selection_strat,
+                    policy_fn=self.policy_fn,
+                    exploration_factor=self.exploration_constant,
+                    use_dirichlet=self.use_dirichlet,
+                    dirichlet_alpha=self.dirichlet_alpha)
 
         # This is needed to ensure that all actions are represented
         # because :param: env won't expose non-legal actions
@@ -107,6 +134,11 @@ class MCTSAgent(Agent):
     def __repr__(self):
         s = f'MCTSAgent: {self.name}.\nBudget: {self.budget}\nRollout budget: {self.rollout_budget}\nSelection phase: {self.selection_phase_id}\nExploration cnst: {self.exploration_constant}\nUse Direchlet noise: {self.use_dirichlet}\nDirchlet alpha: {self.dirichlet_alpha}'
         return s
+
+
+def async_search(i, algorithm, *algorithm_args):
+    results = algorithm(*algorithm_args)
+    return i, results
 
 
 def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str) -> MCTSAgent:
