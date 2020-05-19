@@ -31,14 +31,14 @@ def test_can_defeat_random_play_in_connect4_both_positions_using_puct(Connect4Ta
     win_task_in_both_positions(Connect4Task, mcts_config_dict)  # First player (index 0) has a much higher budget
 
 
-def win_task_in_both_positions(Connect4Task, mcts_config_dict):
-    mcts1 = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name='MCTS1-test')
-    random = build_Random_Agent(Connect4Task, {}, agent_name='Random-test')
-    trajectory = Connect4Task.run_episode([mcts1, random], training=False)
+def win_task_in_both_positions(task, mcts_config_dict):
+    mcts = build_MCTS_Agent(task, mcts_config_dict, agent_name='MCTS1-test')
+    random = build_Random_Agent(task, {}, agent_name='Random-test')
+    t1 = task.run_episode([mcts, random], training=False)
 
-    assert extract_winner(trajectory) == 0  # Second player (index 1) has a much higher budget
-    trajectory = Connect4Task.run_episode([random, mcts1], training=False)
-    assert extract_winner(trajectory) == 1  # First player (index 0) has a much higher budget
+    assert extract_winner(t1) == 0  # First player (index 0) has a much higher budget
+    t2 = task.run_episode([random, mcts], training=False)
+    assert extract_winner(t2) == 1  # Second_player (index 1) has a much higher budget
 
 
 def test_can_coordinate_in_simulatenous_random_walk(RandomWalkTask, mcts_config_dict):
