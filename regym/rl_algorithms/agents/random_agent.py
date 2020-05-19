@@ -43,7 +43,7 @@ class RandomAgent(Agent):
         super(RandomAgent, self).handle_experience(s, a, r, succ_s, done)
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        super().handle_experience(experiences, env_ids)
+        super().handle_multiple_experiences(experiences, env_ids)
 
     def clone(self):
         return RandomAgent(name=self.name, action_space=self.action_space)

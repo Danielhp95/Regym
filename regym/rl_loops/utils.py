@@ -44,10 +44,8 @@ def restructure_parallel_observations(observations, succ_observations,
 
 
 def update_finished_trajectories(ongoing_trajectories,
-                                 finished_trajectories, dones):
-    done_envs = lambda dones: [i for i in range(len(dones)) if dones[i]]
-    finished_envs = done_envs(dones)
-    for env_i in finished_envs:
+                                 finished_trajectories, done_envs):
+    for env_i in done_envs:
         finished_trajectories += [deepcopy(ongoing_trajectories[env_i])]
         ongoing_trajectories[env_i].clear()
-    return finished_envs
+    return ongoing_trajectories, finished_trajectories

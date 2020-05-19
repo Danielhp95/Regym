@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import List, Tuple, Any, Dict
 from copy import deepcopy
 
@@ -37,8 +38,8 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
         # Update trajectories:
         update_parallel_sequential_trajectories(ongoing_trajectories, current_players,
                 action_vector, obs, rewards, succ_obs, dones)
-        done_envs = update_finished_trajectories(ongoing_trajectories,
-                                                 finished_trajectories, dones)
+
+        done_envs = [i for i in range(len(dones)) if dones[i]]
 
         # Update agents
         if training: propagate_experiences(agent_vector, ongoing_trajectories)
@@ -53,20 +54,33 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
                            for e_i, info in enumerate(infos)]
 
         # Deal with episode termination
-        if len(done_envs) > 0 :
-            # Reset players and trajectories
+        if len(done_envs) > 0:
+            # 
             if training:
-                propagate_last_experience(agent_vector,
-                                          finished_trajectories[-(i + 1)])
-            for i, e_i in enumerate(done_envs):
-                current_players[e_i] = 0
-                ongoing_trajectories[e_i] = []
+                propagate_last_experiences(agent_vector, ongoing_trajectories,
+                                           done_envs)
+            # Reset players and trajectories
+            ongoing_trajectories, finished_trajectories = update_finished_trajectories(
+                            ongoing_trajectories, finished_trajectories, done_envs)
+            current_players, ongoing_trajectories = reset_players_and_trajectories(
+                    done_envs, current_players, ongoing_trajectories)
 
     return finished_trajectories
 
 
+def reset_players_and_trajectories(done_envs: List[int],
+                                   current_players: Dict[int, int],
+                                   ongoing_trajectories: List[List[Tuple]]) \
+                                   -> Tuple[Dict[int, int], List[List[Tuple]]]:
+    ''' TODO '''
+    for i, e_i in enumerate(done_envs):
+        current_players[e_i] = 0
+        ongoing_trajectories[e_i] = []
+    return current_players, ongoing_trajectories
+
+
 def multienv_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
-                            current_players, legal_actions):
+                           current_players, legal_actions) -> List[int]:
     action_vector = [None] * env.num_envs
     # Find indices of which envs each player should play, on a dict
     agent_signals = extract_signals_for_acting_agents(
@@ -92,39 +106,73 @@ def multienv_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
 
 
 def propagate_experiences(agent_vector, trajectories):
-    '''
-    TODO
-    '''
-    agents_to_update_per_env = {i: len(t) % len(agent_vector)
-                                for i, t in enumerate(trajectories)
-                                if len(t) >= len(agent_vector)}
-    if agents_to_update_per_env == {}:
+    ''' TODO '''
+    agent_to_update_per_env = {i: len(t) % len(agent_vector)
+                               for i, t in enumerate(trajectories)
+                               if len(t) >= len(agent_vector)}
+    if agent_to_update_per_env == {}:
         # No agents to update
         return
 
-    agents_to_update = set(agents_to_update_per_env.values())
+    agents_to_update = set(agent_to_update_per_env.values())
     environment_per_agents = {a_i: [env_i
-                                    for env_i, a_j in agents_to_update_per_env.items()
+                                    for env_i, a_j in agent_to_update_per_env.items()
                                     if a_i == a_j]
                               for a_i in agents_to_update}
 
     agent_experiences = collect_agent_experiences_from_trajectories(
-            agents_to_update, agents_to_update_per_env, trajectories, agent_vector)
+            agents_to_update, agent_to_update_per_env, trajectories, agent_vector)
 
     propagate_batched_experiences(agent_experiences, agent_vector, environment_per_agents)
 
 
 def propagate_batched_experiences(agent_experiences, agent_vector, environment_per_agents):
+    ''' TODO: RENAME, DOCUMENT '''
     for a_i, experiences in agent_experiences.items():
         if agent_vector[a_i].training:
             agent_vector[a_i].handle_multiple_experiences(
                     experiences, environment_per_agents[a_i])
 
 
-def collect_agent_experiences_from_trajectories(agents_to_update, agents_to_update_per_env, trajectories, agent_vector):
+def propagate_last_experiences(agent_vector: List['Agent'],
+                               trajectories: List[List], done_envs: List[int]):
+    ''' TODO '''
+    def agents_to_update_finished_trajectory(trajectory):
+        ''' Refactor into utils '''
+        agent_indices = list(range(len(agent_vector)))
+        # This agent already processed the last experience
+        agent_indices.pop(len(trajectory) % len(agent_vector))
+        return agent_indices
+
+    agents_to_update_per_env = {
+        done_e_i: agents_to_update_finished_trajectory(trajectories[done_e_i])
+        for done_e_i in done_envs
+        if len(trajectories[done_e_i]) >= len(agent_vector)}  # is this check necessary?
+
+    agents_to_update = set(reduce(lambda acc, x: acc + x,
+                                  agents_to_update_per_env.values(), []))
+    environment_per_agents = {a_i: [env_i
+                                    for env_i, agent_ids in agents_to_update_per_env.items()
+                                    if a_i in agent_ids]
+                              for a_i in agents_to_update}
+
+    agent_experiences = {a_i: [] for a_i in agents_to_update}
+    for a_i, envs in environment_per_agents.items():
+        for e_i in envs:
+            reward = trajectories[e_i][-1][2][a_i]
+            succ_obs = trajectories[e_i][-1][3][a_i]
+            o, a = get_last_observation_and_action_for_agent(
+                    a_i, trajectories[e_i], len(agent_vector))
+            agent_experiences[a_i] += [(o, a, reward, succ_obs, True)]
+
+    propagate_batched_experiences(agent_experiences, agent_vector, environment_per_agents)
+
+
+def collect_agent_experiences_from_trajectories(agents_to_update, agent_to_update_per_env, trajectories, agent_vector):
+    ''' TODO '''
     agent_experiences = {a_i: [] for a_i in agents_to_update}
 
-    for env_i, target_agent in agents_to_update_per_env.items():
+    for env_i, target_agent in agent_to_update_per_env.items():
         experience = extract_latest_experience(target_agent,
                            trajectories[env_i], agent_vector)
         agent_experiences[target_agent] += [experience]
@@ -145,8 +193,7 @@ def extract_latest_experience(agent_id: int, trajectory: List, agent_vector: Lis
     :param trajectory: Current episode trajectory
     :param agent_vector: List of agents acting in current environment
     '''
-    o, a = get_last_observation_and_action_for_agent(agent_id,
-                                                     trajectory,
+    o, a = get_last_observation_and_action_for_agent(agent_id, trajectory,
                                                      len(agent_vector))
     (_, _, reward, succ_observation, done) = trajectory[-1]
     return (o, a, reward[agent_id], succ_observation[agent_id], done)
