@@ -73,28 +73,8 @@ class MCTSAgent(Agent):
             return self.multi_action_model_based_take_action(env, observation,
                                                              player_index)
         else:
-            action, visitations = self.algorithm(
-                    player_index=player_index,
-                    rootstate=env,
-                    observation=observation,
-                    budget=self.budget,
-                    rollout_budget=self.rollout_budget,
-                    evaluation_fn=self.evaluation_fn,
-                    num_agents=self.num_agents,
-                    selection_strat=self.selection_strat,
-                    policy_fn=self.policy_fn,
-                    exploration_factor=self.exploration_constant,
-                    use_dirichlet=self.use_dirichlet,
-                    dirichlet_alpha=self.dirichlet_alpha)
-
-            # This is needed to ensure that all actions are represented
-            # because :param: env won't expose non-legal actions
-            child_visitations = [visitations[move_id] if move_id in visitations else 0.
-                                 for move_id in range(self.action_dim)]
-
-            self.current_prediction['action'] = action
-            self.current_prediction['child_visitations'] = child_visitations
-            return action
+            return self.single_action_model_based_take_action(env, observation,
+                                                              player_index)
 
     def multi_action_model_based_take_action(self, envs: Dict[int, gym.Env],
                                              observations: Dict[int, Any],
@@ -122,12 +102,37 @@ class MCTSAgent(Agent):
                 self.current_prediction[i]['child_visitations'] = child_visitations
         return action_vector
 
+    def single_action_model_based_take_action(self, env: gym.Env, observation,
+                                              player_index: int) -> int:
+        action, visitations = self.algorithm(
+                player_index=player_index,
+                rootstate=env,
+                observation=observation,
+                budget=self.budget,
+                rollout_budget=self.rollout_budget,
+                evaluation_fn=self.evaluation_fn,
+                num_agents=self.num_agents,
+                selection_strat=self.selection_strat,
+                policy_fn=self.policy_fn,
+                exploration_factor=self.exploration_constant,
+                use_dirichlet=self.use_dirichlet,
+                dirichlet_alpha=self.dirichlet_alpha)
+
+        # This is needed to ensure that all actions are represented
+        # because :param: env won't expose non-legal actions
+        child_visitations = [visitations[move_id] if move_id in visitations else 0.
+                             for move_id in range(self.action_dim)]
+
+        self.current_prediction['action'] = action
+        self.current_prediction['child_visitations'] = child_visitations
+        return action
+
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
         self.current_prediction.clear()
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        super().handle_experience(experiences, env_ids)
+        super().handle_multiple_experiences(experiences, env_ids)
         self.current_prediction.clear()
 
     def clone(self):

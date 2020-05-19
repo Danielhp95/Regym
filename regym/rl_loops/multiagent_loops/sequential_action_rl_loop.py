@@ -50,6 +50,8 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
         observations = succ_observations
 
         if 'legal_actions' in info: legal_actions = info['legal_actions']
+        if 'current_player' in info: current_player = info['current_player']
+        else: current_player = (current_player + 1) % len(agent_vector)
 
     if training: propagate_last_experience(agent_vector, trajectory)
     return trajectory
@@ -61,9 +63,12 @@ def choose_action(agent, env, observation, current_player, legal_actions):
     '''
     if not agent.requires_environment_model:
         action = agent.model_free_take_action(observation,
-                                              legal_actions=legal_actions)
+                                              legal_actions=legal_actions,
+                                              multi_action=False)
     else:
-        action = agent.model_based_take_action(deepcopy(env), observation, current_player)
+        action = agent.model_based_take_action(deepcopy(env), observation,
+                                               current_player,
+                                               multi_action=False)
     return action
 
 
@@ -120,8 +125,8 @@ def propagate_last_experience(agent_vector: List, trajectory: List):
     :param agent_vector: List of agents acting in current environment
     :param trajectory: Current (finished) episode trajectory
     '''
-    reward_vector = trajectory[2]
-    succ_observations = trajectory[3]
+    reward_vector = trajectory[-1][2]
+    succ_observations = trajectory[-1][3]
     agent_indices = list(range(len(agent_vector)))
     # This agent already processed the last experience
     agent_indices.pop(len(trajectory) % len(agent_vector))
