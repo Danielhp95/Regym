@@ -7,6 +7,8 @@ from .agents import build_DQN_Agent
 from .agents import build_MCTS_Agent
 from .agents import build_ExpertIteration_Agent
 
+from .agents import build_TabularQ_Agent
+
 from .agents import rockAgent, paperAgent, scissorsAgent, randomAgent
 from .agent_hook import AgentHook
 from .agent_hook import load_population_from_path
