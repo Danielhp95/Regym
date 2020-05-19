@@ -13,7 +13,7 @@ def test_expert_iteration_can_take_actions_discrete_obvservation_discrete_action
     Connect4Task.run_episode([exIt_agent_1, exIt_agent_2], training=False)
 
 
-def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, expert_iteration_config_dict):
+def test_can_defeat_random_play_in_connect4_both_positions_single_env(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['mcts_budget'] = 100
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='MCTS1-test')
 
@@ -24,6 +24,22 @@ def test_can_defeat_random_play_in_connect4_both_positions(Connect4Task, expert_
 
     trajectory = Connect4Task.run_episode([random_agent, ex_it], training=False)
     assert extract_winner(trajectory) == 1  # Second player (index 1) has a much higher budget
+
+def test_can_defeat_random_play_in_connect4_both_positions_multi_env(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['mcts_budget'] = 100
+    expert_iteration_config_dict['mcts_rollout_budget'] = 20
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='MCTS1-test')
+
+    random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
+
+    trajectories = Connect4Task.run_episodes(
+            [ex_it, random_agent], training=False, num_envs=12, num_episodes=10)
+            
+    assert all(map(lambda t: extract_winner(t) == 0, trajectories))  # First player (index 0) has a much higher budget
+
+    trajectories = Connect4Task.run_episodes(
+            [random_agent, ex_it], training=False, num_envs=12, num_episodes=10)
+    assert all(map(lambda t: extract_winner(t) == 1, trajectories))  # Second player (index 1) has a much higher budget
 
 
 def test_can_use_apprentice_in_expert_in_expansion_and_rollout_phase(Connect4Task, expert_iteration_config_dict):
