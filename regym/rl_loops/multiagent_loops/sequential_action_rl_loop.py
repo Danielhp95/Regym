@@ -6,9 +6,8 @@ import gym
 
 import regym
 from regym.rl_algorithms.agents import Agent
-from regym.environments.tasks import RegymAsyncVectorEnv
 
-from regym.rl_loops.utils import update_trajectories, update_parallel_sequential_trajectories, update_finished_trajectories
+from regym.rl_loops.utils import update_trajectories
 
 
 def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: str):
@@ -54,133 +53,6 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
     if training: propagate_last_experience(agent_vector, trajectory)
     return trajectory
-
-
-def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bool,
-                      num_episodes: int) \
-                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
-    '''
-    TODO: document, refactor
-    '''
-    ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
-    ongoing_trajectories = [[] for _ in range(env.num_envs)]
-    finished_trajectories = []
-
-    obs = env.reset()
-    current_players: List[int] = [0] * env.num_envs
-    legal_actions: List[List] = [None] * env.num_envs # Revise
-    num_agents = len(agent_vector)
-    while len(finished_trajectories) < num_episodes:
-
-        # Take action
-        action_vector = multienv_choose_action(
-                agent_vector, env, obs, current_players, legal_actions)
-
-        # Environment step
-        succ_obs, rewards, dones, infos = env.step(action_vector)
-
-        # Update trajectories:
-        update_parallel_sequential_trajectories(ongoing_trajectories, current_players,
-                action_vector, obs, rewards, succ_obs, dones)
-        done_envs = update_finished_trajectories(ongoing_trajectories,
-                                                 finished_trajectories, dones)
-
-        # Update agents
-        if training: propagate_experiences(agent_vector, ongoing_trajectories)
-
-        # Update observation
-        obs = succ_obs
-
-        # Update current players and legal actions
-        legal_actions = [info.get('legal_actions', None) for info in infos]
-        current_players = [info.get('current_player',
-                                    (current_players[e_i] + 1) % num_agents)
-                           for e_i, info in enumerate(infos)]
-
-        # Deal with episode termination
-        if len(done_envs) > 0 :
-            # Reset players and trajectories
-            for i, e_i in enumerate(done_envs):
-                current_players[e_i] = 0
-                ongoing_trajectories[e_i] = []
-                if training:
-                    propagate_last_experience(agent_vector,
-                                              finished_trajectories[-(i + 1)])
-
-    return finished_trajectories
-
-
-def multienv_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
-                            current_players, legal_actions):
-    action_vector = [None] * env.num_envs
-    # Find indices of which envs each player should play, on a dict
-    agent_signals = extract_signals_for_acting_agents(
-            agent_vector, env, obs, current_players, legal_actions)
-
-    for a_i, signals in agent_signals.items():
-        a = agent_vector[a_i]
-        if not a.requires_environment_model:
-            partial_action_vector = a.model_free_take_action(
-                    signals['obs'], legal_actions=signals['legal_actions'],
-                    multi_action=True)
-        else:
-            envs = env.get_envs()
-            relevant_envs = {e_i: envs[e_i] for e_i in signals['env_ids']}
-            observations = {e_i: o for e_i, o in zip(signals['env_ids'], signals['obs'])}
-            partial_action_vector = a.model_based_take_action(
-                    relevant_envs, observations, a_i, multi_action=True)
-        # fill action_vector
-        for env_id, action in zip(signals['env_ids'], partial_action_vector):
-            assert action_vector[env_id] is None
-            action_vector[env_id] = action
-    return action_vector
-
-
-def propagate_experiences(agent_vector, trajectories):
-    '''
-    TODO
-    '''
-    agents_to_update_per_env = {i: len(t) % len(agent_vector)
-                                for i, t in enumerate(trajectories)
-                                if len(t) >= len(agent_vector)}
-    if agents_to_update_per_env == {}:
-        # No agents to update
-        return
-
-    agents_to_update = set(agents_to_update_per_env.values())
-    environment_per_agents = {a_i: [env_i
-                                    for env_i, a_j in agents_to_update_per_env.items()
-                                    if a_i == a_j]
-                              for a_i in agents_to_update}
-    agent_experiences = {a_i: [] for a_i in agents_to_update}
-
-    for env_i, target_agent in agents_to_update_per_env.items():
-        experience = extract_latest_experience(target_agent,
-                           trajectories[env_i], agent_vector)
-        agent_experiences[target_agent] += [experience]
-
-    for a_i, experiences in agent_experiences.items():
-        if agent_vector[a_i].training:
-            agent_vector[a_i].handle_multiple_experiences(
-                    experiences, environment_per_agents[a_i])
-
-
-def extract_signals_for_acting_agents(agent_vector, env, obs,
-                                      current_players, legal_actions) \
-                                              -> Dict[int, Dict[str, List]]:
-    agent_signals: Dict[int, Dict[str, List]] = dict()
-
-    # Extract signals for each acting agent
-    for e_i, cp in enumerate(current_players):
-        if cp not in agent_signals:
-            agent_signals[cp] = dict()
-            agent_signals[cp]['obs'] = []
-            agent_signals[cp]['legal_actions'] = []
-            agent_signals[cp]['env_ids'] = []
-        agent_signals[cp]['obs'] += [obs[cp][e_i]]
-        agent_signals[cp]['legal_actions'] += [legal_actions[e_i]]
-        agent_signals[cp]['env_ids'] += [e_i]
-    return agent_signals
 
 
 def choose_action(agent, env, observation, current_player, legal_actions):
@@ -256,7 +128,10 @@ def propagate_last_experience(agent_vector: List, trajectory: List):
 
     for i in agent_indices:
         if not agent_vector[i].training: continue
-        raise NotImplementedError('Use new logic')
+        o, a = get_last_observation_and_action_for_agent(i, trajectory,
+                                                         len(agent_vector))
+        agent_vector[i].handle_experience(o, a, reward_vector[i],
+                                          succ_observations[i], done=True)
 
 
 def get_last_observation_and_action_for_agent(target_agent_id: int,

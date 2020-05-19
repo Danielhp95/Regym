@@ -110,7 +110,7 @@ class Task:
             ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
                     vector_env, extended_agent_vector[0], training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            ts = regym.rl_loops.multiagent_loops.sequential_action_rl_loop.async_run_episode(
+            ts = regym.rl_loops.multiagent_loops.vectorenv_sequential_action_rl_loop.async_run_episode(
                     vector_env, extended_agent_vector, training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
