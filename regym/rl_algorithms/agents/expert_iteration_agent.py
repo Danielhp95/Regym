@@ -96,6 +96,10 @@ class ExpertIterationAgent(Agent):
         normalized_visits = torch.Tensor(self.normalize(self.expert.current_prediction['child_visitations']))
         self.update_storage(s, r, done, mcts_policy=normalized_visits)
         if done: self.handle_end_of_episode()
+        self.expert.handle_experience(s, a, r, succ_s, done)
+    
+    def handle_multiple_experiences(self, experiences, env_ids):
+        pass
 
     def handle_end_of_episode(self):
         self.current_episode_length = 0
@@ -123,9 +127,10 @@ class ExpertIterationAgent(Agent):
         total = sum(x)
         return [x_i / total for x_i in x]
 
-    def model_based_take_action(self, env: gym.Env, observation, player_index: int):
+    def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
+                                observation, player_index: int, multi_action: bool):
         action = self.expert.model_based_take_action(env, observation,
-                                                     player_index)
+                                                     player_index, multi_action)
         #fake_action = self.fake_expert.model_based_take_action(env, observation, player_index)
         #fake_pi_mcts = self.normalize(self.fake_expert.current_prediction['child_visitations'])
         #distance_vector = [abs(pi_a_mcts - pi_a_nn)
