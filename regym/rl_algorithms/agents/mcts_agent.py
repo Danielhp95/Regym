@@ -126,6 +126,10 @@ class MCTSAgent(Agent):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
         self.current_prediction.clear()
 
+    def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
+        super().handle_experience(experiences, env_ids)
+        self.current_prediction.clear()
+
     def clone(self):
         cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,
                            selection_strat=self.selection_strat,

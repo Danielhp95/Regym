@@ -107,6 +107,12 @@ class Agent(ABC):
         '''
         self.handled_experiences += 1
 
+    def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
+        '''
+        TODO
+        '''
+        self.handled_experiences += len(experiences)
+
     @abstractmethod
     def clone(self):
         '''
