@@ -107,7 +107,6 @@ class ExpertIterationAgent(Agent):
                                 normalized_visits)
             if done:
                 # Check that by deleting you don't remove datapoints for self.algorithm
-                import ipdb; ipdb.set_trace()
                 self.handle_end_of_episode(self.storages[e_i])
                 del self.storages[e_i]
 
