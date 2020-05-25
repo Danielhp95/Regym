@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Union
 import textwrap
 
 import gym
@@ -56,12 +56,13 @@ class ExpertIterationAgent(Agent):
         self.use_agent_modelling: bool = use_agent_modelling
         ####
 
-        self.current_prediction: Dict[str, Any] = {}
-
         # Replay buffer style storage
         # Doesn't matter, should not really be using a Storage
-        self.storage = self.init_storage(size=100)
-        self.current_episode_length = 0
+        # In tasks with single environments
+        self.storage: Storage = self.init_storage(size=100)
+        # In vectorized (multiple) environments
+        # Mapping from env_id to trajectory storage
+        self.storages: Dict[int, Storage] = {}
 
         self.state_preprocess_function: Callable = self.PRE_PROCESSING
 
@@ -83,45 +84,53 @@ class ExpertIterationAgent(Agent):
         processed_obs = self.PRE_PROCESSING(observation)
         return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0).numpy()
 
-
     def init_storage(self, size: int):
         storage = Storage(size=size)
         storage.add_key('normalized_child_visitations')
         return storage
 
-    def handle_experience(self, s, a, r: float, succ_s, done=False):
-        super().handle_experience(s, a, r, succ_s, done)
-        self.current_episode_length += 1
-        s, r = self.process_environment_signals(s, r)
+    def handle_experience(self, o, a, r: float, succ_s, done=False):
+        super().handle_experience(o, a, r, succ_s, done)
+        o, r = self.process_environment_signals(o, r)
         normalized_visits = torch.Tensor(self.normalize(self.expert.current_prediction['child_visitations']))
-        self.update_storage(s, r, done, mcts_policy=normalized_visits)
-        if done: self.handle_end_of_episode()
-        self.expert.handle_experience(s, a, r, succ_s, done)
-    
-    def handle_multiple_experiences(self, experiences, env_ids):
-        pass
+        self.update_storage(self.storage, o, r, done,
+                            mcts_policy=normalized_visits)
+        if done: self.handle_end_of_episode(self.storage)
+        self.expert.handle_experience(o, a, r, succ_s, done)
 
-    def handle_end_of_episode(self):
-        self.current_episode_length = 0
-        self.algorithm.add_episode_trajectory(self.storage)
-        self.storage.reset()
+    def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
+        for (o, a, r, succ_o, done), e_i in zip(experiences, env_ids):
+            self.storages[e_i] = self.storages.get(e_i, self.init_storage(size=100))
+            o_prime, r_prime = self.process_environment_signals(o, r)
+            normalized_visits = torch.Tensor(self.normalize(self.expert.current_prediction[e_i]['child_visitations']))
+            self.update_storage(self.storages[e_i], o_prime, r_prime, done,
+                                normalized_visits)
+            if done:
+                # Check that by deleting you don't remove datapoints for self.algorithm
+                import ipdb; ipdb.set_trace()
+                self.handle_end_of_episode(self.storages[e_i])
+                del self.storages[e_i]
+
+    def handle_end_of_episode(self, storage: Storage):
+        self.algorithm.add_episode_trajectory(storage)
+        storage.reset()
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
 
-    def process_environment_signals(self, s, r: float):
-        processed_s = self.state_preprocess_function(s)
+    def process_environment_signals(self, o, r: float):
+        processed_s = self.state_preprocess_function(o)
         processed_r = torch.Tensor([r]).float()
         return processed_s, processed_r
 
-    def update_storage(self, s: torch.Tensor, r: torch.Tensor, done: bool,
+    def update_storage(self, storage: Storage, o: torch.Tensor,
+                       r: torch.Tensor, done: bool,
                        mcts_policy: torch.Tensor):
         # TODO: get opponents action from current_prediction
-        self.storage.add({'normalized_child_visitations': mcts_policy,
-                          's': s})
+        storage.add({'normalized_child_visitations': mcts_policy, 's': o})
         if done:
-            for _ in range(self.current_episode_length):
-                # Using MCTS value for current search might be better?
-                self.storage.add({'v': r})
+            # Hendrik idea:
+            # Using MCTS value for current search might be better?
+            for _ in range(len(storage.s)): storage.add({'v': r})
 
     def normalize(self, x):
         total = sum(x)
@@ -130,13 +139,13 @@ class ExpertIterationAgent(Agent):
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 observation, player_index: int, multi_action: bool):
         action = self.expert.model_based_take_action(env, observation,
-                                                     player_index, multi_action)
+                                                     player_index,
+                                                     multi_action)
         #fake_action = self.fake_expert.model_based_take_action(env, observation, player_index)
         #fake_pi_mcts = self.normalize(self.fake_expert.current_prediction['child_visitations'])
         #distance_vector = [abs(pi_a_mcts - pi_a_nn)
         #                   for pi_a_nn, pi_a_mcts
         #                   in zip(self.policy_fn(observation, env.get_moves()), fake_pi_mcts)]
-        #print('Depth: ', self.current_episode_length, 'Total', sum(distance_vector), 'Distance: ', distance_vector)
         return action
 
     def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):

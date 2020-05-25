@@ -54,7 +54,6 @@ class ExpertIterationAlgorithm():
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
                                           lr=self.learning_rate)
 
-
     def should_train(self):
         return self.episodes_collected_since_last_train >= self.games_per_iteration
 
