@@ -1,4 +1,5 @@
 from .agents import build_Random_Agent, build_Human_Agent, build_Deterministic_Agent
+from .agents import build_NeuralNet_Agent
 
 from .agents import build_PPO_Agent, build_A2C_Agent, build_Reinforce_Agent
 

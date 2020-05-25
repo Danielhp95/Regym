@@ -5,6 +5,7 @@ from .deterministic_agent import build_Deterministic_Agent, DeterministicAgent
 from .mixed_strategy_agent import MixedStrategyAgent
 from .random_agent import build_Random_Agent, RandomAgent
 from .human_agent import build_Human_Agent, HumanAgent
+from .neural_net_agent import build_NeuralNet_Agent, NeuralNetAgent
 
 # Tabular agents
 from .tabular_q_learning_agent import build_TabularQ_Agent, TabularQLearningAgent
