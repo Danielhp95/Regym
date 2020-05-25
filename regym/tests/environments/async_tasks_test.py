@@ -20,7 +20,7 @@ def test_singleagent_tasks_run_faster_on_parallel(env_name):
     task = generate_task(env_name, EnvType.SINGLE_AGENT)
     random_agent = build_Random_Agent(task, {}, 'Test-Random')
 
-    num_episodes = 200
+    num_episodes = 2000
     num_envs = 1
     start = time.time()
     for i in range(num_episodes):
@@ -103,9 +103,7 @@ def test_multiagent_sequential_tasks_run_faster_on_parallel(env_name):
     assert total_multiple < total_single
 
 
-#@pytest.mark.parametrize('env_name', ['CartPole-v0'])
-#def test_multiagent_simultaneous_tasks_run_faster_on_parallel(env_name):
-#    assert False
+# TODO: add tests for simultaneous action tasks, once they are coded.
 
 
 def run_parallel_task_with_random_agent(env_name, env_type,
@@ -128,20 +126,17 @@ def run_parallel_task_with_random_agent(env_name, env_type,
     # a specific number of trajectories regardless of the
     # Number of environments used to generate them
     trajectories = task.run_episodes(agent_vector, num_episodes=num_episodes,
-                                     num_envs=num_envs, training=False)
-
-    #from gym_connect4.envs import Connect4Env
-    #for t in trajectories:
-    #    p1 = True
-    #    for (o, a, r, s, d) in t:
-    #        print(a)
-    #        Connect4Env.render_from_observation(s[0], p1=p1)
-
+                                     num_envs=num_envs, training=True)
 
     # We have the exact number of trajectories we asked for
-    assert len(trajectories) == num_episodes
+    # The number of trajectories is lower-bounded by :param: num_episodes
+    # But it is possible that multiple environments finish at the same time
+    assert (len(trajectories) >= num_episodes) and (len(trajectories) <= (num_episodes + num_envs))
+
     # All trajectories finish with a "done" flag
     assert all([t[-1][-1] for t in trajectories])
+
+    # ASSUMPTION: observation and succ_observation are numpy array
     if env_type == EnvType.SINGLE_AGENT:
         # Observation and succ_observation are the same
         # ASSUMPTION: observation and succ_observation are numpy array
@@ -150,10 +145,7 @@ def run_parallel_task_with_random_agent(env_name, env_type,
                     for ex_1, ex_2 in zip(t, t[1:])])
     else:
         # Observation and succ_observation are the same for all agents
-        # ASSUMPTION: observation and succ_observation are numpy array
         assert all([(ex_1[-2][a_i] == ex_2[0][a_i]).all()
                     for t in trajectories
                     for ex_1, ex_2 in zip(t, t[1:])
                     for a_i in range(task.num_agents)])
-
-# Add tests for MCTS agents (agents that require environment)
