@@ -74,8 +74,10 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
         if 'legal_actions' in infos[0]:
             legal_actions = [info['legal_actions'] for info in infos]
 
-        update_finished_trajectories(ongoing_trajectories,
-                                     finished_trajectories, dones)
+        done_envs = [i for i in range(len(dones)) if dones[i]]
+        if len(done_envs) > 0:
+            ongoing_trajectories, finished_trajectories = update_finished_trajectories(
+                    ongoing_trajectories, finished_trajectories, done_envs)
     # What if we end up with more trajectories
     # than initially specified (i.e two or more episodes end at the same time)
     return finished_trajectories
