@@ -55,17 +55,24 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
 
         # Deal with episode termination
         if len(done_envs) > 0:
-            # 
-            if training:
-                propagate_last_experiences(agent_vector, ongoing_trajectories,
-                                           done_envs)
-            # Reset players and trajectories
-            ongoing_trajectories, finished_trajectories = update_finished_trajectories(
-                            ongoing_trajectories, finished_trajectories, done_envs)
-            current_players, ongoing_trajectories = reset_players_and_trajectories(
-                    done_envs, current_players, ongoing_trajectories)
+            finished_trajectories, ongoing_trajectories = \
+                    handle_finished_episodes(training, agent_vector,
+                            ongoing_trajectories, done_envs,
+                            finished_trajectories, current_players)
 
     return finished_trajectories
+
+def handle_finished_episodes(training, agent_vector, ongoing_trajectories, done_envs, finished_trajectories, current_players):
+    if training:
+        propagate_last_experiences(agent_vector, ongoing_trajectories,
+                                   done_envs)
+    # Reset players and trajectories
+    # Why are we returning ongoing trajectories twice?
+    ongoing_trajectories, finished_trajectories = update_finished_trajectories(
+                    ongoing_trajectories, finished_trajectories, done_envs)
+    current_players, ongoing_trajectories = reset_players_and_trajectories(
+            done_envs, current_players, ongoing_trajectories)
+    return finished_trajectories, ongoing_trajectories
 
 
 def reset_players_and_trajectories(done_envs: List[int],
