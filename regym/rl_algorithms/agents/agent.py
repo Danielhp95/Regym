@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union, Any
 from abc import ABC, abstractmethod
 
 import gym
@@ -51,7 +51,9 @@ class Agent(ABC):
         self.training: bool = True
         self.handled_experiences: int = 0
 
-    def model_based_take_action(self, env: gym.Env, observation, player_index: int):
+    def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
+                                legal_actions: Union[List[int], List[List[int]]],
+                                multi_action: bool):
         '''
         This function is called inside of an `regym.rl_loops`, asking
         this Agent to take an action at a given state in the environment
@@ -67,11 +69,16 @@ class Agent(ABC):
                             accessed directly from OpenAI gym :param: env.
         :param player_index: Index of this agent in the environment's
                              agent vector.
+        :param multi_action: Whether to consider :param: observation
+                             and :param: env as a vector of observations /
+                             environments
         :returns: Action to be executed on the environment
         '''
         raise NotImplementedError('To be implemented in Subclass')
 
-    def model_free_take_action(self, observation, legal_actions: List[int], multi_action: bool):
+    def model_free_take_action(self, observation: Union[Any, List[Any]],
+                               legal_actions: Union[List[int], List[List[int]]],
+                               multi_action: bool):
         '''
         This function is called inside of an regym.rl_loops, asking
         this Agent to take an action at a given state in the environment
