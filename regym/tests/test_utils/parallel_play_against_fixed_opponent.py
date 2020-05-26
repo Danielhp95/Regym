@@ -99,7 +99,7 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
     training_trajectories = list()
     interval = min(training_episodes, benchmark_every_n_episodes)
     for e in range(0, training_episodes, interval):
-        print(f'Training for {interval} episodes')
+        print(f'Training for {interval} episodes. {e + interval}/{training_episodes}')
         start = time()
         training_trajectories += simulate(task, agent, fixed_opponent,
                                           agent_position,
@@ -119,8 +119,7 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
                         summary_writer=summary_writer)
         end = time() - start
         print(f'Benchmarking for {benchmarking_episodes} took: {end}s')
-        #torch.save(agent, f'{agent.name}_{task.name}_{e + benchmark_every_n_episodes}.pt')
-
+        torch.save(agent, f'{agent.name}_{task.name}_{e + interval}.pt')
         agent.training = True
     return training_trajectories
 
