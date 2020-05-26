@@ -3,6 +3,7 @@ from copy import deepcopy
 
 def update_trajectories(trajectories, action_vector, obs,
                         rewards, succ_obs, dones):
+    '''TODO'''
     num_envs = len(trajectories)
     for i in range(num_envs):
         e = (obs[i], action_vector[i], rewards[i], succ_obs[i], dones[i])
@@ -15,6 +16,7 @@ def update_parallel_sequential_trajectories(trajectories,
                                             obs,
                                             rewards,
                                             succ_obs, dones):
+    '''TODO'''
     num_envs = len(trajectories)
     res_obs, res_succ_obs = restructure_parallel_observations(obs, succ_obs,
                                                               num_players=len(obs))
@@ -45,6 +47,7 @@ def restructure_parallel_observations(observations, succ_observations,
 
 def update_finished_trajectories(ongoing_trajectories,
                                  finished_trajectories, done_envs):
+    '''TODO'''
     for env_i in done_envs:
         finished_trajectories += [deepcopy(ongoing_trajectories[env_i])]
         ongoing_trajectories[env_i].clear()
