@@ -17,7 +17,7 @@ class Storage:
     def add_key(self, key: str):
         self.keys += [key]
         setattr(self, key, [])
-        
+
     def add(self, data: Dict):
         for k, v in data.items():
             assert k in self.keys
@@ -72,12 +72,12 @@ class Storage:
             duplicate_indices = self.find_duplicates(x, target_key, i)
             if len(duplicate_indices) > 0:
                 total_duplicates += len(duplicate_indices)
-                print(f'{len(duplicate_indices)} duplicates found at index {i}')
+                #print(f'{len(duplicate_indices)} duplicates found at index {i}')
                 if avg_keys != []:
                     k_avg = self.compute_average_over_keys([i] + duplicate_indices, avg_keys)
                     for k in avg_keys: self.get(k)[i] = k_avg[k]
                 for j in sorted(duplicate_indices, reverse=True): self.remove(j)
-        print(size, total_duplicates, total_duplicates / size)
+        #print(size, total_duplicates, total_duplicates / size)
 
 
     def find_duplicates(self, x, target_key, start_index: int = -1):
