@@ -13,10 +13,9 @@ class NeuralNetAgent(Agent):
     def __init__(self, neural_net: Optional[nn.Module],
                  pre_processing_fn: Optional[Callable[[Any, List[int]], Any]],
                  name: str):
+        super().__init__(name=name)
         self.neural_net = neural_net
         self.pre_processing_fn = pre_processing_fn
-
-        self.name = name
 
     @torch.no_grad()
     def model_free_take_action(self, observation,
@@ -24,17 +23,18 @@ class NeuralNetAgent(Agent):
         observation = self.pre_processing_fn(observation)
         self.current_prediction = self.neural_net(observation, legal_actions=legal_actions)
 
+        action = self.current_prediction['a']
         if not multi_action:  # Action is a single integer
             action = np.int(action)
         if multi_action:  # Action comes from a vector env, one action per environment
             action = action.view(1, -1).squeeze(0).numpy()
         return action
 
-    def handle_experience(self, o, a, r: float, succ_s, done=False):
-        pass
+    def handle_experience(self, o, a, r: float, succ_o, done=False):
+        super().handle_experience(o, a, r, succ_o, done)
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        pass
+        super().handle_multiple_experiences(experiences, env_ids)
 
     def __repr__(self):
         return f'NeuralNetAgent: {self.name}\nModel:{self.neural_net}'
