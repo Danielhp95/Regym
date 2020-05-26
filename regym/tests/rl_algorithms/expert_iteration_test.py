@@ -63,34 +63,30 @@ def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, exp
     expert_iteration_config_dict['use_apprentice_in_expert'] = False
     expert_iteration_config_dict['games_per_iteration'] = 100
 
-    expert_iteration_config_dict['mcts_budget'] = 100
+    expert_iteration_config_dict['mcts_budget'] = 500
     expert_iteration_config_dict['mcts_rollout_budget'] = 100
     expert_iteration_config_dict['initial_memory_size'] = 10000
     expert_iteration_config_dict['memory_size_increase_frequency'] = 5
     expert_iteration_config_dict['end_memory_size'] = 30000
     expert_iteration_config_dict['use_dirichlet'] = False
 
+    expert_iteration_config_dict['learning_rate'] = 1.0e-2
     expert_iteration_config_dict['batch_size'] = 256
     expert_iteration_config_dict['num_epochs_per_iteration'] = 4
     expert_iteration_config_dict['residual_connections'] = [(1, 2), (2, 3), (3, 4)]
 
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-test')
 
-    from regym.rl_algorithms import build_NeuralNet_Agent
-    from regym.rl_algorithms.networks.preprocessing import batch_vector_observation
-    nn_config = {'neural_net': ex_it.apprentice,
-                 'pre_processing_fn': batch_vector_observation}
-    neural_net = build_NeuralNet_Agent(Connect4Task, nn_config, 'nn')
     random_agent = build_Random_Agent(Connect4Task, mcts_config_dict, agent_name=f"Random")
 
-    parallel_learn_against_fix_opponent(neural_net,
+    parallel_learn_against_fix_opponent(ex_it,
             fixed_opponent=random_agent,
             agent_position=0,
             task=Connect4Task,
             training_episodes=5000,
             test_episodes=100,
             benchmarking_episodes=20,
-            benchmark_every_n_episodes=2,
+            benchmark_every_n_episodes=500,
             reward_tolerance=0.2,
             maximum_average_reward=1.0,
             evaluation_method='last',
