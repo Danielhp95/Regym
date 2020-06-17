@@ -20,11 +20,11 @@ def test_singleagent_tasks_run_faster_on_parallel(env_name):
     task = generate_task(env_name, EnvType.SINGLE_AGENT)
     random_agent = build_Random_Agent(task, {}, 'Test-Random')
 
-    num_episodes = 2000
+    num_episodes = 50
     num_envs = 1
     start = time.time()
-    for i in range(num_episodes):
-        _ = task.run_episode([random_agent], training=False)
+    trajectories = task.run_episodes([random_agent], num_episodes=num_episodes,
+                                     num_envs=num_envs, training=False)
     total_single = time.time() - start
 
     start = time.time()
@@ -56,7 +56,7 @@ def test_can_run_multiple_async_episodes_with_model_based_agents_of_multiagent_s
 @pytest.mark.parametrize('env_name', ['Connect4-v0'])
 def test_multiagent_sequential_tasks_with_model_based_agents_run_faster_on_parallel(env_name):
     task = generate_task(env_name, EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
-    mcts_config = {'budget': 50, 'rollout_budget': 100,
+    mcts_config = {'budget': 10, 'rollout_budget': 100,
                    'use_dirichlet': False, 'dirichlet_alpha': 1,
                    'selection_phase': 'ucb1', 'exploration_factor_ucb1': 1}
     agent_vector = [build_MCTS_Agent(task, mcts_config, 'Test-MCTS-Random')
@@ -66,8 +66,8 @@ def test_multiagent_sequential_tasks_with_model_based_agents_run_faster_on_paral
     num_episodes = 10
     num_envs = 1
 
-    for i in range(num_episodes):
-        _ = task.run_episode(agent_vector, training=False)
+    _ = task.run_episodes(agent_vector, num_episodes=num_episodes,
+                          num_envs=num_envs, training=False)
     total_single = time.time() - start
     print('Sequential: ', total_single)
 

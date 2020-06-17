@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import List, Tuple, Any, Dict
+from typing import List, Tuple, Any, Dict, NewType
 from copy import deepcopy
 
 import numpy as np
@@ -10,13 +10,36 @@ from regym.rl_algorithms.agents import Agent
 from regym.environments.tasks import RegymAsyncVectorEnv
 
 from regym.rl_loops.utils import update_parallel_sequential_trajectories, update_finished_trajectories
+from regym.rl_loops.utils import agents_to_update_finished_trajectory_sequential_env
 
 
-def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bool,
-                      num_episodes: int) \
+def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
+                      training: bool, num_episodes: int) \
                       -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
     '''
-    TODO: document, refactor
+    Runs :param: num_episodes of asynchronous environment :param: env
+    with agents specified in :param: agent_vector.
+
+    For model-free agents, observations are batched, to be easily
+    managed by neural networks. For model-based agents, an array of environment
+    copies is handed over to the agent.
+
+    NOTES:
+    - Currently the :param: env runs `env.num_envs` asynchronous environments.
+    Because more than one trajectory can finish at the same time,
+    this function can return a number of trajectories in the range:
+     $[num_episodes, num_episodes + (env.num_envs - 1)]$
+    - Because some environments will be in the middle of an episode when
+      this function returns, those trajectories won't appear in the output
+      of this function, even though they have been processed by agents in
+      :param: agent_vector.
+
+    :param env: RegymAsyncVectorEnv where agents will play
+    :param agent_vector: Vector containing agent policies
+    :param training: Whether to propagate experiences to agents
+                     in :param: agent_vector
+    :param num_episodes: Number of target episodes to run environment for
+    :returns: List of environment trajectories experienced during simulation.
     '''
     ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
     ongoing_trajectories = [[] for _ in range(env.num_envs)]
@@ -36,10 +59,8 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
         succ_obs, rewards, dones, infos = env.step(action_vector)
 
         # Update trajectories:
-        update_parallel_sequential_trajectories(ongoing_trajectories, current_players,
-                action_vector, obs, rewards, succ_obs, dones)
-
-        done_envs = [i for i in range(len(dones)) if dones[i]]
+        update_parallel_sequential_trajectories(ongoing_trajectories,
+                            action_vector, obs, rewards, succ_obs, dones)
 
         # Update agents
         if training: propagate_experiences(agent_vector, ongoing_trajectories)
@@ -54,6 +75,7 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
                            for e_i, info in enumerate(infos)]
 
         # Deal with episode termination
+        done_envs = [i for i in range(len(dones)) if dones[i]]
         if len(done_envs) > 0:
             finished_trajectories, ongoing_trajectories = \
                     handle_finished_episodes(training, agent_vector,
@@ -62,7 +84,72 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List, training: bo
 
     return finished_trajectories
 
-def handle_finished_episodes(training, agent_vector, ongoing_trajectories, done_envs, finished_trajectories, current_players):
+
+def multienv_choose_action(agent_vector: List[Agent],
+                           env: RegymAsyncVectorEnv, obs,
+                           current_players: List[int],
+                           legal_actions: Dict[int, List[int]]) -> List[int]:
+    '''
+    Choose an action for each environment in (multienv) :param: env from
+    agents in :param: agent_vector, constrained by :param: legal_actions, as
+    prescribed by :param: current_players.
+
+    :param: observations and :param: legal_actions from multiple environments
+    where the same agent is meant to act will be batched to a single
+    `Agent.take_action` call to reduce computational overhead.
+
+    :param agent_vector: Vector containing agent policies
+    :param env: RegymAsyncVectorEnv where agents are acting
+    :param current_players: List indicating which agent should act on
+                            each environment
+    :param legal_actions: Dict indicating which actions are allowed on each
+                          environment
+    :returns: Vector containing one action to be executed on each environment
+    '''
+    action_vector: List[int] = [None] * env.num_envs
+
+    agent_signals = extract_signals_for_acting_agents(
+            agent_vector, obs, current_players, legal_actions)
+
+    for a_i, signals in agent_signals.items():
+        a = agent_vector[a_i]
+        partial_action_vector = compute_partial_action_vector(a, signals,
+                                                              env, a_i)
+        for env_id, action in zip(signals['env_ids'], partial_action_vector):
+            assert action_vector[env_id] is None, 'Attempt to override an action'
+            action_vector[env_id] = action
+    return action_vector
+
+
+def compute_partial_action_vector(agent: Agent,
+                                  signals: Dict[str, Any],
+                                  env: RegymAsyncVectorEnv,
+                                  agent_index: int) -> List[int]:
+    '''
+    :param agent_vector: Vector containing agent policies
+    :param signals: Environment signals per agent required to take actions
+    :param env: RegymAsyncVectorEnv where agents are acting
+    :returns: Actions to be taken by :param: agent
+    '''
+    if not agent.requires_environment_model:
+        partial_action_vector = agent.model_free_take_action(
+                signals['obs'], legal_actions=signals['legal_actions'],
+                multi_action=True)
+    else:
+        envs = env.get_envs()
+        relevant_envs = {e_i: envs[e_i] for e_i in signals['env_ids']}
+        observations = {e_i: o for e_i, o in zip(signals['env_ids'], signals['obs'])}
+        partial_action_vector = agent.model_based_take_action(
+                relevant_envs, observations, agent_index, multi_action=True)
+    return partial_action_vector
+
+
+def handle_finished_episodes(training: bool, agent_vector: List[Agent],
+                             ongoing_trajectories: List[List],
+                             done_envs: List[int],
+                             finished_trajectories: List[List],
+                             current_players: List[int]) \
+                             -> Tuple[List[List], List[List]]:
     if training:
         propagate_last_experiences(agent_vector, ongoing_trajectories,
                                    done_envs)
@@ -79,46 +166,25 @@ def reset_players_and_trajectories(done_envs: List[int],
                                    current_players: Dict[int, int],
                                    ongoing_trajectories: List[List[Tuple]]) \
                                    -> Tuple[Dict[int, int], List[List[Tuple]]]:
-    ''' TODO '''
     for i, e_i in enumerate(done_envs):
         current_players[e_i] = 0
         ongoing_trajectories[e_i] = []
     return current_players, ongoing_trajectories
 
 
-def multienv_choose_action(agent_vector, env: RegymAsyncVectorEnv, obs,
-                           current_players, legal_actions) -> List[int]:
-    action_vector = [None] * env.num_envs
-    # Find indices of which envs each player should play, on a dict
-    agent_signals = extract_signals_for_acting_agents(
-            agent_vector, env, obs, current_players, legal_actions)
+def propagate_experiences(agent_vector: List[Agent], trajectories: List[List]):
+    '''
+    Batch propagates experiences from :param: trajectories to each
+    corresponding agent in :param: agent_vector.
 
-    for a_i, signals in agent_signals.items():
-        a = agent_vector[a_i]
-        if not a.requires_environment_model:
-            partial_action_vector = a.model_free_take_action(
-                    signals['obs'], legal_actions=signals['legal_actions'],
-                    multi_action=True)
-        else:
-            envs = env.get_envs()
-            relevant_envs = {e_i: envs[e_i] for e_i in signals['env_ids']}
-            observations = {e_i: o for e_i, o in zip(signals['env_ids'], signals['obs'])}
-            partial_action_vector = a.model_based_take_action(
-                    relevant_envs, observations, a_i, multi_action=True)
-        # fill action_vector
-        for env_id, action in zip(signals['env_ids'], partial_action_vector):
-            assert action_vector[env_id] is None
-            action_vector[env_id] = action
-    return action_vector
-
-
-def propagate_experiences(agent_vector, trajectories):
-    ''' TODO '''
+    ASSUMES that turns are taken in clockwise fashion:
+        - Player 1 acts, player 2 acts..., player n acts, player 1 acts...
+        - where n is the length of :param: agent_vector
+    '''
     agent_to_update_per_env = {i: len(t) % len(agent_vector)
                                for i, t in enumerate(trajectories)
                                if len(t) >= len(agent_vector)}
-    if agent_to_update_per_env == {}:
-        # No agents to update
+    if agent_to_update_per_env == {}:  # No agents to update
         return
 
     agents_to_update = set(agent_to_update_per_env.values())
@@ -133,8 +199,9 @@ def propagate_experiences(agent_vector, trajectories):
     propagate_batched_experiences(agent_experiences, agent_vector, environment_per_agents)
 
 
-def propagate_batched_experiences(agent_experiences, agent_vector, environment_per_agents):
-    ''' TODO: RENAME, DOCUMENT '''
+def propagate_batched_experiences(agent_experiences: Dict[int, List[Tuple]],
+                                  agent_vector: List[Agent],
+                                  environment_per_agents: Dict[int, List[int]]):
     for a_i, experiences in agent_experiences.items():
         if agent_vector[a_i].training:
             agent_vector[a_i].handle_multiple_experiences(
@@ -144,17 +211,9 @@ def propagate_batched_experiences(agent_experiences, agent_vector, environment_p
 def propagate_last_experiences(agent_vector: List['Agent'],
                                trajectories: List[List], done_envs: List[int]):
     ''' TODO '''
-    def agents_to_update_finished_trajectory(trajectory):
-        ''' Refactor into utils '''
-        agent_indices = list(range(len(agent_vector)))
-        # This agent already processed the last experience
-        agent_indices.pop(len(trajectory) % len(agent_vector))
-        return agent_indices
 
-    agents_to_update_per_env = {
-        done_e_i: agents_to_update_finished_trajectory(trajectories[done_e_i])
-        for done_e_i in done_envs
-        if len(trajectories[done_e_i]) >= len(agent_vector)}  # is this check necessary?
+    agents_to_update_per_env = compute_agents_to_update_per_env(
+            trajectories, done_envs, agent_vector) 
 
     agents_to_update = set(reduce(lambda acc, x: acc + x,
                                   agents_to_update_per_env.values(), []))
@@ -166,17 +225,40 @@ def propagate_last_experiences(agent_vector: List['Agent'],
     agent_experiences = {a_i: [] for a_i in agents_to_update}
     for a_i, envs in environment_per_agents.items():
         for e_i in envs:
-            reward = trajectories[e_i][-1][2][a_i]
-            succ_obs = trajectories[e_i][-1][3][a_i]
+            reward = trajectories[e_i][-1][2][a_i]  # Hardcoding reward index
+            succ_obs = trajectories[e_i][-1][3][a_i]  # Hardcoding succ_obs index
             o, a = get_last_observation_and_action_for_agent(
                     a_i, trajectories[e_i], len(agent_vector))
             agent_experiences[a_i] += [(o, a, reward, succ_obs, True)]
 
     propagate_batched_experiences(agent_experiences, agent_vector, environment_per_agents)
 
+def compute_agents_to_update_per_env(trajectories, done_envs, agent_vector):
+    num_agents = len(agent_vector)
+    agents_to_update_per_env = {
+        done_e_i: agents_to_update_finished_trajectory_sequential_env(
+            len(trajectories[done_e_i]), num_agents)
+        for done_e_i in done_envs
+        if len(trajectories[done_e_i]) >= len(agent_vector)}  # is this check necessary?
+    return agents_to_update_per_env
 
-def collect_agent_experiences_from_trajectories(agents_to_update, agent_to_update_per_env, trajectories, agent_vector):
-    ''' TODO '''
+
+def collect_agent_experiences_from_trajectories(agents_to_update: List[int],
+                                                agent_to_update_per_env: Dict[int, int],
+                                                trajectories: List[List],
+                                                agent_vector: List[Agent]) \
+                                                -> Dict[int, Any]:
+    '''
+    Collects the latests experience from :param: trajectories, for each
+    :param: agents_to_update. Each agent collects experiences according to
+    :param: agent_to_update_per_env.
+
+    :param agents_to_update: List of all agents that need to be updated
+    :param agent_to_update_per_env: Mapping from env_id to which agent_id
+                                    needs to be updated
+    :param trajectories: Trajectories for ongoing episodes
+    :param agent_vector: List of agents acting in current environment
+    '''
     agent_experiences = {a_i: [] for a_i in agents_to_update}
 
     for env_i, target_agent in agent_to_update_per_env.items():
@@ -206,9 +288,16 @@ def extract_latest_experience(agent_id: int, trajectory: List, agent_vector: Lis
     return (o, a, reward[agent_id], succ_observation[agent_id], done)
 
 
-def extract_signals_for_acting_agents(agent_vector, env, obs,
-                                      current_players, legal_actions) \
-                                              -> Dict[int, Dict[str, List]]:
+def extract_signals_for_acting_agents(agent_vector: List[Agent], obs,
+                                      current_players: List[int],
+                                      legal_actions) \
+                                      -> Dict[int, Dict[str, List]]:
+    '''
+    Creates a dictionary contaning the mapping:
+    - For each player in :param: current_players,
+      a mapping to another dictionary containing:
+    - (1) Environment observations, (2) legal actions on each env, (3) env_ids
+    '''
     agent_signals: Dict[int, Dict[str, List]] = dict()
 
     # Extract signals for each acting agent
@@ -227,7 +316,9 @@ def extract_signals_for_acting_agents(agent_vector, env, obs,
 def get_last_observation_and_action_for_agent(target_agent_id: int,
                                               trajectory: List, num_agents: int) -> Tuple:
     '''
-    # TODO: assume games where turns are taken in cyclic fashion.
+    ASSUMES that turns are taken in clockwise fashion:
+        - Player 1 acts, player 2 acts..., player n acts, player 1 acts...
+        - where n is the length of :param: agent_vector
 
     Obtains the last observation and action for agent :param: target_agent_id
     from the :param: trajectory.

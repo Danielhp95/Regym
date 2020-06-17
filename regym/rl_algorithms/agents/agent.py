@@ -53,7 +53,7 @@ class Agent(ABC):
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 legal_actions: Union[List[int], List[List[int]]],
-                                multi_action: bool):
+                                player_index: int, multi_action: bool):
         '''
         This function is called inside of an `regym.rl_loops`, asking
         this Agent to take an action at a given state in the environment
