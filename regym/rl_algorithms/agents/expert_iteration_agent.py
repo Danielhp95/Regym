@@ -6,7 +6,9 @@ import torch
 import torch.nn as nn
 
 from regym.rl_algorithms.replay_buffers import Storage
+
 from regym.rl_algorithms.networks import Convolutional2DBody, FCBody, CategoricalActorCriticNet, SequentialBody
+from regym.rl_algorithms.networks.preprocessing import turn_into_single_element_batch
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 from regym.rl_algorithms.agents import Agent, MCTSAgent
@@ -64,24 +66,20 @@ class ExpertIterationAgent(Agent):
         # Mapping from env_id to trajectory storage
         self.storages: Dict[int, Storage] = {}
 
-        self.state_preprocess_function: Callable = self.PRE_PROCESSING
+        self.state_preprocess_fn: Callable = turn_into_single_element_batch
 
     def embed_apprentice_in_expert(self):
         self.expert.policy_fn = self.policy_fn
         self.expert.evaluation_fn = self.evaluation_fn
 
-    def PRE_PROCESSING(self, x):
-        '''Required to save model, as it was previously in lambda function'''
-        return torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
-
     @torch.no_grad()
     def policy_fn(self, observation, legal_actions):
-        processed_obs = self.PRE_PROCESSING(observation)
+        processed_obs = self.state_preprocess_fun(observation)
         return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0).numpy()
 
     @torch.no_grad()
     def evaluation_fn(self, observation, legal_actions):
-        processed_obs = self.PRE_PROCESSING(observation)
+        processed_obs = self.state_preprocess_fun(observation)
         return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0).numpy()
 
     def init_storage(self, size: int):
@@ -149,7 +147,7 @@ class ExpertIterationAgent(Agent):
 
     def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
         if self.training: raise RuntimeError('ExpertIterationAgent.model_free_take_action() cannot be called when training is True')
-        prediction = self.apprentice(self.PRE_PROCESSING(state),
+        prediction = self.apprentice(self.state_preprocess_fun(state),
                                      legal_actions=legal_actions)
         return prediction['a']
 
