@@ -30,13 +30,13 @@ def compute_loss(states: torch.Tensor,
 
     # returns policy loss (cross entropy against normalized_child_visitations):
 
-    # learning to copy expert: cross entropy
+    # learning to copy expert: Cross entropy
     cross_entropy_policy_loss, kl_divergence = cross_entropy_loss(pi_mcts, predictions['probs'])
 
     # Learning game outcomes: Mean Square Error
     value_loss = nn.MSELoss()(values.view((-1, 1)), predictions['v'])
 
-    # Opponent modelling loss (cross entropy loss)
+    # Learning to model opponents: Cross entropy loss
     opponent_modelling_loss = None  # TODO: cross_entropy_policy_loss between opponet targets and predictions
 
     total_loss = cross_entropy_policy_loss + value_loss
