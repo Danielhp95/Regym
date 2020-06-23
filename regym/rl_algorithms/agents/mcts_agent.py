@@ -83,6 +83,7 @@ class MCTSAgent(Agent):
         # NOTE: ordering of parameters depends on the underlying
         # function in self.algorithm
         with ProcessPoolExecutor(max_workers=min(len(envs), cpu_count())) as ex:
+
             futures = [ex.submit(async_search, env_i, self.algorithm,
                                  env, observations[env_i],
                                  self.budget, self.rollout_budget,
@@ -94,12 +95,10 @@ class MCTSAgent(Agent):
             for f in futures:
                 i, (action, visitations) = f.result()
                 action_vector += [action]
-                child_visitations = [visitations[move_id] if move_id in visitations else 0.
-                                     for move_id in range(self.action_dim)]
 
                 self.current_prediction[i] = {}
-                self.current_prediction[i]['action'] = action
-                self.current_prediction[i]['child_visitations'] = child_visitations
+                self.record_selected_action(self.current_prediction[i],
+                                            action, visitations)
         return action_vector
 
     def single_action_model_based_take_action(self, env: gym.Env, observation,
@@ -118,6 +117,10 @@ class MCTSAgent(Agent):
                 use_dirichlet=self.use_dirichlet,
                 dirichlet_alpha=self.dirichlet_alpha)
 
+        self.record_selected_action(self.current_prediction, action, visitations)
+        return action
+
+    def record_selected_action(self, prediction, action, visitations):
         # This is needed to ensure that all actions are represented
         # because :param: env won't expose non-legal actions
         child_visitations = [visitations[move_id] if move_id in visitations else 0.
@@ -125,7 +128,6 @@ class MCTSAgent(Agent):
 
         self.current_prediction['action'] = action
         self.current_prediction['child_visitations'] = child_visitations
-        return action
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
