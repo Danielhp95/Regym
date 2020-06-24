@@ -1,1 +1,1 @@
-from .neural_net_server import neural_net_server
+from .neural_net_server import neural_net_server, NeuralNetServerHandler

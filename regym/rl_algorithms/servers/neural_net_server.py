@@ -30,10 +30,15 @@ class NeuralNetServerHandler:
             self.server_connections.append(server_connection)
             self.client_connections.append(client_connection)
 
+        # Required, otherwise forking method won't work
+        net.share_memory()
+
         self.server = multiprocessing.Process(
                 target=neural_net_server,
                 args=(deepcopy(net), self.server_connections,
-                      self.pre_processing_fn, self.device))
+                      self.pre_processing_fn, self.device),
+                daemon=True)  # We want the server to terminate
+                              # when the main script terminates
         self.server.start()
 
 
@@ -63,29 +68,35 @@ def neural_net_server(net: torch.nn.Module,
 
     ASSUMPTION: Requests want individual observations, never batches.
 
+    NOTE: The :param: connections expect input of the form:
+    Tuple[Any, List[int]], a tuple of (observation, legal_actions).
+    Currently this server DOES NOT handle other input gracefully.
+
     :param net: TODO
     :param pre_processing_fn: TODO
     :param connections: TODO
     :param device: TODO
     """
     net.to(device)
-    # Maybe we can refactor to make this simpler
-    pipes_to_serve, batch = [], []
+    pipes_to_serve, observations, legal_actions = [], [], []
     while True:
         for conn in connections:
             if conn.poll():
                 pipes_to_serve.append(conn)
-                batch.append(conn.recv())
-        if batch:
-            pre_processed_batch = pre_processing_fn(batch)
-            prediction = net(pre_processed_batch)
+                request = conn.recv()
+                observations.append(request[0])
+                legal_actions.append(request[1])
+        if observations:
+            pre_processed_obs = pre_processing_fn(observations)
+            prediction = net(pre_processed_obs, legal_actions=legal_actions)
 
             responses = _generate_responses(len(pipes_to_serve), prediction)
 
             _send_responses(pipes_to_serve, responses)
 
             pipes_to_serve.clear()
-            batch.clear()
+            observations.clear()
+            legal_actions.clear()
 
 
 def _generate_responses(num_pipes_to_serve: int,
