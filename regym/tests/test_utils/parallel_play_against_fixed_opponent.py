@@ -86,7 +86,7 @@ def simulate(task: Task, agent: Agent, fixed_opponent: Agent,
     agent_vector = [fixed_opponent]
     agent_vector.insert(agent_position, agent)
     return task.run_episodes(agent_vector, training=training,
-                             num_envs=multiprocessing.cpu_count(),
+                             num_envs=num_envs,
                              num_episodes=episodes)
 
 
