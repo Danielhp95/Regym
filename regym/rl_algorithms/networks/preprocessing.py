@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import torch
@@ -14,5 +14,8 @@ def flatten_and_turn_into_batch(x: List[np.ndarray]) -> torch.Tensor:
              for x_i in x]).type(torch.FloatTensor)
 
 
-def batch_vector_observation(x: List[np.ndarray]) -> torch.Tensor:
-    return torch.stack([torch.tensor(x_i) for x_i in x]).type(torch.FloatTensor)
+def batch_vector_observation(x: List[Union[np.ndarray, List]],
+                             type: str = 'float64') -> torch.Tensor:
+    return torch.stack([
+        torch.from_numpy(x_i.astype(type)) if isinstance(x_i, np.ndarray) else torch.tensor(x_i)
+        for x_i in x]).type(torch.FloatTensor)
