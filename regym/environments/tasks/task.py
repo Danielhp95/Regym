@@ -105,7 +105,10 @@ class Task:
             raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
         extended_agent_vector = self._extend_agent_vector(agent_vector)
 
+        self.start_agent_servers(agent_vector, num_envs)
+
         vector_env = RegymAsyncVectorEnv(self.name, num_envs)
+        self.total_episodes_run += num_episodes
         if self.env_type == EnvType.SINGLE_AGENT:
             ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
                     vector_env, extended_agent_vector[0], training, num_episodes)
@@ -114,6 +117,8 @@ class Task:
                     vector_env, extended_agent_vector, training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
+
+        self.end_agent_servers(agent_vector)
         return ts
 
     def extend_task(self, agents: Dict[int, 'Agent'], force: bool = False):
@@ -138,6 +143,17 @@ class Task:
                 agent_index += 1
 
         return extended_agent_vector
+
+    def start_agent_servers(self, agent_vector: List['Agent'], num_envs: int):
+        '''TODO'''
+        for agent in agent_vector:
+            if agent.multi_action_requires_server:
+                agent.start_server(num_connections=num_envs)
+
+    def end_agent_servers(self, agent_vector: List['Agent']):
+        '''TODO'''
+        for agent in agent_vector:
+            if agent.multi_action_requires_server: agent.close_server()
 
     def clone(self):
         ''' REVISIT, might be incomplete '''

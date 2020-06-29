@@ -1,5 +1,5 @@
 from typing import Callable, Dict, List
-import multiprocessing
+from torch import multiprocessing
 from copy import deepcopy
 import torch
 
@@ -37,6 +37,7 @@ class NeuralNetServerHandler:
                 target=neural_net_server,
                 args=(deepcopy(net), self.server_connections,
                       self.pre_processing_fn, self.device),
+                name='neural_network_server',
                 daemon=True)  # We want the server to terminate
                               # when the main script terminates
         self.server.start()

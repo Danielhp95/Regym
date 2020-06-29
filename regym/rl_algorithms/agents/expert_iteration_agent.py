@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Callable, Union
+import multiprocessing
 import textwrap
 
 import gym
@@ -11,9 +12,10 @@ from regym.rl_algorithms.networks import Convolutional2DBody, FCBody, Categorica
 from regym.rl_algorithms.networks.preprocessing import turn_into_single_element_batch
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
-from regym.rl_algorithms.agents import Agent, MCTSAgent
 
 from regym.rl_algorithms.expert_iteration import ExpertIterationAlgorithm
+
+from regym.rl_algorithms.servers.neural_net_server import NeuralNetServerHandler
 
 
 class ExpertIterationAgent(Agent):
@@ -53,6 +55,7 @@ class ExpertIterationAgent(Agent):
         #### Algorithmic variations ####
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
         if use_apprentice_in_expert:
+            self.multi_action_requires_server = True
             self.embed_apprentice_in_expert()
 
         self.use_agent_modelling: bool = use_agent_modelling
@@ -69,19 +72,13 @@ class ExpertIterationAgent(Agent):
         self.state_preprocess_fn: Callable = turn_into_single_element_batch
 
     def embed_apprentice_in_expert(self):
+        # Non-parallel environments
         self.expert.policy_fn = self.policy_fn
         self.expert.evaluation_fn = self.evaluation_fn
-
-    @torch.no_grad()
-    def policy_fn(self, observation, legal_actions):
-        processed_obs = self.state_preprocess_fun(observation)
-        return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0).numpy()
-
-    @torch.no_grad()
-    def evaluation_fn(self, observation, legal_actions):
-        processed_obs = self.state_preprocess_fun(observation)
-        return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0).numpy()
-
+        # Parallel environments
+        self.expert.server_based_policy_fn = self.__class__.server_based_policy_fn
+        self.expert.server_based_evaluation_fn = self.__class__.server_based_evaluation_fn
+        
     def init_storage(self, size: int):
         storage = Storage(size=size)
         storage.add_key('normalized_child_visitations')
@@ -113,9 +110,10 @@ class ExpertIterationAgent(Agent):
         storage.reset()
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
+            self.server_handler.update_neural_net(self.apprentice)
 
     def process_environment_signals(self, o, r: float):
-        processed_s = self.state_preprocess_function(o)
+        processed_s = self.state_preprocess_fn(o)
         processed_r = torch.Tensor([r]).float()
         return processed_s, processed_r
 
@@ -147,9 +145,26 @@ class ExpertIterationAgent(Agent):
 
     def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
         if self.training: raise RuntimeError('ExpertIterationAgent.model_free_take_action() cannot be called when training is True')
-        prediction = self.apprentice(self.state_preprocess_fun(state),
+        prediction = self.apprentice(self.state_preprocess_fn(state),
                                      legal_actions=legal_actions)
         return prediction['a']
+
+    def start_server(self, num_connections):
+        ''' Explain that this is needed because different MCTS experts need to send requests '''
+        self.server_handler = NeuralNetServerHandler(
+            num_connections=num_connections, net=self.apprentice)
+        self.expert.server_handler = self.server_handler
+        del self.apprentice
+
+    @torch.no_grad()
+    def policy_fn(self, observation, legal_actions):
+        processed_obs = self.state_preprocess_fn(observation)
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0).numpy()
+
+    @torch.no_grad()
+    def evaluation_fn(self, observation, legal_actions):
+        processed_obs = self.state_preprocess_fn(observation)
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0).numpy()
 
     def clone(self):
         raise NotImplementedError('Cloning ExpertIterationAgent not supported')
@@ -159,6 +174,23 @@ class ExpertIterationAgent(Agent):
         expert = f"Expert:\n{textwrap.indent(str(self.expert), '    ')}\n"
         algorithm = f"Algorithm:\n{textwrap.indent(str(self.algorithm), '    ')}"
         return agent_stats + expert + algorithm
+
+    #####
+    # These two methods are a dirty hack!
+    @staticmethod
+    def server_based_policy_fn(observation, legal_actions, connection):
+        connection.send((observation, legal_actions))
+        prediction = connection.recv()
+        return prediction['probs'].squeeze(0).numpy()
+
+
+    @staticmethod
+    def server_based_evaluation_fn(observation, legal_actions, connection):
+        connection.send((observation, legal_actions))
+        prediction = connection.recv()
+        return prediction['v'].squeeze(0).numpy()
+    #
+    #####
 
 
 def choose_feature_extractor(task, config: Dict):
@@ -255,7 +287,6 @@ def build_ExpertIteration_Agent(task, config, agent_name):
             - 'paddings': Tuple[int]
         - 'critic_gate_fn': Gating function to be applied to critic's
                             output head. Supported: ['None', 'tanh']
-
     '''
 
     apprentice = build_apprentice_model(task, config)

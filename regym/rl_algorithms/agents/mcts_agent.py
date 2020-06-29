@@ -1,8 +1,11 @@
-from typing import Dict, List, Callable, Any, Union
+from typing import Dict, List, Tuple, Callable, Any, Union
 from math import sqrt
+import multiprocessing
 from multiprocessing import cpu_count
+from multiprocessing.connection import Connection
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
+from functools import partial
 
 import numpy as np
 import gym
@@ -48,11 +51,13 @@ class MCTSAgent(Agent):
         # given 2 parameters: observation, legal_actions.
         # In any given node. Used in PUCT selection_strat and ExpertIterationAgent
         self.policy_fn: Callable[[Any, List[int]], List[float]] = self.random_selection_policy
+        self.server_based_policy_fn: Callable[[Any, List[int], Connection], List[float]] = None
 
         # Function to compute a value to backpropagate through the MCTS tree
         # at the end of rollout_phase. 2 parameters: observation, legal_actions.
         # If None, the value given by the gamestate will be used
         self.evaluation_fn: Callable[[Any, List[int]], List[float]] = None
+        self.server_based_evaluation_fn: Callable[[Any, List[int], Connection], List[float]] = None
 
         # Adding exploration to root nodes
         self.use_dirichlet = use_dirichlet
@@ -84,14 +89,19 @@ class MCTSAgent(Agent):
         # function in self.algorithm
         with ProcessPoolExecutor(max_workers=min(len(envs), cpu_count())) as ex:
 
+            policy_fns, evaluation_fns = \
+                    self.multi_action_select_policy_and_evaluation_fns(len(envs))
+
             futures = [ex.submit(async_search, env_i, self.algorithm,
                                  env, observations[env_i],
                                  self.budget, self.rollout_budget,
                                  self.selection_strat, self.exploration_constant,
-                                 player_index, self.policy_fn,
-                                 self.evaluation_fn, self.use_dirichlet,
+                                 player_index, policy_fn,
+                                 evaluation_fn, self.use_dirichlet,
                                  self.dirichlet_alpha, self.num_agents)
-                       for env_i, env in envs.items()]
+                       for (env_i, env), policy_fn, evaluation_fn
+                       in zip(envs.items(), policy_fns, evaluation_fns)]
+
             for f in futures:
                 i, (action, visitations) = f.result()
                 action_vector += [action]
@@ -100,6 +110,25 @@ class MCTSAgent(Agent):
                 self.record_selected_action(self.current_prediction[i],
                                             action, visitations)
         return action_vector
+
+    def multi_action_select_policy_and_evaluation_fns(self, num_envs) \
+            -> Tuple[List[Callable], List[Callable]]:
+        ''' TODO: explain logic behind server connections'''
+        if self.server_handler:
+            # NOTE: is it bad that we are sharing connections between
+            # evaluation_fns and policy_fns? I guess not.
+            policy_fns = [partial(
+                self.server_based_policy_fn,
+                connection=self.server_handler.client_connections[i])
+                for i in range(num_envs)]
+            evaluation_fns = [partial(
+                self.server_based_evaluation_fn,
+                connection=self.server_handler.client_connections[i])
+                for i in range(num_envs)]
+        else:
+            policy_fns = [self.policy_fn for _ in range(num_envs)]
+            evaluation_fns = [self.evaluation_fn for _ in range(num_envs)]
+        return policy_fns, evaluation_fns
 
     def single_action_model_based_take_action(self, env: gym.Env, observation,
                                               player_index: int) -> int:
@@ -125,9 +154,8 @@ class MCTSAgent(Agent):
         # because :param: env won't expose non-legal actions
         child_visitations = [visitations[move_id] if move_id in visitations else 0.
                              for move_id in range(self.action_dim)]
-
-        self.current_prediction['action'] = action
-        self.current_prediction['child_visitations'] = child_visitations
+        prediction['action'] = action
+        prediction['child_visitations'] = child_visitations
 
     def handle_experience(self, s, a, r, succ_s, done=False):
         super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)

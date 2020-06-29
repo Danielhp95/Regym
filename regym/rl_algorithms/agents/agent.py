@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 import gym
 
+from regym.rl_algorithms.servers import neural_net_server
 
 class Agent(ABC):
     '''
@@ -32,7 +33,8 @@ class Agent(ABC):
     function if you know what you are doing.
     '''
 
-    def __init__(self, name: str, requires_environment_model: bool = False):
+    def __init__(self, name: str, requires_environment_model: bool = False,
+                 multi_action_requires_server: bool = False):
         '''
         By default agents do not require an environment model.
         What this means is that agents take actions based on environment
@@ -45,11 +47,19 @@ class Agent(ABC):
         :param requires_environment_model: Flag to signal whether the agent
                                            will receive a copy of the
                                            environment at each decision point
+        :param multi_action_requires_server: Flag to signal whether the agent
+                                             needs to spawn a
+                                             NeuralNetServerHandler in parallel
+                                             environments (RegymAsyncVectorEnv)
         '''
-        self.requires_environment_model: bool = requires_environment_model
         self.name: str = name
         self.training: bool = True
         self.handled_experiences: int = 0
+
+        self.requires_environment_model: bool = requires_environment_model
+        self.multi_action_requires_server: bool = multi_action_requires_server
+
+        self.server_handler: NeuralNetServerHandler = None
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 legal_actions: Union[List[int], List[List[int]]],
@@ -128,3 +138,9 @@ class Agent(ABC):
         such as neural networks, storage, agent flags... etc
         '''
         raise NotImplementedError('To be implemented in Subclass')
+
+    def start_server(self, num_connections: int):
+        raise NotImplementedError('To be implemented in appropiate subclass') 
+
+    def close_server(self):
+        self.server_handler.close_server()
