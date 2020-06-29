@@ -2,7 +2,9 @@ from typing import Callable, Union, Optional, List, Tuple
 from functools import reduce
 
 import sys
-from multiprocessing import Pipe, Queue
+import torch
+
+from multiprocessing import Queue
 from multiprocessing.sharedctypes import SynchronizedArray
 from multiprocessing.connection import Connection
 
@@ -26,7 +28,7 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
           hard code them instead.
         '''
         worker = _regym_worker_shared_memory
-        env_fns = [self._make_env(env_name) for _ in range(num_envs)]
+        env_fns = [self._make_env_fn(env_name) for _ in range(num_envs)]
         super().__init__(env_fns, observation_space, action_space,
                          shared_memory, copy, context, daemon, worker)
 
@@ -39,10 +41,11 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         self._raise_if_errors(successes)
         return envs
 
-    def _make_env(self, env_name: str) -> Callable[[], gym.Env]:
-        def _make():
+    def _make_env_fn(self, env_name: str) -> Callable[[], gym.Env]:
+        def _make_env_from_name():
+            import gym_connect4
             return gym.make(env_name)
-        return _make
+        return _make_env_from_name
 
 
 def _regym_worker_shared_memory(index: int, env_fn: Callable[[], gym.Env],
