@@ -93,9 +93,11 @@ def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, exp
             summary_writer=summary_writer)
 
 
-def test_train_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):
+def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):
     summary_writer = SummaryWriter('expert_iteration_test')
     regym.rl_algorithms.expert_iteration.expert_iteration_loss.summary_writer = summary_writer
+    import torch
+    torch.multiprocessing.set_start_method('forkserver')
 
     # Train worthy params
     expert_iteration_config_dict['use_apprentice_in_expert'] = True
@@ -114,17 +116,19 @@ def test_train_against_random_connect4(Connect4Task, expert_iteration_config_dic
 
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-test')
 
-    mcts_config_dict['budget'] = 200
+    mcts_config_dict['budget'] = 100
     mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name=f"MCTS:{mcts_config_dict['budget']}")
 
-    learn_against_fix_opponent(ex_it, fixed_opponent=mcts_agent,
-                               agent_position=0,
-                               task=Connect4Task,
-                               training_episodes=5000,
-                               test_episodes=100,
-                               benchmarking_episodes=20,
-                               benchmark_every_n_episodes=200,
-                               reward_tolerance=0.2,
-                               maximum_average_reward=1.0,
-                               evaluation_method='last',
-                               summary_writer=summary_writer)
+    parallel_learn_against_fix_opponent(ex_it,
+            fixed_opponent=mcts_agent,
+            agent_position=0,
+            task=Connect4Task,
+            training_episodes=5000,
+            test_episodes=100,
+            benchmarking_episodes=20,
+            benchmark_every_n_episodes=500,
+            reward_tolerance=0.2,
+            maximum_average_reward=1.0,
+            evaluation_method='last',
+            num_envs=torch.multiprocessing.cpu_count(),
+            summary_writer=summary_writer)
