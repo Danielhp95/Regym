@@ -16,7 +16,7 @@ def test_can_process_single_observation():
             args=(deepcopy(net), [server_connection1]))
 
     observation_1 = np.array([0]) 
-    client_connection1.send(observation_1)
+    client_connection1.send((observation_1, None))
 
     server.start()
 
@@ -39,8 +39,8 @@ def test_can_process_batch_observation_and_respond_individually():
     observation_2 = np.array([1]) 
 
 
-    client_connection1.send(observation_1)
-    client_connection2.send(observation_2)
+    client_connection1.send((observation_1, None))
+    client_connection2.send((observation_2, None))
 
     server.start()
 
@@ -64,13 +64,13 @@ def test_can_update_the_neural_net_in_the_server():
     server_handler = NeuralNetServerHandler(num_connections=1,
                                             net=net1)
 
-    server_handler.client_connections[0].send(observation)
+    server_handler.client_connections[0].send((observation, None))
     actual_response = server_handler.client_connections[0].recv()
     assert expected_response_1 == actual_response 
 
     server_handler.update_neural_net(net2)
 
-    server_handler.client_connections[0].send(observation)
+    server_handler.client_connections[0].send((observation, None))
     actual_response = server_handler.client_connections[0].recv()
     assert expected_response_2 == actual_response 
 
@@ -83,7 +83,7 @@ def generate_dummy_neural_net(weight):
             super().__init__()
             self.linear = torch.nn.Linear(in_features=1, out_features=1, bias=False)
             self.linear.weight.data = torch.Tensor([[weight]])
-        def forward(self, x):
+        def forward(self, x, legal_actions=None):
             return {'output': self.linear(x)}
 
     return DummyNet(weight)

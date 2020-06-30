@@ -11,7 +11,8 @@ class NeuralNetServerHandler:
     def __init__(self, num_connections: int,
                  net: torch.nn.Module,
                  pre_processing_fn: Callable = batch_vector_observation,
-                 device: str = 'cpu'):
+                 device: str = 'cpu',
+                 niceness: int = -5):
         '''
         NOTE: net will be deepcopied
 
@@ -19,6 +20,7 @@ class NeuralNetServerHandler:
         :param net: TODO
         :param pre_processing_fn: TODO
         :param device: TODO
+        :param server_niceness: TODO (document -20:+19 range)
         '''
         self.num_connections = num_connections
         self.device = device
@@ -36,7 +38,7 @@ class NeuralNetServerHandler:
         self.server = multiprocessing.Process(
                 target=neural_net_server,
                 args=(deepcopy(net), self.server_connections,
-                      self.pre_processing_fn, self.device),
+                      self.pre_processing_fn, self.device, niceness),
                 name='neural_network_server',
                 daemon=True)  # We want the server to terminate
                               # when the main script terminates
@@ -61,7 +63,8 @@ class NeuralNetServerHandler:
 def neural_net_server(net: torch.nn.Module,
                       connections: List[multiprocessing.Pipe],
                       pre_processing_fn: Callable = batch_vector_observation,
-                      device: str = 'cpu'):
+                      device: str = 'cpu',
+                      niceness: int = -5):
     """
     Server style function which continuously polls :params: parent_connections
     for observations (inputs) to be fed to torch.nn.Module :param: net.
@@ -77,7 +80,12 @@ def neural_net_server(net: torch.nn.Module,
     :param pre_processing_fn: TODO
     :param connections: TODO
     :param device: TODO
+    :param niceness: TODO
     """
+    # Sets process niceness to :param: niceness.
+    parent_niceness = os.nice(0)
+    os.nice(niceness - parent_niceness)
+
     net.to(device)
     pipes_to_serve, observations, legal_actions = [], [], []
     while True:
