@@ -154,7 +154,6 @@ class ExpertIterationAgent(Agent):
         self.server_handler = NeuralNetServerHandler(
             num_connections=num_connections, net=self.apprentice)
         self.expert.server_handler = self.server_handler
-        del self.apprentice
 
     @torch.no_grad()
     def policy_fn(self, observation, legal_actions):
