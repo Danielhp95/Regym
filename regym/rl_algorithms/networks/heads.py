@@ -99,20 +99,23 @@ class CategoricalDuelingDQNet(nn.Module, BaseNet):
                 'entropy': entropy}
 
 
-class CategoricalNet(nn.Module, BaseNet):
-    def __init__(self, action_dim, num_atoms, body):
-        super(CategoricalNet, self).__init__()
-        self.fc_categorical = layer_init(nn.Linear(body.feature_dim, action_dim * num_atoms))
-        self.action_dim = action_dim
-        self.num_atoms = num_atoms
-        self.body = body
+class CategoricalHead(nn.Module, BaseNet):
+    '''Fully connected layer followed by a softmax'''
+    def __init__(self, input_dim, output_dim):
+        super().__init__()
+        self.fc_categorical = layer_init(nn.Linear(input_dim, output_dim))
+        self.input_dim = input_dim
+        self.output_dim = output_dim
 
-    def forward(self, x):
-        phi = self.body(tensor(x))
-        pre_prob = self.fc_categorical(phi).view((-1, self.action_dim, self.num_atoms))
-        prob = F.softmax(pre_prob, dim=-1)
-        log_prob = F.log_softmax(pre_prob, dim=-1)
-        return prob, log_prob
+    def forward(self, x: torch.Tensor):
+        logits = self.fc_categorical(x)
+        probs = F.softmax(logits, dim=-1)
+        log_probs = F.log_softmax(logits, dim=-1)
+        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
+        action = torch.distributions.Categorical(logits=logits).sample()
+        action = action.view(-1, 1)
+        return {'probs': probs, 'log_probs': log_probs, 'a': action,
+                'entropy': entropy}
 
 
 class QuantileNet(nn.Module, BaseNet):
