@@ -1,3 +1,4 @@
+import os
 from typing import Callable, Dict, List
 from torch import multiprocessing
 from copy import deepcopy
@@ -83,8 +84,8 @@ def neural_net_server(net: torch.nn.Module,
     :param niceness: TODO
     """
     # Sets process niceness to :param: niceness.
-    parent_niceness = os.nice(0)
-    os.nice(niceness - parent_niceness)
+    #parent_niceness = os.nice(0)
+    #os.nice(niceness - parent_niceness)
 
     net.to(device)
     pipes_to_serve, observations, legal_actions = [], [], []
