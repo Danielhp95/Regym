@@ -2,6 +2,7 @@ from .networks import LeakyReLU
 
 from .heads import CategoricalActorCriticNet, CategoricalDuelingDQNet
 from .heads import CategoricalDQNet
+from .heads import PolicyInferenceActorCriticNet
 
 from .bodies import FCBody, LSTMBody, Convolutional2DBody, SequentialBody
 

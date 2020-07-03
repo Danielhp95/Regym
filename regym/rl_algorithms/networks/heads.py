@@ -111,7 +111,7 @@ class CategoricalHead(nn.Module, BaseNet):
         logits = self.fc_categorical(x)
         probs = F.softmax(logits, dim=-1)
         log_probs = F.log_softmax(logits, dim=-1)
-        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
+        entropy = -1. * torch.sum(probs * log_probs)
         action = torch.distributions.Categorical(logits=logits).sample()
         action = action.view(-1, 1)
         return {'probs': probs, 'log_probs': log_probs, 'a': action,
@@ -132,27 +132,6 @@ class QuantileNet(nn.Module, BaseNet):
         quantiles = self.fc_quantiles(phi)
         quantiles = quantiles.view((-1, self.action_dim, self.num_quantiles))
         return quantiles
-
-
-class OptionCriticNet(nn.Module, BaseNet):
-    def __init__(self, body, action_dim, num_options):
-        super(OptionCriticNet, self).__init__()
-        self.fc_q = layer_init(nn.Linear(body.feature_dim, num_options))
-        self.fc_pi = layer_init(nn.Linear(body.feature_dim, num_options * action_dim))
-        self.fc_beta = layer_init(nn.Linear(body.feature_dim, num_options))
-        self.num_options = num_options
-        self.action_dim = action_dim
-        self.body = body
-        self.to(Config.DEVICE)
-
-    def forward(self, x):
-        phi = self.body(tensor(x))
-        q = self.fc_q(phi)
-        beta = F.sigmoid(self.fc_beta(phi))
-        pi = self.fc_pi(phi)
-        pi = pi.view(-1, self.num_options, self.action_dim)
-        log_pi = F.log_softmax(pi, dim=-1)
-        return q, beta, log_pi
 
 
 class ActorCriticNet(nn.Module):
@@ -323,7 +302,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
     def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
         '''
-        TODO: document 
+        TODO: document
         If legal_actions contains a singleton None list: [None]
         it means all actions are valid
         '''
@@ -339,3 +318,74 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
         masked_logits = logits + illegal_logit_penalties
         return masked_logits
+
+
+class PolicyInferenceActorCriticNet(nn.Module, BaseNet):
+    '''
+    Inspired from A3C-AMF architecture:
+        'Agent Modeling as Auxiliary Task for Deep Reinforcement Learning'
+        Pablo Hernandez-Leal et al. (arXiv:1907.09597)
+    Originally suggested as DPIQN architecture in:
+        'A Deep Policy Inference Q-Network for Multi-Agent Systems'
+        Zhang-Wei Hong et al (ariv:1712.07893)
+    '''
+    def __init__(self,
+                 num_policies: int,
+                 num_actions: int,
+                 feature_extractor: BaseNet,
+                 policy_inference_body: BaseNet,
+                 actor_critic_body: BaseNet,
+                 actor_critic_head: BaseNet):
+        '''
+        TODO
+        '''
+        BaseNet.__init__(self)
+        super().__init__()
+
+        self.num_policies = num_policies
+        # NOTE: all three
+        # (policy_inference_body feature_dim, actor_critic_body feature_dim, actor_critic_head input_dim)
+        # should be the same!
+
+        self.feature_extractor = feature_extractor
+
+        self.policy_inference_body = policy_inference_body
+        self.actor_critic_body = actor_critic_body
+
+        self.policy_inference_heads = nn.ModuleList([
+                CategoricalHead(
+                    policy_inference_body.feature_dim, num_actions)
+                for _ in range(num_policies)])
+
+        self.actor_critic_head = CategoricalActorCriticNet(
+                state_dim=self.actor_critic_body.feature_dim,
+                action_dim=num_actions)
+
+    def forward(self, x: torch.Tensor, legal_actions: List[int] = None):
+        feature_embeddings = self.feature_extractor(x)
+
+        # Opponent modelling branch
+        policy_type_embedding = self.policy_inference_body(feature_embeddings)
+        # How about adding a non-linearity here?
+        policy_inference_predictions = map(lambda head: head(policy_type_embedding),
+                                           self.policy_inference_heads)
+
+        # Actor critic branch
+        actor_critic_body_embedding = self.actor_critic_body(feature_embeddings)
+        # element wise vector multiplication
+        actor_critic_head_input = policy_type_embedding * actor_critic_body_embedding
+
+        actor_critic_prediction = self.actor_critic_head(
+                actor_critic_body_embedding, legal_actions=legal_actions)
+
+        policy_inference_predictions_dict = {
+                f'policy_{i}': prediction
+                for i, prediction
+                in zip(range(self.num_policies), policy_inference_predictions)}
+
+        # Merging 2 dicts together
+        aggregated_predictions = {
+                **policy_inference_predictions_dict, **actor_critic_prediction}
+
+        # TODO: add actor_critic head
+        return aggregated_predictions
