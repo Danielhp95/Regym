@@ -9,9 +9,9 @@ from functools import reduce
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from regym.rl_algorithms.networks.utils import layer_init, layer_init_lstm
-from regym.rl_algorithms.networks.utils import convolutional_layer_output_dimensions, compute_convolutional_dimension_transforms
-from regym.rl_algorithms.networks.utils import create_convolutional_layers
+from regym.networks.utils import layer_init, layer_init_lstm
+from regym.networks.utils import convolutional_layer_output_dimensions, compute_convolutional_dimension_transforms
+from regym.networks.utils import create_convolutional_layers
 
 
 class SequentialBody(nn.Module):

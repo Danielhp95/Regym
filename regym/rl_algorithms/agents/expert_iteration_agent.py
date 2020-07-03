@@ -8,14 +8,14 @@ import torch.nn as nn
 
 from regym.rl_algorithms.replay_buffers import Storage
 
-from regym.rl_algorithms.networks import Convolutional2DBody, FCBody, CategoricalActorCriticNet, SequentialBody
-from regym.rl_algorithms.networks.preprocessing import turn_into_single_element_batch
+from regym.networks import Convolutional2DBody, FCBody, CategoricalActorCriticNet, SequentialBody, PolicyInferenceActorCriticNet
+from regym.networks.preprocessing import turn_into_single_element_batch
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 
 from regym.rl_algorithms.expert_iteration import ExpertIterationAlgorithm
 
-from regym.rl_algorithms.servers.neural_net_server import NeuralNetServerHandler
+from regym.networks.servers.neural_net_server import NeuralNetServerHandler
 
 
 class ExpertIterationAgent(Agent):
@@ -211,22 +211,40 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
     if task.action_type == 'Continuous':
         raise ValueError(f'Only Discrete action type tasks are supported. Task {task.name} has a Continuous action_type')
 
-    feature_extractor_body = choose_feature_extractor(task, config)
+    feature_extractor = choose_feature_extractor(task, config)
 
     # REFACTORING: maybe we can refactor into its own function, figure out
     # figure out how to do proper separation of agent modell and not.
     if config['use_agent_modelling']:
-        raise ValueError('Agent modelling not yet supported')
+        return build_apprentice_with_agent_modelling(
+                feature_extractor, task, config)
     else:
-        body = FCBody(state_dim=feature_extractor_body.feature_dim,
+        body = FCBody(state_dim=feature_extractor.feature_dim,
                       hidden_units=(64, 64))
 
-    feature_and_body = SequentialBody(feature_extractor_body, body)
+        feature_and_body = SequentialBody(feature_extractor, body)
 
-    return CategoricalActorCriticNet(state_dim=feature_and_body.feature_dim,
-                                     action_dim=task.action_dim,
-                                     critic_gate_fn=config.get('critic_gate_fn', None),
-                                     phi_body=feature_and_body)
+        return CategoricalActorCriticNet(state_dim=feature_and_body.feature_dim,
+                                         action_dim=task.action_dim,
+                                         critic_gate_fn=config.get('critic_gate_fn', None),
+                                         phi_body=feature_and_body)
+
+
+def build_apprentice_with_agent_modelling(feature_extractor, task, config):
+    # TODO: remove hardcodings and place somewhere in config
+    # - Embedding size
+    # - The bodies are just FC layers (will in the future be RNNs)
+    embedding_size = 64
+    policy_inference_body = FCBody(feature_extractor.feature_dim, hidden_units=(embedding_size,))
+    actor_critic_body = FCBody(feature_extractor.feature_dim, hidden_units=(embedding_size,))
+
+    # We model all agents but ourselves
+    num_agents_to_model = task.num_agents - 1
+    return PolicyInferenceActorCriticNet(feature_extractor=feature_extractor,
+                                         num_policies=num_agents_to_model,
+                                         policy_inference_body=policy_inference_body,
+                                         actor_critic_body=actor_critic_body)
+
 
 def build_expert(task, config: Dict, expert_name: str) -> MCTSAgent:
     selection_phase = 'puct' if config['use_apprentice_in_expert'] else 'ucb1'

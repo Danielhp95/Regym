@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from regym.rl_algorithms.networks import random_sample
+from regym.networks import random_sample
 from regym.rl_algorithms.replay_buffers import Storage
 
 from regym.rl_algorithms.expert_iteration.expert_iteration_loss import compute_loss

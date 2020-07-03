@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import gym
 
-from regym.rl_algorithms.servers import neural_net_server
+from regym.networks.servers import neural_net_server
 
 class Agent(ABC):
     '''

@@ -3,8 +3,8 @@ import multiprocessing
 import numpy as np
 import torch
 
-from regym.rl_algorithms.servers import neural_net_server
-from regym.rl_algorithms.servers.neural_net_server import NeuralNetServerHandler
+from regym.networks.servers import neural_net_server
+from regym.networks.servers.neural_net_server import NeuralNetServerHandler
 
 
 def test_can_process_single_observation():

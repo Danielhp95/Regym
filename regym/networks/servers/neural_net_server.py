@@ -4,7 +4,7 @@ from torch import multiprocessing
 from copy import deepcopy
 import torch
 
-from regym.rl_algorithms.networks.preprocessing import batch_vector_observation
+from regym.networks.preprocessing import batch_vector_observation
 
 
 class NeuralNetServerHandler:

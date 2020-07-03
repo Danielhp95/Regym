@@ -61,7 +61,7 @@ def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, exp
 
     # Train worthy params
     expert_iteration_config_dict['use_apprentice_in_expert'] = False
-    expert_iteration_config_dict['games_per_iteration'] = 100
+    expert_iteration_config_dict['games_per_iteration'] = 10
 
     expert_iteration_config_dict['mcts_budget'] = 500
     expert_iteration_config_dict['mcts_rollout_budget'] = 100

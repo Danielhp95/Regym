@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from regym.rl_algorithms.networks.preprocessing import batch_vector_observation, flatten_and_turn_into_batch, turn_into_single_element_batch
+from regym.networks.preprocessing import batch_vector_observation, flatten_and_turn_into_batch, turn_into_single_element_batch
 
 
 def test_turn_into_single_element_batch():

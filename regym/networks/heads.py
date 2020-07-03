@@ -9,9 +9,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from regym.rl_algorithms.networks import LeakyReLU
-from regym.rl_algorithms.networks.utils import BaseNet, layer_init, tensor
-from regym.rl_algorithms.networks.bodies import DummyBody
+from regym.networks import LeakyReLU
+from regym.networks.utils import BaseNet, layer_init, tensor
+from regym.networks.bodies import DummyBody
 
 
 class CategoricalDQNet(nn.Module, BaseNet):

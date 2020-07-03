@@ -4,8 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 
-from ..replay_buffers import Storage
-from ..networks import random_sample
+from regym.rl_algorithms.replay_buffers import Storage
+from regym.networks import random_sample
 
 
 class PPOAlgorithm():

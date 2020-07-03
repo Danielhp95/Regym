@@ -8,9 +8,9 @@ import torch.nn as nn
 
 from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.replay_buffers import EXP
-from regym.rl_algorithms.networks import CategoricalDuelingDQNet, CategoricalDQNet
-from regym.rl_algorithms.networks import LeakyReLU, FCBody
-from regym.rl_algorithms.networks import PreprocessFunction
+from regym.networks import CategoricalDuelingDQNet, CategoricalDQNet
+from regym.networks import LeakyReLU, FCBody
+from regym.networks import PreprocessFunction
 from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm
 
 
