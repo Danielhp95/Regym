@@ -334,8 +334,7 @@ class PolicyInferenceActorCriticNet(nn.Module, BaseNet):
                  num_actions: int,
                  feature_extractor: BaseNet,
                  policy_inference_body: BaseNet,
-                 actor_critic_body: BaseNet,
-                 actor_critic_head: BaseNet):
+                 actor_critic_body: BaseNet):
         '''
         TODO
         '''
@@ -376,7 +375,7 @@ class PolicyInferenceActorCriticNet(nn.Module, BaseNet):
         actor_critic_head_input = policy_type_embedding * actor_critic_body_embedding
 
         actor_critic_prediction = self.actor_critic_head(
-                actor_critic_body_embedding, legal_actions=legal_actions)
+                actor_critic_head_input, legal_actions=legal_actions)
 
         policy_inference_predictions_dict = {
                 f'policy_{i}': prediction
