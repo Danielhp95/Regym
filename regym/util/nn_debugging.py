@@ -20,6 +20,7 @@ def plot_gradient_flow(named_parameters: Iterator[Tuple[(str, Parameter)]]):
     Usage:
 
     >>> model: nn.Module
+    >>> loss.backwards  # A loss tensor has been propagated through our model
     >>> plot_gradient_flow(model.named_parameters())
 
     to visualize the gradient flow
@@ -30,7 +31,7 @@ def plot_gradient_flow(named_parameters: Iterator[Tuple[(str, Parameter)]]):
     max_grads = []
     layers = []
     for n, p in named_parameters:
-        if(p.requires_grad) and ("bias" not in n):
+        if(p.requires_grad) and ("bias" not in n) and (p.grad is not None):
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
             max_grads.append(p.grad.abs().max())
@@ -47,6 +48,7 @@ def plot_gradient_flow(named_parameters: Iterator[Tuple[(str, Parameter)]]):
     plt.legend([Line2D([0], [0], color="c", lw=4),
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+    plt.tight_layout()
     plt.show()
 
 
