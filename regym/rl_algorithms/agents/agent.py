@@ -144,3 +144,11 @@ class Agent(ABC):
 
     def close_server(self):
         self.server_handler.close_server()
+
+    # Function invoked when pickling
+    def __getstate__(self):
+        to_pickle_dict = self.__dict__
+        if 'server_handler' in to_pickle_dict:
+            to_pickle_dict = self.__dict__.copy()
+            del to_pickle_dict['server_handler']
+        return to_pickle_dict
