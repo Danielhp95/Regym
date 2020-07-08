@@ -6,3 +6,4 @@ from . import rl_algorithms
 from . import networks
 from . import rl_loops
 from . import logging_server
+from . import plotting
