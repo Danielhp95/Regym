@@ -5,3 +5,4 @@ from . import training_schemes
 from . import rl_algorithms
 from . import rl_loops
 from . import logging_server
+from . import plotting
