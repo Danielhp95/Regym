@@ -13,3 +13,5 @@ from .utils import random_sample
 from .utils import hard_update, soft_update
 
 from .preprocessing import turn_into_single_element_batch, flatten_and_turn_into_batch, batch_vector_observation
+
+from .generic_losses import cross_entropy_loss
