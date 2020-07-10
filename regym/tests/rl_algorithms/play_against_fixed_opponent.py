@@ -24,7 +24,8 @@ def learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
                                alter_agent_positions: bool = False,
                                benchmarking_episodes: int = 0,
                                benchmark_every_n_episodes: int = 0,
-                               summary_writer: Optional[SummaryWriter] = None):
+                               summary_writer: Optional[SummaryWriter] = None,
+                               save_agent: bool = False):
     '''
     Test used to :assert: that :param: agent is 'learning' by
     learning a best response against a fixed agent.
@@ -49,6 +50,7 @@ def learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
                                   after each episode
     :param summary_writer: Torch SummaryWriter to log info during
                            training and benchmarking.
+    :param save_agent: Whether to save the agent after each round of benchmarking
     '''
     training_trajectories = train_and_benchmark(task, agent, fixed_opponent,
                                                 training_episodes,
@@ -90,20 +92,24 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
                         training_episodes: int, benchmark_every_n_episodes: int,
                         benchmarking_episodes: int,
                         agent_position: int, alter_agent_positions: bool,
-                        summary_writer: Optional[SummaryWriter]):
+                        summary_writer: Optional[SummaryWriter],
+                        save_agent: bool = False):
     training_trajectories = list()
     # This might be bugged
-    for e in range(0, training_episodes, benchmark_every_n_episodes):
+    step = benchmark_every_n_episodes if benchmark_every_n_episodes > 0 else training_episodes
+    for e in range(0, training_episodes, step):
         training_trajectories += simulate(task, agent, fixed_opponent,
                                           agent_position,
-                                          episodes=benchmark_every_n_episodes,
+                                          episodes=step,
                                           training=True, mode='TRAINING')
         agent.training = False
-        benchmark_agent(task, agent, fixed_opponent, agent_position,
-                        starting_episode=(e + benchmark_every_n_episodes),
-                        episodes=benchmarking_episodes,
-                        summary_writer=summary_writer)
-        torch.save(agent, f'{agent.name}_{task.name}_{e + benchmark_every_n_episodes}.pt')
+        if benchmark_every_n_episodes > 0:
+            benchmark_agent(task, agent, fixed_opponent, agent_position,
+                            starting_episode=(e + benchmark_every_n_episodes),
+                            episodes=benchmarking_episodes,
+                            summary_writer=summary_writer)
+        if save_agent:
+            torch.save(agent, f'{agent.name}_{task.name}_{e + benchmark_every_n_episodes}.pt')
         agent.training = True
     return training_trajectories
 

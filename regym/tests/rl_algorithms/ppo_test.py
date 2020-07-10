@@ -34,7 +34,9 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
-                               total_episodes=500, training_percentage=0.9,
+                               training_episodes=250,
+                               benchmark_every_n_episodes=0,
+                               test_episodes=50,
                                reward_tolerance=1.,
                                maximum_average_reward=10.0,
                                evaluation_method='cumulative')
@@ -68,7 +70,9 @@ def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
-                               total_episodes=500, training_percentage=0.9,
+                               training_episodes=250,
+                               benchmark_every_n_episodes=0,
+                               test_episodes=50,
                                reward_tolerance=1.,
                                maximum_average_reward=10.0,
                                evaluation_method='cumulative')
@@ -134,10 +138,12 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
     kuhn_task = generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     fixed_opponent = build_Deterministic_Agent(kuhn_task, {'action': fixed_agent_action})
     assert agent.training
-    learn_against_fix_opponent(agent, fixed_opponent=fixed_opponent,
-                               agent_position=agent_position,
-                               task=kuhn_task,
-                               total_episodes=total_episodes, training_percentage=0.9,
+    learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
+                               agent_position=0, # Doesn't matter in RPS
+                               task=RPSTask,
+                               training_episodes=250,
+                               benchmark_every_n_episodes=0,
+                               test_episodes=50,
                                reward_tolerance=1.,
-                               maximum_average_reward=max_reward,
-                               evaluation_method='last')
+                               maximum_average_reward=10.0,
+                               evaluation_method='cumulative')
