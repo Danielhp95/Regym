@@ -10,7 +10,7 @@ from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.replay_buffers import EXP
 from regym.networks import CategoricalDuelingDQNet, CategoricalDQNet
 from regym.networks import LeakyReLU, FCBody
-from regym.networks import PreprocessFunction
+from regym.networks.preprocessing import turn_into_single_element_batch
 from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm
 
 
@@ -109,7 +109,7 @@ def build_DQN_Agent(task, config, agent_name):
         "state_dim": number of dimensions in the state space.
     """
 
-    preprocess = PreprocessFunction(state_space_size=task.observation_dim, use_cuda=config['use_cuda'])
+    preprocess = turn_into_single_element_batch
 
     kwargs['nbrTrainIteration'] = config['nbrTrainIteration']
     kwargs["nbr_actions"] = task.action_dim

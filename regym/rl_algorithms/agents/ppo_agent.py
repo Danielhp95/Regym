@@ -6,7 +6,8 @@ import regym
 from regym.rl_algorithms.agents import Agent
 from regym.networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from regym.networks import FCBody, LSTMBody
-from regym.networks import PreprocessFunction
+from regym.networks.preprocessing import turn_into_single_element_batch
+
 from regym.rl_algorithms.PPO import PPOAlgorithm
 
 import torch.nn.functional as F
@@ -127,7 +128,7 @@ def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], ag
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
-    kwargs['state_preprocess'] = PreprocessFunction(task.observation_dim, kwargs['use_cuda'])
+    kwargs['state_preprocess'] = turn_into_single_element_batch
 
     input_dim = task.observation_dim
     if kwargs['phi_arch'] != 'None':
