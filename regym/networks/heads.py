@@ -45,7 +45,8 @@ class CategoricalDQNet(nn.Module, BaseNet):
 
         # TODO: check if this works
         if legal_actions is not None:
-            q_values = self._mask_ilegal_action_logits(q_values, legal_actions)
+            q_values = self._mask_ilegal_action_logits(q_values,
+                                 legal_actions, self.action_dim)
         if action is None:
             q_value, action = q_values.max(dim=1)
 
@@ -56,16 +57,6 @@ class CategoricalDQNet(nn.Module, BaseNet):
         return {'a': action,
                 'Q': q_values,
                 'entropy': entropy}
-
-    def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
-        '''
-        TODO: document
-        '''
-        illegal_action_mask = torch.tensor([float(i not in legal_actions)
-                                            for i in range(self.action_dim)])
-        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
-        masked_logits = logits + illegal_logit_penalties
-        return masked_logits
 
 
 class CategoricalDuelingDQNet(nn.Module, BaseNet):
@@ -107,8 +98,13 @@ class CategoricalHead(nn.Module, BaseNet):
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, legal_actions: List[int] = None):
         logits = self.fc_categorical(x)
+
+
+        if legal_actions:
+            logits = self._mask_ilegal_action_logits(logits, legal_actions, self.output_dim)
+
         probs = F.softmax(logits, dim=-1)
         log_probs = F.log_softmax(logits, dim=-1)
         entropy = -1. * torch.sum(probs * log_probs)
@@ -149,37 +145,6 @@ class ActorCriticNet(nn.Module):
         self.actor_params = list(self.actor_body.parameters()) + list(self.fc_action.parameters())
         self.critic_params = list(self.critic_body.parameters()) + list(self.fc_critic.parameters())
         self.phi_params = list(self.phi_body.parameters())
-
-
-class DeterministicActorCriticNet(nn.Module, BaseNet):
-    def __init__(self,
-                 state_dim,
-                 action_dim,
-                 actor_opt_fn,
-                 critic_opt_fn,
-                 phi_body=None,
-                 actor_body=None,
-                 critic_body=None):
-        super(DeterministicActorCriticNet, self).__init__()
-        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
-        self.actor_opt = actor_opt_fn(self.network.actor_params + self.network.phi_params)
-        self.critic_opt = critic_opt_fn(self.network.critic_params + self.network.phi_params)
-        self.to(Config.DEVICE)
-
-    def forward(self, obs):
-        phi = self.feature(obs)
-        action = self.actor(phi)
-        return action
-
-    def feature(self, obs):
-        obs = tensor(obs)
-        return self.network.phi_body(obs)
-
-    def actor(self, phi):
-        return F.tanh(self.network.fc_action(self.network.actor_body(phi)))
-
-    def critic(self, phi, a):
-        return self.network.fc_critic(self.network.critic_body(phi, a))
 
 
 class GaussianActorCriticNet(nn.Module, BaseNet):
@@ -274,7 +239,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
 
         logits = self.network.fc_action(phi_a)
         if legal_actions:
-            logits = self._mask_ilegal_action_logits(logits, legal_actions)
+            logits = self._mask_ilegal_action_logits(logits, legal_actions, self.action_dim)
         # Size: batch x action_dim
         v = self.network.fc_critic(phi_v)
         if self.critic_gate_fn: v = self.critic_gate_fn(v)
@@ -299,25 +264,6 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                       'probs': dist.probs}
         if rnn_states is not None: prediction.update({'rnn_states': rnn_states, 'next_rnn_states': next_rnn_states})
         return prediction
-
-    def _mask_ilegal_action_logits(self, logits: torch.Tensor, legal_actions: List[int]):
-        '''
-        TODO: document
-        If legal_actions contains a singleton None list: [None]
-        it means all actions are valid
-        '''
-        num_batches = logits.size()[0]
-        is_multi_action = (num_batches > 1) or ((num_batches >= 1) and isinstance(legal_actions[0], list))
-        if not is_multi_action:  # legal_actions is a vector, each entry is a legal action
-            illegal_action_mask = torch.tensor([float(i not in legal_actions)
-                                                for i in range(self.action_dim)])
-        if is_multi_action:  # legal_actions is a matrix, where each row is a vector of legal actions
-            illegal_action_mask = torch.tensor([[float(i not in legal_actions[j]) if legal_actions[j] else 0
-                                                for i in range(self.action_dim)]
-                                                for j in range(num_batches)])
-        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
-        masked_logits = logits + illegal_logit_penalties
-        return masked_logits
 
 
 class PolicyInferenceActorCriticNet(nn.Module, BaseNet):

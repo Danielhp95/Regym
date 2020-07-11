@@ -13,6 +13,29 @@ class BaseNet:
         self.ILLEGAL_ACTIONS_LOGIT_PENALTY = -1e9
         self.EPS = 1e-9
 
+    def forward(x, legal_actions: List[int]):
+        pass
+
+    def _mask_ilegal_action_logits(self, logits: torch.Tensor,
+                                   legal_actions: List[int], action_dim):
+        '''
+        TODO: document
+        If legal_actions contains a singleton None list: [None]
+        it means all actions are valid
+        '''
+        num_batches = logits.size()[0]
+        is_multi_action = (num_batches > 1) or ((num_batches >= 1) and isinstance(legal_actions[0], list))
+        if not is_multi_action:  # legal_actions is a vector, each entry is a legal action
+            illegal_action_mask = torch.tensor([float(i not in legal_actions)
+                                                for i in range(action_dim)])
+        if is_multi_action:  # legal_actions is a matrix, where each row is a vector of legal actions
+            illegal_action_mask = torch.tensor([[float(i not in legal_actions[j]) if legal_actions[j] else 0
+                                                for i in range(action_dim)]
+                                                for j in range(num_batches)])
+        illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
+        masked_logits = logits + illegal_logit_penalties
+        return masked_logits
+
 
 def compute_weights_decay_loss(model: torch.nn.Module, decay_rate: float = 1e-1) -> torch.Tensor:
     '''
