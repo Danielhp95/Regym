@@ -30,10 +30,12 @@ def test_vanilla_DQN_learns_to_beat_rock_in_RPS(RPSTask, dqn_config_dict):
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'DQN')
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
-                               agent_position=0,  # Doesn't matter in RPS
+                               agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
-                               total_episodes=250, training_percentage=0.9,
-                               reward_tolerance=2.,
+                               training_episodes=250,
+                               benchmark_every_n_episodes=0,
+                               test_episodes=50,
+                               reward_tolerance=1.,
                                maximum_average_reward=10.0,
                                evaluation_method='cumulative')
 
@@ -53,10 +55,12 @@ def test_double_DQN_learns_to_beat_rock_in_RPS(RPSTask, dqn_config_dict):
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'Double_DQN')
     assert agent.training and agent.algorithm.use_double
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
-                               agent_position=0,  # Doesn't matter in RPS
+                               agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
-                               total_episodes=250, training_percentage=0.9,
-                               reward_tolerance=2,
+                               training_episodes=250,
+                               benchmark_every_n_episodes=0,
+                               test_episodes=50,
+                               reward_tolerance=1.,
                                maximum_average_reward=10.0,
                                evaluation_method='cumulative')
 
@@ -76,9 +80,11 @@ def test_dueling_DQN_learns_to_beat_rock_in_RPS(RPSTask, dqn_config_dict):
     agent = build_DQN_Agent(RPSTask, dqn_config_dict, 'Dueling_DQN')
     assert agent.training and agent.algorithm.use_dueling
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
-                               agent_position=0,  # Doesn't matter in RPS
+                               agent_position=0, # Doesn't matter in RPS
                                task=RPSTask,
-                               total_episodes=250, training_percentage=0.9,
-                               reward_tolerance=2.,
+                               training_episodes=250,
+                               benchmark_every_n_episodes=0,
+                               test_episodes=50,
+                               reward_tolerance=1.,
                                maximum_average_reward=10.0,
                                evaluation_method='cumulative')
