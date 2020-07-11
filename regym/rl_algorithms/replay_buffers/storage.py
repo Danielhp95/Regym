@@ -7,7 +7,7 @@ class Storage:
         if keys is None:
             keys = []
         keys = keys + ['s', 'a', 'r', 'non_terminal',
-                       'v', 'q', 'pi', 'log_pi', 'entropy',
+                       'V', 'Q', 'pi', 'log_pi', 'entropy',
                        'adv', 'ret', 'q_a', 'log_pi_a', 'probs',
                        'mean']
         self.keys = keys

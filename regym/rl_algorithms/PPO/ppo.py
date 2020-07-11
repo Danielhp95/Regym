@@ -130,7 +130,7 @@ class PPOAlgorithm():
                                       1.0 + self.kwargs['ppo_ratio_clip']) * sampled_advantages
             policy_loss = -torch.min(obj, obj_clipped).mean() - self.kwargs['entropy_weight'] * prediction['entropy'].mean() # L^{clip} and L^{S} from original paper
 
-            value_loss = 0.5 * (sampled_returns - prediction['v']).pow(2).mean()
+            value_loss = 0.5 * (sampled_returns - prediction['V']).pow(2).mean()
 
             self.optimizer.zero_grad()
             (policy_loss + value_loss).backward(retain_graph=False)

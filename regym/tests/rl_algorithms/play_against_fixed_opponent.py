@@ -95,7 +95,6 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
                         summary_writer: Optional[SummaryWriter],
                         save_agent: bool = False):
     training_trajectories = list()
-    # This might be bugged
     step = benchmark_every_n_episodes if benchmark_every_n_episodes > 0 else training_episodes
     for e in range(0, training_episodes, step):
         training_trajectories += simulate(task, agent, fixed_opponent,

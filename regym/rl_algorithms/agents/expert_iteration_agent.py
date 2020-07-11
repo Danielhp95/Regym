@@ -125,7 +125,7 @@ class ExpertIterationAgent(Agent):
         if done:
             # Hendrik idea:
             # Using MCTS value for current search might be better?
-            for _ in range(len(storage.s)): storage.add({'v': r})
+            for _ in range(len(storage.s)): storage.add({'V': r})
 
     def normalize(self, x):
         total = sum(x)
@@ -163,7 +163,7 @@ class ExpertIterationAgent(Agent):
     @torch.no_grad()
     def evaluation_fn(self, observation, legal_actions):
         processed_obs = self.state_preprocess_fn(observation)
-        return self.apprentice(processed_obs, legal_actions=legal_actions)['v'].squeeze(0).numpy()
+        return self.apprentice(processed_obs, legal_actions=legal_actions)['V'].squeeze(0).numpy()
 
     def clone(self):
         raise NotImplementedError('Cloning ExpertIterationAgent not supported')
@@ -187,7 +187,7 @@ class ExpertIterationAgent(Agent):
     def server_based_evaluation_fn(observation, legal_actions, connection):
         connection.send((observation, legal_actions))
         prediction = connection.recv()
-        return prediction['v'].squeeze(0).numpy()
+        return prediction['V'].squeeze(0).numpy()
     #
     #####
 

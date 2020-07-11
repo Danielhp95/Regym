@@ -63,7 +63,7 @@ class ExpertIterationAlgorithm():
         for i in range(dataset_size):
             self.memory.add({'normalized_child_visitations': episode_trajectory.normalized_child_visitations[i],
                              's': episode_trajectory.s[i],
-                             'v': episode_trajectory.v[i]})
+                             'V': episode_trajectory.v[i]})
 
     def train(self, apprentice_model: nn.Module):
         ''' Highest level function '''
@@ -73,7 +73,7 @@ class ExpertIterationAlgorithm():
         # TODO: later make this function:
         # - Remove duplicates
         self.update_storage(self.memory, self.memory.size,
-                            keys=['s', 'v', 'normalized_child_visitations'])
+                            keys=['s', 'V', 'normalized_child_visitations'])
 
         # We are concatenating the entire datasat, this might be too memory expensive?
         s, v    = torch.cat(self.memory.s), torch.cat(self.memory.v)
@@ -114,9 +114,9 @@ class ExpertIterationAlgorithm():
     def update_storage(self, dataset, max_memory, keys):
         self.update_storage_size(dataset)
         dataset.remove_duplicates(target_key='s',
-                                  avg_keys=['normalized_child_visitations', 'v'])
+                                  avg_keys=['normalized_child_visitations', 'V'])
         self.curate_dataset(dataset, dataset.size,
-                            keys=['s', 'v', 'normalized_child_visitations'])
+                            keys=['s', 'V', 'normalized_child_visitations'])
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''

@@ -223,13 +223,13 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
             return {'a': action,
                     'log_pi_a': log_prob,
                     'ent': entropy,
-                    'v': v,
+                    'V': v,
                     'rnn_states': rnn_states}
         else:
             return {'a': action,
                     'log_pi_a': log_prob,
                     'ent': entropy,
-                    'v': v}
+                    'V': v}
 
 
 class CategoricalActorCriticNet(nn.Module, BaseNet):
@@ -295,7 +295,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         prediction = {'a': action,
                       'log_pi_a': log_prob,
                       'entropy': entropy,
-                      'v': v,
+                      'V': v,
                       'probs': dist.probs}
         if rnn_states is not None: prediction.update({'rnn_states': rnn_states, 'next_rnn_states': next_rnn_states})
         return prediction
