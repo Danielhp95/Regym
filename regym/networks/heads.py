@@ -92,15 +92,17 @@ class CategoricalDuelingDQNet(nn.Module, BaseNet):
 
 class CategoricalHead(nn.Module, BaseNet):
     '''Fully connected layer followed by a softmax'''
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim, output_dim, body: nn.Module = None):
         super().__init__()
+        self.body = body
         self.fc_categorical = layer_init(nn.Linear(input_dim, output_dim))
         self.input_dim = input_dim
         self.output_dim = output_dim
 
     def forward(self, x: torch.Tensor, legal_actions: List[int] = None):
+        if self.body:
+            x = self.body(x)
         logits = self.fc_categorical(x)
-
 
         if legal_actions:
             logits = self._mask_ilegal_action_logits(logits, legal_actions, self.output_dim)
@@ -131,12 +133,12 @@ class QuantileNet(nn.Module, BaseNet):
 
 
 class ActorCriticNet(nn.Module):
-    def __init__(self, state_dim, action_dim, phi_body, actor_body, critic_body):
+    def __init__(self, state_dim, action_dim, body, actor_body, critic_body):
         super(ActorCriticNet, self).__init__()
-        if phi_body is None: phi_body = DummyBody(state_dim)
-        if actor_body is None: actor_body = DummyBody(phi_body.feature_dim)
-        if critic_body is None: critic_body = DummyBody(phi_body.feature_dim)
-        self.phi_body = phi_body
+        if body is None: body = DummyBody(state_dim)
+        if actor_body is None: actor_body = DummyBody(body.feature_dim)
+        if critic_body is None: critic_body = DummyBody(body.feature_dim)
+        self.body = body
         self.actor_body = actor_body
         self.critic_body = critic_body
         self.fc_action = layer_init(nn.Linear(actor_body.feature_dim, action_dim), 1e-3)
@@ -144,27 +146,27 @@ class ActorCriticNet(nn.Module):
 
         self.actor_params = list(self.actor_body.parameters()) + list(self.fc_action.parameters())
         self.critic_params = list(self.critic_body.parameters()) + list(self.fc_critic.parameters())
-        self.phi_params = list(self.phi_body.parameters())
+        self.phi_params = list(self.body.parameters())
 
 
 class GaussianActorCriticNet(nn.Module, BaseNet):
     def __init__(self,
                  state_dim,
                  action_dim,
-                 phi_body=None,
+                 body=None,
                  actor_body=None,
                  critic_body=None):
         super(GaussianActorCriticNet, self).__init__()
-        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
+        self.network = ActorCriticNet(state_dim, action_dim, body, actor_body, critic_body)
         self.std = nn.Parameter(torch.zeros(action_dim))
 
     def forward(self, obs, action=None, rnn_states=None):
         obs = tensor(obs)
 
         if rnn_states is not None and 'phi_arch' in rnn_states:
-            phi, rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
+            phi, rnn_states['phi_arch'] = self.network.body( (obs, rnn_states['phi_arch']) )
         else:
-            phi = self.network.phi_body(obs)
+            phi = self.network.body(obs)
 
         if rnn_states is not None and 'actor_arch' in rnn_states:
             phi_a, rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )
@@ -202,7 +204,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
                  state_dim: int,
                  action_dim: int,
                  critic_gate_fn: Optional[str] = None,
-                 phi_body: nn.Module = None,
+                 body: nn.Module = None,
                  actor_body: nn.Module = None,
                  critic_body: nn.Module = None):
         BaseNet.__init__(self)
@@ -214,7 +216,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
             self.critic_gate_fn = gating_fns[critic_gate_fn]
         else: self.critic_gate_fn = None
 
-        self.network = ActorCriticNet(state_dim, action_dim, phi_body, actor_body, critic_body)
+        self.network = ActorCriticNet(state_dim, action_dim, body, actor_body, critic_body)
 
     # TODO: type hint rnn_states
     def forward(self, obs: torch.Tensor, action: int = None, rnn_states=None,
@@ -223,9 +225,9 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
             next_rnn_states = {k: None for k in rnn_states}
 
         if rnn_states is not None and 'phi_arch' in rnn_states:
-            phi, next_rnn_states['phi_arch'] = self.network.phi_body( (obs, rnn_states['phi_arch']) )
+            phi, next_rnn_states['phi_arch'] = self.network.body( (obs, rnn_states['phi_arch']) )
         else:
-            phi = self.network.phi_body(obs)
+            phi = self.network.body(obs)
 
         if rnn_states is not None and 'actor_arch' in rnn_states:
             phi_a, next_rnn_states['actor_arch'] = self.network.actor_body( (phi, rnn_states['actor_arch']) )

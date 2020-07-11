@@ -10,13 +10,16 @@ from functools import reduce
 
 class A2CAlgorithm():
 
-    def __init__(self, policy_model_input_dim, policy_model_output_dim,
-                 discount_factor, n_steps, learning_rate, adam_eps):
+    def __init__(self, model: nn.Module,
+                 discount_factor: float,
+                 n_steps: int,
+                 learning_rate: float,
+                 adam_eps: float):
         self.discount_factor = discount_factor
         self.learning_rate = learning_rate
 
         self.n_steps = n_steps
-        self.model = FullyConnectedFeedForward(policy_model_input_dim, policy_model_output_dim, hidden_units=(16,))
+        self.model = model
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, eps=adam_eps)
 
     def train(self, samples, bootstrapped_reward):
@@ -65,9 +68,9 @@ class FullyConnectedFeedForward(nn.Module):
         action, log_probability = self.policy_head(self.gate(self.policy_head_layer(last_layer_output)))
         # Value head
         state_value = self.value_head_layer(last_layer_output)
-        return {'action': action,
-                'action_log_probability': log_probability,
-                'state_value': state_value}
+        return {'a': action,
+                'log_probs': log_probability,
+                'V': state_value}
 
     def policy_head(self, last_layer_output):
         action_probabilities = F.softmax(last_layer_output)
