@@ -32,7 +32,7 @@ class PPOAgent(Agent):
         self.rnn_states = {k: None for k in self.rnn_keys}
         for k in self.rnn_states:
             if 'phi' in k:
-                self.rnn_states[k] = self.algorithm.model.network.phi_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
             if 'critic' in k:
                 self.rnn_states[k] = self.algorithm.model.network.critic_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
             if 'actor' in k:
@@ -134,12 +134,12 @@ def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], ag
     if kwargs['phi_arch'] != 'None':
         output_dim = 64
         if kwargs['phi_arch'] == 'RNN':
-            phi_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
+            body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif kwargs['phi_arch'] == 'MLP':
-            phi_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+            body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
         input_dim = output_dim
     else:
-        phi_body = None
+        body = None
 
     if kwargs['actor_arch'] != 'None':
         output_dim = 64
@@ -161,17 +161,17 @@ def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], ag
 
     if task.action_type == 'Discrete' and task.observation_type == 'Discrete':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
-                                          phi_body=phi_body,
+                                          body=body,
                                           actor_body=actor_body,
                                           critic_body=critic_body)
     if task.action_type == 'Discrete' and task.observation_type == 'Continuous':
         model = CategoricalActorCriticNet(task.observation_dim, task.action_dim,
-                                          phi_body=phi_body,
+                                          body=body,
                                           actor_body=actor_body,
                                           critic_body=critic_body)
     if task.action_type == 'Continuous' and task.observation_type == 'Continuous':
         model = GaussianActorCriticNet(task.observation_dim, task.action_dim,
-                                       phi_body=phi_body,
+                                       body=body,
                                        actor_body=actor_body,
                                        critic_body=critic_body)
 
