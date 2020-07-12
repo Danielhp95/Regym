@@ -227,7 +227,7 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
         return CategoricalActorCriticNet(state_dim=feature_and_body.feature_dim,
                                          action_dim=task.action_dim,
                                          critic_gate_fn=config.get('critic_gate_fn', None),
-                                         phi_body=feature_and_body)
+                                         body=feature_and_body)
 
 
 def build_apprentice_with_agent_modelling(feature_extractor, task, config):
