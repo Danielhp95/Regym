@@ -59,8 +59,12 @@ def hard_update(fromm: torch.nn.Module, to: torch.nn.Module):
 
 
 def soft_update(fromm: torch.nn.Module, to: torch.nn.Module, tau: float):
-    for fp, tp in zip(fromm.parameters(), to.parameters()):
-        fp.data.copy_(((1.0 - tau) * fp.data) + (tau * tp.data))
+    with torch.no_grad():
+        for p, p_targ in zip(fromm.parameters(), to.parameters()):
+            # NB: We use an in-place operations "mul_", "add_" to update target
+            # params, as opposed to "mul" and "add", which would make new tensors.
+            p_targ.data.mul_(tau)
+            p_targ.data.add_((1 - tau) * p.data)
 
 
 def layer_init(layer, w_scale=1.0) -> nn.Module:
@@ -68,6 +72,7 @@ def layer_init(layer, w_scale=1.0) -> nn.Module:
     layer.weight.data.mul_(w_scale)
     nn.init.constant_(layer.bias.data, 0)
     return layer
+
 
 def layer_init_lstm(layer, w_scale=1.0):
     nn.init.orthogonal_(layer.weight_ih.data)
