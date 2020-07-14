@@ -20,7 +20,7 @@ def plot_gradient_flow(named_parameters: Iterator[Tuple[(str, Parameter)]]):
     Usage:
 
     >>> model: nn.Module
-    >>> loss.backwards  # A loss tensor has been propagated through our model
+    >>> loss.backwards() # A loss tensor has been propagated through our model
     >>> plot_gradient_flow(model.named_parameters())
 
     to visualize the gradient flow
