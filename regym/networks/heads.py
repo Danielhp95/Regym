@@ -91,7 +91,6 @@ class CategoricalDuelingDQNet(nn.Module, BaseNet):
 
 
 class CategoricalHead(nn.Module, BaseNet):
-    '''Fully connected layer followed by a softmax'''
     def __init__(self, input_dim, output_dim, body: nn.Module = None):
         super().__init__()
         self.body = body
@@ -101,14 +100,14 @@ class CategoricalHead(nn.Module, BaseNet):
 
     def forward(self, x: torch.Tensor, legal_actions: List[int] = None):
         if self.body:
-            x = self.body(x)
-        logits = self.fc_categorical(x)
+            body_embedding = self.body(x)
+        logits = self.fc_categorical(body_embedding)
 
         if legal_actions:
             logits = self._mask_ilegal_action_logits(logits, legal_actions, self.output_dim)
 
         probs = F.softmax(logits, dim=-1)
-        log_probs = F.log_softmax(logits, dim=-1)
+        log_probs = probs.log()
         entropy = -1. * torch.sum(probs * log_probs)
         action = torch.distributions.Categorical(logits=logits).sample()
         action = action.view(-1, 1)
