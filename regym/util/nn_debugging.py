@@ -18,7 +18,6 @@ def plot_gradient_flow(named_parameters: Iterator[Tuple[(str, Parameter)]]):
     Can be used for checking for possible gradient vanishing / exploding problems.
     
     Usage:
-
     >>> model: nn.Module
     >>> loss.backwards() # A loss tensor has been propagated through our model
     >>> plot_gradient_flow(model.named_parameters())
@@ -58,6 +57,10 @@ def plot_backwards_graph(tensor: Tensor, model: torch.nn.Module, filename: str):
     which will be stored in file :param: {filename}.pdf.
     NOTE: - Three files are created (1) filename (2) filename.pdf (3) Digraph.gv
           - This function WILL NOT plot in a terminal, only to a file
+
+    Usage:
+    >>> loss: torch.Tensor  # Computed somewhere
+    >>> plot_backwards_graph(loss, model, filename)
 
     :param tensor: Tensor's backward computational path
     :param model: Model from which the tensor originated
