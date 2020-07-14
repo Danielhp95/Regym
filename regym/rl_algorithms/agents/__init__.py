@@ -18,6 +18,9 @@ from .ppo_agent import build_PPO_Agent, PPOAgent
 from .reinforce_agent import build_Reinforce_Agent, ReinforceAgent
 from .a2c_agent import build_A2C_Agent, A2CAgent
 
+# SAC agents
+from .soft_actor_critic_agent import build_SAC_Agent, SoftActorCriticAgent
+
 # Search based agents
 from .mcts_agent import build_MCTS_Agent, MCTSAgent
 from .expert_iteration_agent import build_ExpertIteration_Agent, ExpertIterationAgent

@@ -5,6 +5,8 @@ from .agents import build_PPO_Agent, build_A2C_Agent, build_Reinforce_Agent
 
 from .agents import build_DQN_Agent
 
+from .agents import build_SAC_Agent
+
 from .agents import build_MCTS_Agent
 from .agents import build_ExpertIteration_Agent
 
