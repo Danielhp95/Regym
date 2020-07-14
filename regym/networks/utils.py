@@ -68,8 +68,9 @@ def soft_update(fromm: torch.nn.Module, to: torch.nn.Module, tau: float):
 
 
 def layer_init(layer, w_scale=1.0) -> nn.Module:
+    ''' Xavier init '''
     nn.init.orthogonal_(layer.weight.data)
-    layer.weight.data.mul_(w_scale)
+    nn.init.xavier_uniform_(layer.weight)
     nn.init.constant_(layer.bias.data, 0)
     return layer
 
