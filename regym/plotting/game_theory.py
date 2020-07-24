@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 
 
 def plot_winrate_matrix(winrate_matrix: Union[List, np.ndarray],
-                        ax: Optional[plt.Axes] = None, show_annotations=True) \
+                        show_annotations=True, cbar=False,
+                        ax: Optional[plt.Axes] = None) \
                         -> plt.Axes:
     '''
     Plots the :param: winrate matrix: on a heatmap.
@@ -26,7 +27,7 @@ def plot_winrate_matrix(winrate_matrix: Union[List, np.ndarray],
 
     sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax, square=True,
                 cmap=sns.color_palette('coolwarm', 50)[::-1],
-                vmin=0.0, vmax=1.0, cbar=False, cbar_kws={'label': 'Head to head winrates'})
+                vmin=0.0, vmax=1.0, cbar=cbar, cbar_kws={'label': 'Head to head winrates'})
     ax.set_xlabel('Agent ID')
     ax.set_ylabel('Agent ID')
     ax.set_ylim(len(winrate_matrix) + 0.2, -0.2)  # Required seaborn hack
