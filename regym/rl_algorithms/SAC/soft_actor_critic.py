@@ -108,15 +108,6 @@ class SoftActorCriticAlgorithm():
         loss_pi.backward()
         self.pi_actor_optimizer.step()
 
-        ####### DEBUGGING COMMENCES
-
-        print(loss_pi)
-        # Line beneath prints the gradients of the actor's output head
-        [print(p.grad) for p in self.pi_actor.fc_categorical.parameters() if p.grad is not None]
-
-
-        ####### DEBUGGING COMMENCES
-
         # Unfreeze Q-networks so you can optimize it at next DDPG step.
         for p in self.q_params(): p.requires_grad = True
 
