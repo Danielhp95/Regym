@@ -7,14 +7,14 @@ from regym.environments import EnvType
 @pytest.fixture
 def sac_config_dict():
     config = dict()
-    config['learning_rate'] = 1e-3
-    config['memory_size'] = 2000
+    config['learning_rate'] = 3e-3
+    config['memory_size'] = 20000
     config['gamma'] = 0.99
     config['tau'] = 0.995
     config['batch_size'] = 32
-    config['alpha'] = 0
+    config['alpha'] = 0.01
     config['update_after'] = 500
-    config['update_every'] = 50
+    config['update_every'] = 1
     config['use_cuda'] = False
     return config
 

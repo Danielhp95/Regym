@@ -39,7 +39,7 @@ def test_sac_learns_to_beat_rock_in_RPS(RPSTask, sac_config_dict):
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0,  # Doesn't matter in RPS
                                task=RPSTask,
-                               training_episodes=2250,
+                               training_episodes=250,
                                test_episodes=50,
                                reward_tolerance=2.,
                                maximum_average_reward=10.0,
