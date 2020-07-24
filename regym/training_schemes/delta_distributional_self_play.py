@@ -46,3 +46,6 @@ class DeltaDistributionalSelfPlay():
         '''
 
         return menagerie + [AgentHook(training_agent.clone(training=False), save_path=candidate_save_path)]
+
+    def __repr__(self):
+        return f'DeltaDistributionalSelfPlay: delta={self.delta}, distribution={self.distribution}'
