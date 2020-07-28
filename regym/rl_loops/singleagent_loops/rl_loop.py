@@ -1,11 +1,12 @@
 from typing import List, Tuple, Any
 from copy import deepcopy
+
+import tqdm
 import gym
+
 import regym
 from regym.rl_algorithms.agents import Agent
-
 from regym.environments.tasks import RegymAsyncVectorEnv
-
 from regym.rl_loops.utils import update_trajectories, update_finished_trajectories
 
 
@@ -39,7 +40,7 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
 
 
 def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
-                      num_episodes: int) \
+                      num_episodes: int, show_progress=True) \
                       -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
     '''
     TODO
@@ -53,6 +54,7 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
 
     obs = env.reset()
     legal_actions: List[List] = None  # Revise
+    progress_bar = tqdm.tqdm(total=num_episodes)
     while len(finished_trajectories) < num_episodes:
         action_vector: List
         if agent.requires_environment_model:
@@ -76,8 +78,10 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
 
         done_envs = [i for i in range(len(dones)) if dones[i]]
         if len(done_envs) > 0:
+            progress_bar.update(len(done_envs))
             ongoing_trajectories, finished_trajectories = update_finished_trajectories(
                     ongoing_trajectories, finished_trajectories, done_envs)
     # What if we end up with more trajectories
     # than initially specified (i.e two or more episodes end at the same time)
+    progress_bar.close()
     return finished_trajectories

@@ -7,6 +7,8 @@ import numpy as np
 from regym.rl_algorithms.replay_buffers import Storage
 from regym.networks import random_sample
 
+from regym.rl_algorithms.PPO.ppo_loss import compute_loss
+
 
 class PPOAlgorithm():
 
@@ -113,26 +115,25 @@ class PPOAlgorithm():
             sampled_returns = returns[batch_indices].cuda() if self.kwargs['use_cuda'] else returns[batch_indices]
             sampled_advantages = advantages[batch_indices].cuda() if self.kwargs['use_cuda'] else advantages[batch_indices]
 
+            sampled_rnn_states = None
             if self.recurrent:
                 sampled_rnn_states = { k: ([None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k]) for k in self.rnn_keys}
                 for k in sampled_rnn_states:
                     for idx in range(nbr_layers_per_rnn[k]):
                         sampled_rnn_states[k][0][idx] = rnn_states[k][0][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][0][idx][batch_indices]
                         sampled_rnn_states[k][1][idx] = rnn_states[k][1][idx][batch_indices].cuda() if self.kwargs['use_cuda'] else rnn_states[k][1][idx][batch_indices]
-                
-                prediction = self.model(sampled_states, sampled_actions, rnn_states=sampled_rnn_states)
-            else:
-                prediction = self.model(sampled_states, sampled_actions)
                     
-            ratio = (prediction['log_pi_a'] - sampled_log_probs_old).exp()
-            obj = ratio * sampled_advantages
-            obj_clipped = ratio.clamp(1.0 - self.kwargs['ppo_ratio_clip'],
-                                      1.0 + self.kwargs['ppo_ratio_clip']) * sampled_advantages
-            policy_loss = -torch.min(obj, obj_clipped).mean() - self.kwargs['entropy_weight'] * prediction['entropy'].mean() # L^{clip} and L^{S} from original paper
-
-            value_loss = 0.5 * (sampled_returns - prediction['V']).pow(2).mean()
+            total_loss = compute_loss(states=sampled_states,
+                                      actions=sampled_actions,
+                                      log_probs_old=sampled_log_probs_old,
+                                      returns=sampled_returns,
+                                      advantages=sampled_advantages,
+                                      model=self.model,
+                                      rnn_states=sampled_rnn_states,
+                                      ratio_clip=self.kwargs['ppo_ratio_clip'],
+                                      entropy_weight=self.kwargs['entropy_weight'])
 
             self.optimizer.zero_grad()
-            (policy_loss + value_loss).backward(retain_graph=False)
+            total_loss.backward(retain_graph=False)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.kwargs['gradient_clip'])
             self.optimizer.step()
