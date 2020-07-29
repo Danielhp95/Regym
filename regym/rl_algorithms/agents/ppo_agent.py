@@ -17,8 +17,8 @@ import numpy as np
 class PPOAgent(Agent):
 
     def __init__(self, name, algorithm):
+        self.algorithm = algorithm  # This has to go before the super initializer
         super(PPOAgent, self).__init__(name)
-        self.algorithm = algorithm
         self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
 
         self.recurrent = False
@@ -28,15 +28,20 @@ class PPOAgent(Agent):
             self.recurrent = True
             self._reset_rnn_states()
 
+    @Agent.num_actors.setter
+    def num_actors(self, n):
+        self.algorithm.storages = self.algorithm.create_storages(num_storages=n)
+        self._num_actors = n
+
     def _reset_rnn_states(self):
         self.rnn_states = {k: None for k in self.rnn_keys}
         for k in self.rnn_states:
             if 'phi' in k:
-                self.rnn_states[k] = self.algorithm.model.network.body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.body.get_reset_states(cuda=self.algorithm.use_cuda)
             if 'critic' in k:
-                self.rnn_states[k] = self.algorithm.model.network.critic_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.critic_body.get_reset_states(cuda=self.algorithm.use_cuda)
             if 'actor' in k:
-                self.rnn_states[k] = self.algorithm.model.network.actor_body.get_reset_states(cuda=self.algorithm.kwargs['use_cuda'])
+                self.rnn_states[k] = self.algorithm.model.network.actor_body.get_reset_states(cuda=self.algorithm.use_cuda)
 
     def _post_process(self, prediction):
         if self.recurrent:
@@ -61,22 +66,24 @@ class PPOAgent(Agent):
 
     def _pre_process_rnn_states(self, done=False):
         if done or self.rnn_states is None: self._reset_rnn_states()
-        if self.algorithm.kwargs['use_cuda']:
+        if self.algorithm.use_cuda:
             for k, (hs, cs) in self.rnn_states.items():
                 for idx in range(len(hs)):
                     self.rnn_states[k][0][idx] = self.rnn_states[k][0][idx].cuda()
                     self.rnn_states[k][1][idx] = self.rnn_states[k][1][idx].cuda()
 
-    def handle_experience(self, s, a, r, succ_s, done):
+    def handle_experience(self, s, a, r, succ_s, done, storage_idx=0):
         super(PPOAgent, self).handle_experience(s, a, r, succ_s, done)
+        storage = self.algorithm.storages[storage_idx]
+
         non_terminal = torch.ones(1)*(1 - int(done))
         state = self.state_preprocessing(s).view(1, -1)
         r = torch.ones(1)*r
 
-        self.algorithm.storage.add(self.current_prediction)
-        self.algorithm.storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
+        storage.add(self.current_prediction)
+        storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
-        if self.training and (self.handled_experiences % self.algorithm.kwargs['horizon']) == 0:
+        if (self.handled_experiences % self.algorithm.horizon) == 0:
             next_state = self.state_preprocessing(succ_s).view(1, -1)
 
             if self.recurrent:
@@ -86,9 +93,13 @@ class PPOAgent(Agent):
                 next_prediction = self.algorithm.model(next_state)
             next_prediction = self._post_process(next_prediction)
 
-            self.algorithm.storage.add(next_prediction)
+            storage.add(next_prediction)
             self.algorithm.train()
             self.handled_experiences = 0
+
+    def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
+        for (o, a, r, succ_o, done), e_i in zip(experiences, env_ids):
+            pass
 
     def model_free_take_action(self, state, legal_actions: List[int] = None,
                                multi_action: bool = False):
@@ -96,7 +107,6 @@ class PPOAgent(Agent):
 
         self.current_prediction = self.compute_prediction(preprocessed_state,
                                                           legal_actions)
-
         action = self.current_prediction['a']
         if not multi_action:  # Action is a single integer
             action = np.int(action)

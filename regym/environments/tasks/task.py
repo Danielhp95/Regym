@@ -105,6 +105,10 @@ class Task:
             raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
         extended_agent_vector = self._extend_agent_vector(agent_vector)
 
+        # Refactor
+        for agent in agent_vector:
+            agent.num_actors = num_envs
+
         self.start_agent_servers(agent_vector, num_envs)
 
         vector_env = RegymAsyncVectorEnv(self.name, num_envs)

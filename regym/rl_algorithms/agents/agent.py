@@ -59,7 +59,16 @@ class Agent(ABC):
         self.requires_environment_model: bool = requires_environment_model
         self.multi_action_requires_server: bool = multi_action_requires_server
 
+        self.num_actors: int = 1
         self.server_handler: NeuralNetServerHandler = None
+
+    @property
+    def num_actors(self):
+        return self._num_actors
+
+    @num_actors.setter
+    def num_actors(self, n):
+        self._num_actors = n
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 legal_actions: Union[List[int], List[List[int]]],
