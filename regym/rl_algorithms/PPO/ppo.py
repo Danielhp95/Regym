@@ -45,6 +45,8 @@ class PPOAlgorithm():
         if self.recurrent:
             self.storage.add_key('rnn_states')
             self.storage.add_key('next_rnn_states')
+
+        self.num_updates = 0
         
     def train(self):
         self.storage.placeholder()
@@ -107,6 +109,7 @@ class PPOAlgorithm():
             nbr_layers_per_rnn = { k:len(rnn_states[k][0] ) for k in self.rnn_keys}
         
         for batch_indices in sampler:
+            self.num_updates += 1
             batch_indices = torch.from_numpy(batch_indices).long()
 
             sampled_states = states[batch_indices].cuda() if self.kwargs['use_cuda'] else states[batch_indices]
@@ -131,7 +134,8 @@ class PPOAlgorithm():
                                       model=self.model,
                                       rnn_states=sampled_rnn_states,
                                       ratio_clip=self.kwargs['ppo_ratio_clip'],
-                                      entropy_weight=self.kwargs['entropy_weight'])
+                                      entropy_weight=self.kwargs['entropy_weight'],
+                                      iteration_count=self.num_updates)
 
             self.optimizer.zero_grad()
             total_loss.backward(retain_graph=False)

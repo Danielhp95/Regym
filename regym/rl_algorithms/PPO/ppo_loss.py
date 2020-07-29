@@ -1,12 +1,16 @@
 from typing import Dict, List
 import torch
 
+from torch.utils.tensorboard import SummaryWriter
+
+summary_writer = None
 
 def compute_loss(states: torch.Tensor, actions: torch.Tensor,
                  log_probs_old: torch.Tensor, returns: torch.Tensor,
                  advantages: torch.Tensor, model: torch.nn.Module,
                  ratio_clip: float, entropy_weight: float,
-                 rnn_states: Dict[str, Dict[str, List[torch.Tensor]]] = None) -> torch.Tensor:
+                 rnn_states: Dict[str, Dict[str, List[torch.Tensor]]],
+                 iteration_count: int) -> torch.Tensor:
     '''
     Computes the loss of an actor critic model using the
     loss function from equation (9) in the paper:
@@ -48,4 +52,10 @@ def compute_loss(states: torch.Tensor, actions: torch.Tensor,
     policy_loss = -1. * torch.min(obj, obj_clipped).mean() - entropy_weight * prediction['entropy'].mean() # L^{clip} and L^{S} from original paper
     value_loss = 0.5 * torch.nn.functional.mse_loss(returns, prediction['V'])
     total_loss = (policy_loss + value_loss)
+
+    if summary_writer:
+        summary_writer.add_scalar('Training/Critic_loss', value_loss.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/Actor_loss', policy_loss.cpu().item(), iteration_count)
+        summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)
+
     return total_loss

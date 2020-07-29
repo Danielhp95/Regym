@@ -1,8 +1,10 @@
 from functools import reduce
 from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSTask, KuhnTask, CartPoleTask
 
-from regym.networks.preprocessing import batch_vector_observation
+import tqdm
 
+import regym
+from regym.networks.preprocessing import batch_vector_observation
 from regym.environments import generate_task, EnvType
 from regym.rl_algorithms.agents import Agent, build_Deterministic_Agent
 from regym.rl_algorithms.agents import build_PPO_Agent
@@ -25,22 +27,41 @@ def test_ppo_can_take_actions(RPSTask, ppo_config_dict):
 
 def test_ppo_can_solve_multi_env_cartpole(CartPoleTask, ppo_config_dict):
     agent = build_PPO_Agent(CartPoleTask, ppo_config_dict, 'PPO-CartPole-Test')
-    agent.state_preprocessing = batch_vector_observation
+    agent.state_preprocessing = batch_vector_observation  # Required for multiactor
+
+    from torch.utils.tensorboard import SummaryWriter
+    regym.rl_algorithms.PPO.ppo_loss.summary_writer = SummaryWriter('ppo_test_tensorboard')
+    singleactorr_task_test(CartPoleTask, agent)
+
+
+def singleactorr_task_test(task, agent):
     assert agent.training, 'Agent should be training in order to solve test environment'
     import tqdm
+    progress_bar = tqdm.tqdm(range(20000))
+    for _ in progress_bar:
+        trajectory = task.run_episode([agent], training=True)
+        progress_bar.set_description(f'{agent.name} in {task.env.spec.id}. Episode length: {len(trajectory)}')
+    max_traj_len = 200
+    solved_threshold = 180
+    total_test_trajectory_len = reduce(lambda acc, t: acc + len(t),
+                                       test_trajectories, 0)
+    #for t in test_trajectories: print(len(t))
+    assert total_test_trajectory_len / test_episodes >= solved_threshold
+
+def multiactor_task_test(task, agent):
+    assert agent.training, 'Agent should be training in order to solve test environment'
     train_episodes = 5000
     test_episodes = 100
-    train_trajectories = CartPoleTask.run_episodes([agent], training=True,
+    train_trajectories = task.run_episodes([agent], training=True,
             num_episodes=train_episodes, num_envs=12)
-    import ipdb; ipdb.set_trace()
-    for t in train_trajectories: print(len(t))
-    test_trajectories = CartPoleTask.run_episodes([agent], training=True,
+    #for t in train_trajectories: print(len(t))
+    test_trajectories = task.run_episodes([agent], training=True,
             num_episodes=test_episodes, num_envs=12)
     max_traj_len = 200
     solved_threshold = 180
     total_test_trajectory_len = reduce(lambda acc, t: acc + len(t),
                                        test_trajectories, 0)
-    for t in test_trajectories: print(len(t))
+    #for t in test_trajectories: print(len(t))
     assert total_test_trajectory_len / test_episodes >= solved_threshold
 
 
