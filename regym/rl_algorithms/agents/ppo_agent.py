@@ -99,7 +99,7 @@ class PPOAgent(Agent):
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
         for (o, a, r, succ_o, done), e_i in zip(experiences, env_ids):
-            pass
+            self.handle_experience(o, a, r, succ_o, done, storage_idx=e_i)
 
     def model_free_take_action(self, state, legal_actions: List[int] = None,
                                multi_action: bool = False):
