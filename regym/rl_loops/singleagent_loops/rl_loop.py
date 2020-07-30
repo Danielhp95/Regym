@@ -68,9 +68,9 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
 
         # TODO: TEST
         if training:
-            for t in ongoing_trajectories:
-                (o, a, r, succ_o, done) = t[-1]
-                agent.handle_experience(o, a, r, succ_o, done)
+            experiences = [t[-1] for t in ongoing_trajectories]
+            agent.handle_multiple_experiences(
+                    experiences, list(range(len(ongoing_trajectories))))
 
         obs = succ_obs
         if 'legal_actions' in infos[0]:
