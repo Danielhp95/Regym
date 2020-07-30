@@ -80,7 +80,11 @@ class PPOAgent(Agent):
         state = self.state_preprocessing(s).view(1, -1)
         r = torch.ones(1)*r
 
-        storage.add(self.current_prediction)
+        # This is not pretty, and is the remnants of
+        # porting single actor PPO to multiactor
+        for k in self.current_prediction.keys():
+            storage.add({k: self.current_prediction[k][storage_idx]})
+
         storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
         if (self.handled_experiences % self.algorithm.horizon) == 0:
@@ -93,7 +97,9 @@ class PPOAgent(Agent):
                 next_prediction = self.algorithm.model(next_state)
             next_prediction = self._post_process(next_prediction)
 
-            storage.add(next_prediction)
+            for k in next_prediction.keys():
+                # Index 0 because there's a single prediction
+                storage.add({k: next_prediction[k][0]})
             self.algorithm.train()
             self.handled_experiences = 0
 

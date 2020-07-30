@@ -30,11 +30,13 @@ class Storage:
                 storage_element += v
             else: storage_element.append(v)
 
-    def placeholder(self):
+    def placeholder(self, num_elements: int = -1):
+        if num_elements == -1:
+            num_elements = self.size
         for k in self.keys:
             v = getattr(self, k)
             if len(v) == 0:
-                setattr(self, k, [None] * self.size)
+                setattr(self, k, [None] * num_elements)
 
     def reset(self):
         for key in self.keys:

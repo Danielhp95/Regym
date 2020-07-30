@@ -66,7 +66,6 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
         update_trajectories(ongoing_trajectories, action_vector, obs,
                             rewards, succ_obs, dones)
 
-        # TODO: TEST
         if training:
             experiences = [t[-1] for t in ongoing_trajectories]
             agent.handle_multiple_experiences(

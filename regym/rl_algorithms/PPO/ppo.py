@@ -68,7 +68,7 @@ class PPOAlgorithm():
 
     def train(self):
         for storage in self.storages:
-            storage.placeholder()
+            storage.placeholder(num_elements=len(storage.s))
             self.compute_advantages_and_returns(storage)
 
         (states, actions, log_probs_old, returns,
@@ -98,7 +98,8 @@ class PPOAlgorithm():
     def compute_advantages_and_returns(self, storage):
         advantages = torch.from_numpy(np.zeros((1, 1), dtype=np.float32)) # TODO explain (used to be number of workers)
         returns = storage.V[-1].detach()
-        for i in reversed(range(self.horizon)):
+        num_observed_rewards = len(storage.r)
+        for i in reversed(range(num_observed_rewards)):
             returns = storage.r[i] + self.discount * storage.non_terminal[i] * returns
             if not self.use_gae:
                 advantages = returns - storage.V[i].detach()
@@ -146,6 +147,12 @@ class PPOAlgorithm():
                                                                      storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']) )
             rnn_states = None
 
+        # Turning actions into dim: self.horizon x 1
+        # (Might break in environments where actions are not a single number)
+        actions = actions.view(-1, 1)
+        log_probs_old = log_probs_old.view(-1, 1)
+        returns = returns.view(-1, 1)
+        advantages = advantages.view(-1, 1)
         advantages = self.standardize(advantages)
         return states, actions, log_probs_old, returns, advantages, rnn_states
 
