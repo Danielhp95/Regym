@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from copy import deepcopy
 import torch
 import torch.nn as nn
@@ -149,9 +149,27 @@ class PPOAlgorithm():
         advantages = self.standardize(advantages)
         return states, actions, log_probs_old, returns, advantages, rnn_states
 
-
     def standardize(self, x):
         return (x - x.mean()) / x.std()
+
+    def sample_batch_from_indices(self, batch_indices, states, actions,
+                                  log_probs_old, returns, advantages,
+                                  rnn_states) -> Tuple[torch.Tensor]:
+        sampled_states = states[batch_indices].cuda() if self.use_cuda else states[batch_indices]
+        sampled_actions = actions[batch_indices].cuda() if self.use_cuda else actions[batch_indices]
+        sampled_log_probs_old = log_probs_old[batch_indices].cuda() if self.use_cuda else log_probs_old[batch_indices]
+        sampled_returns = returns[batch_indices].cuda() if self.use_cuda else returns[batch_indices]
+        sampled_advantages = advantages[batch_indices].cuda() if self.use_cuda else advantages[batch_indices]
+
+        sampled_rnn_states = None
+        if self.recurrent:
+            sampled_rnn_states = { k: ([None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k]) for k in self.rnn_keys}
+            for k in sampled_rnn_states:
+                for idx in range(nbr_layers_per_rnn[k]):
+                    sampled_rnn_states[k][0][idx] = rnn_states[k][0][idx][batch_indices].cuda() if self.use_cuda else rnn_states[k][0][idx][batch_indices]
+                    sampled_rnn_states[k][1][idx] = rnn_states[k][1][idx][batch_indices].cuda() if self.use_cuda else rnn_states[k][1][idx][batch_indices]
+        return (sampled_states, sampled_actions, sampled_log_probs_old,
+                sampled_returns, sampled_advantages, sampled_rnn_states)
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages, rnn_states=None):
         sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
@@ -163,19 +181,11 @@ class PPOAlgorithm():
             self.num_updates += 1
             batch_indices = torch.from_numpy(batch_indices).long()
 
-            sampled_states = states[batch_indices].cuda() if self.use_cuda else states[batch_indices]
-            sampled_actions = actions[batch_indices].cuda() if self.use_cuda else actions[batch_indices]
-            sampled_log_probs_old = log_probs_old[batch_indices].cuda() if self.use_cuda else log_probs_old[batch_indices]
-            sampled_returns = returns[batch_indices].cuda() if self.use_cuda else returns[batch_indices]
-            sampled_advantages = advantages[batch_indices].cuda() if self.use_cuda else advantages[batch_indices]
-
-            sampled_rnn_states = None
-            if self.recurrent:
-                sampled_rnn_states = { k: ([None]*nbr_layers_per_rnn[k] , [None]*nbr_layers_per_rnn[k]) for k in self.rnn_keys}
-                for k in sampled_rnn_states:
-                    for idx in range(nbr_layers_per_rnn[k]):
-                        sampled_rnn_states[k][0][idx] = rnn_states[k][0][idx][batch_indices].cuda() if self.use_cuda else rnn_states[k][0][idx][batch_indices]
-                        sampled_rnn_states[k][1][idx] = rnn_states[k][1][idx][batch_indices].cuda() if self.use_cuda else rnn_states[k][1][idx][batch_indices]
+            (sampled_states, sampled_actions, sampled_log_probs_old,
+            sampled_returns, sampled_advantages,
+            sampled_rnn_states) = self.sample_batch_from_indices(batch_indices,
+                    states, actions, log_probs_old, returns, advantages,
+                    rnn_states)
 
             total_loss = compute_loss(states=sampled_states,
                                       actions=sampled_actions,
