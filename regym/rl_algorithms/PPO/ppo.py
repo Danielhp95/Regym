@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import List, Tuple
 from copy import deepcopy
 import torch
@@ -110,32 +111,20 @@ class PPOAlgorithm():
             storage.ret[i] = returns.detach()
 
     def retrieve_values_from_storages(self):
-        all_states = []
-        all_actions = []
-        all_log_probs_old = []
-        all_returns = []
-        all_advantages = []
-        all_rnn_states = [] if self.recurrent else None
+        (all_states, all_actions, all_log_probs_old, all_returns,
+         all_advantages, all_rnn_states) = zip(*reduce(
+             lambda acc, s: acc + [self.retrieve_values_from_single_storage(s)],
+             self.storages, []))
 
-        for storage in self.storages:
-            (states, actions, log_probs_old, returns, advantages,
-             rnn_states) = self.retrieve_values_from_single_storage(storage)
-            all_states += states
-            all_actions += actions
-            all_log_probs_old += log_probs_old
-            all_returns += returns
-            all_advantages += advantages
-            if self.recurrent: all_rnn_states += rnn_states
-
-        all_states = torch.stack(all_states, dim=0)
-        all_actions = torch.stack(all_actions, dim=0)
-        all_log_probs_old = torch.stack(all_log_probs_old, dim=0)
-        all_returns = torch.stack(all_returns, dim=0)
-        all_advantages = torch.stack(all_advantages, dim=0)
-        if self.recurrent: all_rnn_states = torch.stack(all_rnn_states, dim=0)
+        all_states = torch.cat(all_states, dim=0)
+        all_actions = torch.cat(all_actions, dim=0)
+        all_log_probs_old = torch.cat(all_log_probs_old, dim=0)
+        all_returns = torch.cat(all_returns, dim=0)
+        all_advantages = torch.cat(all_advantages, dim=0)
+        all_rnn_states = torch.cat(all_rnn_states, dim=0) if self.recurrent else None
 
         return (all_states, all_actions, all_log_probs_old, all_returns,
-               all_advantages, rnn_states)
+               all_advantages, all_rnn_states)
 
     def retrieve_values_from_single_storage(self, storage):
         if self.recurrent:
