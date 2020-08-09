@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 import gym
 
 import regym
-
 from .regym_worker import RegymAsyncVectorEnv
 
 
@@ -78,41 +77,80 @@ class Task:
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
         If the flag :param: training is set, the agents in :param: agent_vector
-        will be fed the 'experiences'* collected during the episode.
+        will be fed the 'experiences'* collected during the episode. These episodes
+        can be visualized via :param: render_mode (where implemented :P)
 
         Depending on the Task.env_type, a different mathematical model
-        is used to simulate an episode an episode on the environment.
+        is used to simulate an episode on the environment.
 
         *The term 'experience' is defined in regym.rl_algorithms.agents.Agent
+
+        :param agent_vector: List of agents that will act in the environment,
+                             this parameter will be extended with
+                             `task.extended_agents` vector.
+        :param training:     Whether to propagate experiences to agents.
+                             Note that agents must also have their own
+                             `Agent.training` flag set.
+        :param render_mode:  String identifier representing what how to render the
+                             of environment. It is up to the the underlying
+                             `Task.env` to support different render_mode(s),
+                             and it is not Regym's responsability.
+        :returns: List of trajectories experienced by agents in
+                  :param: agent_vector
         '''
-        if len(self.extended_agents) + len(agent_vector) < self.num_agents:
-            raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
+        self._check_required_number_of_agents_are_present(len(agent_vector))
         extended_agent_vector = self._extend_agent_vector(agent_vector)
-        self.total_episodes_run += 1
         if self.env_type == EnvType.SINGLE_AGENT:
-            return regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector[0], training, render_mode)
+            ts = regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector[0], training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            return regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
+            ts = regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
         if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            return regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
+            ts = regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
+        self.total_episodes_run += 1
+        return ts
 
     def run_episodes(self, agent_vector: List['Agent'],
                      num_episodes: int, num_envs: int,
                      training: bool) \
                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
-        ''' TODO '''
-        if len(self.extended_agents) + len(agent_vector) < self.num_agents:
-            raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
+        '''
+        Runs :param: num_episodes inside of the Task's underlying environment  
+        in :param: num_envs parallel environments.  If the flag
+        :param: training is set, the agents in :param: agent_vector will be fed
+        the 'experiences'* collected during the :param: num_episodes.
+
+        Uses `RegymAsyncVectorEnv` under the hood.
+
+        NOTES:
+            - Because episodes are run in parallel until :param num_episodes:
+              are finished, but agents are fed experiences (potentially) on
+              every timestep, agents can experience trajectories which are not
+              finished
+            - Because more than one trajectory can finish at the same time,
+              the number of returned trajectories is upper bounded by:
+              (:param: num_episodes + :param: num_envs - 1)
+            - Somehow calling this is slower than using `Task.run_episode`
+              :param: num_episodes number of times... TODO: figure out where
+              the slowness is coming from!
+
+        :param agent_vector: List of agents that will act in the environment,
+                             this parameter will be extended with
+                             `task.extended_agents` vector.
+        :param num_episodes: Target number of episodes to run task.env for.
+        :param training:     Whether to propagate experiences to agents.
+                             Note that agents must also have their own
+                             `Agent.training` flag set.
+        :returns: List of trajectories experienced by agents in
+                  :param: agent_vector
+        '''
+        self._check_required_number_of_agents_are_present(len(agent_vector))
         extended_agent_vector = self._extend_agent_vector(agent_vector)
 
-        # Refactor
-        for agent in agent_vector:
-            agent.num_actors = num_envs
+        for agent in agent_vector: agent.num_actors = num_envs
 
         self.start_agent_servers(agent_vector, num_envs)
 
         vector_env = RegymAsyncVectorEnv(self.name, num_envs)
-        self.total_episodes_run += num_episodes
         if self.env_type == EnvType.SINGLE_AGENT:
             ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
                     vector_env, extended_agent_vector[0], training, num_episodes)
@@ -121,22 +159,46 @@ class Task:
                     vector_env, extended_agent_vector, training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
+        self.total_episodes_run += num_episodes
 
         self.end_agent_servers(agent_vector)
         return ts
 
     def extend_task(self, agents: Dict[int, 'Agent'], force: bool = False):
-        ''' TODO: DOCUMENT, TEST '''
+        '''
+        A task is "extended" by preinserting agents into certain task positions
+        before calling `Task.run_episode()` or `Task.run_episodes()`.
+        An `N`-agent multiagent task can be extended with up to `N - 1` agents.
+        Useful, for instance, to extend a task with a certain fixed agent(s)
+        to benchmark against it.
+
+        Trying to extend a task with agents on positions that have already been
+        filled by previous calls to `Task.extend_task()` will raise an
+        exception. Use :param: force.
+
+        Only valid for multigent tasks.
+
+        :params agents: Dict of [agent_position, agent].
+        :param force: Boolen that allows to override agent positions which have
+                      already been extended.
+        '''
         if self.env_type == EnvType.SINGLE_AGENT:
             raise ValueError('SINGLE_AGENT tasks cannot be extended')
         for i, agent in agents.items():
-            # Maybe refactor whole scope into a list comprehension
             if i in self.extended_agents and not force:
                 raise ValueError(f'Trying to overwrite agent {i}: {agent.name}. If sure, set param `force`.')
             self.extended_agents[i] = agent
 
-    def _extend_agent_vector(self, agent_vector: List):
-        # This should be much prettier
+    def _extend_agent_vector(self, agent_vector: List) -> List['Agent']:
+        '''
+        Extends :param: agent_vector with agents collected from previous
+        calls to `Task.extend_task()`, before task `self` is run
+        for some episodes.
+
+        :param agent_vector: (Potentially partially complete) list of agents
+                             which will act in this task.
+        :returns: Complete list of agents which will act in task.
+        '''
         agent_index = 0
         extended_agent_vector = []
         for i in range(self.num_agents):
@@ -148,19 +210,34 @@ class Task:
 
         return extended_agent_vector
 
+    def _check_required_number_of_agents_are_present(self,
+                                                     num_provided_agents: int):
+        ''' Checks whether the task has enough agents to run episodes with '''
+        if len(self.extended_agents) + num_provided_agents < self.num_agents:
+            raise ValueError(f'Task {self.name} requires {self.num_agents} agents, but only {len(agent_vector)} agents were given (in :param agent_vector:). With {len(self.extended_agents)} currently pre-extended. See documentation for function Task.extend_task()')
+
     def start_agent_servers(self, agent_vector: List['Agent'], num_envs: int):
-        '''TODO'''
+        '''
+        Flags to all agents that will act in the task and require a server
+        to start it based on their own logic.
+
+        :param num_envs: Number of environments to be run simultaneously
+        :param agent_vector: Agents that will act in task
+        '''
         for agent in agent_vector:
             if agent.multi_action_requires_server:
                 agent.start_server(num_connections=num_envs)
 
     def end_agent_servers(self, agent_vector: List['Agent']):
-        '''TODO'''
+        '''
+        Flags to all agents that acted in the task to shut down their servers.
+
+        :param agent_vector: Agents that have acted in task
+        '''
         for agent in agent_vector:
             if agent.multi_action_requires_server: agent.close_server()
 
     def clone(self):
-        ''' REVISIT, might be incomplete '''
         cloned = Task(
                 name=self.name,
                 env=deepcopy(self.env),
@@ -193,5 +270,6 @@ action_space_size: {self.action_space_size}
 action_dim: {self.action_dim}
 action_type: {self.action_type}
 hash_function: {self.hash_function}
+total_episodes_run: {self.total_episodes_run}
 '''
         return s

@@ -63,11 +63,23 @@ class Agent(ABC):
         self.server_handler: NeuralNetServerHandler = None
 
     @property
-    def num_actors(self):
+    def num_actors(self) -> int:
+        '''
+        Property denoting how many individual actors this agent represents
+        (i.e on how many environments it is acting)
+        '''
         return self._num_actors
 
     @num_actors.setter
-    def num_actors(self, n):
+    def num_actors(self, n: int):
+        '''
+        This setter can be overriden by subclasses, as each Agent / algorithm
+        can feature different logic to deal with multiple actors. Such as:
+        - PPO requiring a unique storage for each actor
+        - Expert iteration requires a NeuralNetServerHandler with a number of
+          connections equal to this `num_actors` property
+        - DQN only needs a single experience replay, regardless of `num_actors`
+        '''
         self._num_actors = n
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
@@ -135,7 +147,20 @@ class Agent(ABC):
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
         '''
-        TODO
+        The multiactor variant of function `Agent.handle_experience()`.
+
+        :param env_ids: is important for multiagent _sequential_ games, because
+        not all agents act on every single environment state, and thus for a
+        multiple actor (parallel), multiagent environment with `N` parallel
+        environments and `M` agents, for any given timestep, an arbitrary
+        subset of the latest experiences (n <= N) might go to to each of
+        the agent (a_i for 0 < i < M). In simultaneous games and single agent
+        environments :param env_ids: is irrelevant.
+
+        :param experiences: List of Tuples of format (o, a, r, succ_o, done) as
+                            defined in the docs of `Agent.handle_experience()`.
+        :param env_ids:     Indeces of the environments where :param: experiences
+                            come from.
         '''
         self.handled_experiences += len(experiences)
 
@@ -154,8 +179,16 @@ class Agent(ABC):
     def close_server(self):
         self.server_handler.close_server()
 
-    # Function invoked when pickling
     def __getstate__(self):
+        '''
+        Function invoked when pickling.
+
+        Pickling processes handlers (a pointer to a multiprocessing.Process)
+        is notoriously annoying in Python. Thus when pickling an agent
+        the opinionated decision is taken to destroy the pointer to 
+        the `Agent.server_handler` to allow for easy pickling.
+        Server can be started again via `Agent.start_server()`
+        '''
         to_pickle_dict = self.__dict__
         if 'server_handler' in to_pickle_dict:
             to_pickle_dict = self.__dict__.copy()

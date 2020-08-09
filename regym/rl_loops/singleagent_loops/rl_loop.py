@@ -1,4 +1,4 @@
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Optional
 from copy import deepcopy
 
 import tqdm
@@ -17,7 +17,7 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
     :param env: OpenAI gym environment
     :param agent: Agent policy used to take actions in the environment and to process simulated experiences
     :param training: (boolean) Whether the agents will learn from the experience they recieve
-    :param render_mode: TODO: add rendering
+    :param render_mode: Feature not implemented (yet!)
     :returns: Episode trajectory. list of (o,a,r,o')
     '''
     observation = env.reset()
@@ -45,8 +45,13 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
     '''
     TODO
 
-    NOTE: Unline regular gym.Env. RegymAsyncVectorEnv resets an underlying
+    NOTE: Unlike regular gym.Env. RegymAsyncVectorEnv resets an underlying
     environment once its ongoing episode finishes.
+    :param env: OpenAI gym environment
+    :param agent: Agent policy used to take actions in the environment
+                  and to process simulated experiences
+    :param training: (boolean) Whether the agents will learn from the experience they recieve
+    :returns: List of episode trajectories: list of (list of (o,a,r,o'))
     '''
     ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
     ongoing_trajectories = [[] for _ in range(env.num_envs)]
@@ -54,33 +59,59 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
 
     obs = env.reset()
     legal_actions: List[List] = None  # Revise
-    progress_bar = tqdm.tqdm(total=num_episodes)
+    if show_progress: progress_bar = tqdm.tqdm(total=num_episodes)
     while len(finished_trajectories) < num_episodes:
-        action_vector: List
-        if agent.requires_environment_model:
-            raise NotImplementedError('Gimme a minute')
-        else:
-            action_vector = agent.model_free_take_action(obs, legal_actions, multi_action=True)
+        action_vector = choose_action(agent, env, obs, legal_actions)
         succ_obs, rewards, dones, infos = env.step(action_vector)
 
         update_trajectories(ongoing_trajectories, action_vector, obs,
                             rewards, succ_obs, dones)
 
-        if training:
-            experiences = [t[-1] for t in ongoing_trajectories]
-            agent.handle_multiple_experiences(
-                    experiences, list(range(len(ongoing_trajectories))))
+        if training: update_agent(agent, ongoing_trajectories)
 
         obs = succ_obs
         if 'legal_actions' in infos[0]:
             legal_actions = [info['legal_actions'] for info in infos]
 
-        done_envs = [i for i in range(len(dones)) if dones[i]]
-        if len(done_envs) > 0:
-            progress_bar.update(len(done_envs))
-            ongoing_trajectories, finished_trajectories = update_finished_trajectories(
-                    ongoing_trajectories, finished_trajectories, done_envs)
-    # What if we end up with more trajectories
-    # than initially specified (i.e two or more episodes end at the same time)
-    progress_bar.close()
+        (ongoing_trajectories, finished_trajectories) = handle_finished_episodes(
+                 ongoing_trajectories, finished_trajectories, dones,
+                 progress_bar if show_progress else None)
+    if show_progress: progress_bar.close()
     return finished_trajectories
+
+
+def choose_action(agent: 'Agent', env: RegymAsyncVectorEnv, observation,
+                  legal_actions: List[List[int]]) -> List:
+    ''' Takes an action from the agent, conditioned on :param: observation
+        and legal_actions '''
+    if agent.requires_environment_model:
+        raise NotImplementedError('Model-based take_action not implemented for singleagent async run episode')
+    else:
+        action_vector = agent.model_free_take_action(
+                observation, legal_actions, multi_action=True)
+    return action_vector
+
+
+def update_agent(agent: 'Agent', ongoing_trajectories: List):
+    ''' Propagates latest experiences from :param: ongoing_trajectories
+    '''
+    experiences = [t[-1] for t in ongoing_trajectories]
+    agent.handle_multiple_experiences(experiences,
+                                      list(range(len(ongoing_trajectories))))
+
+
+
+def handle_finished_episodes(ongoing_trajectories: List,
+                             finished_trajectories: List,
+                             dones: List[bool],
+                             progress_bar: Optional[tqdm.std.tqdm]) \
+                             -> Tuple[List, List]:
+    ''' Copies finished :param: ongoing_trajectories into
+        :param: finished_trajectories as dictated by :param: done
+        also updating :param: progress_bar if required '''
+    done_envs = [i for i in range(len(dones)) if dones[i]]
+    if len(done_envs) > 0:
+        progress_bar.update(len(done_envs))
+        ongoing_trajectories, finished_trajectories = update_finished_trajectories(
+                ongoing_trajectories, finished_trajectories, done_envs)
+    return ongoing_trajectories, finished_trajectories
