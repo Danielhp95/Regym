@@ -1,13 +1,17 @@
-from typing import List
+from typing import List, Tuple
 import numpy as np
 import os
+
+from tqdm import tqdm
 
 
 def self_play_training(task, training_agent, self_play_scheme,
                        target_episodes: int=10, opci: int=1,
                        menagerie: List=[],
                        menagerie_path: str='.',
-                       initial_episode: int=0):
+                       initial_episode: int=0,
+                       show_progress: bool = False)\
+                       -> Tuple[List, 'Agent', List]:
     '''
     Extension of the multi-agent rl loop. The extension works thus:
     - Opponent sampling distribution
@@ -23,6 +27,7 @@ def self_play_training(task, training_agent, self_play_scheme,
     :param opci: Opponent policy Change Interval
     :param menageries_path: path to folder where all menageries are stored.
     :param initial_episode: Episode from where training takes on. Useful when training is interrupted.
+    :param show_progress: Whether to show a progress bar
     :returns: Menagerie after target_episodes have elapsed
     :returns: Trained agent. freshly baked!
     :returns: Array of arrays of trajectories for all target_episodes
@@ -32,7 +37,9 @@ def self_play_training(task, training_agent, self_play_scheme,
         os.mkdir(agent_menagerie_path)
 
     trajectories = []
-    for episode in range(target_episodes):
+
+    episodes = tqdm(target_episodes) if show_progress: else range(target_episodes)
+    for episode in episodes:
         if episode % opci == 0:
             opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
         training_agent_index = np.random.choice(range(len(opponent_agent_vector_e)))
