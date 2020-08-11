@@ -38,7 +38,7 @@ def self_play_training(task, training_agent, self_play_scheme,
 
     trajectories = []
 
-    episodes = tqdm(target_episodes) if show_progress: else range(target_episodes)
+    episodes = tqdm(target_episodes) if show_progress else range(target_episodes)
     for episode in episodes:
         if episode % opci == 0:
             opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
