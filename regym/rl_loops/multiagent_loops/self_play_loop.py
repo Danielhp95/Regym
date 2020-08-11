@@ -2,7 +2,7 @@ from typing import List, Tuple
 import numpy as np
 import os
 
-from tqdm import tqdm
+from tqdm import trange
 
 
 def self_play_training(task, training_agent, self_play_scheme,
@@ -38,7 +38,7 @@ def self_play_training(task, training_agent, self_play_scheme,
 
     trajectories = []
 
-    episodes = tqdm(target_episodes) if show_progress else range(target_episodes)
+    episodes = trange(target_episodes, desc=f'Self-play training {training_agent.name} under {self_play_scheme.name}:') if show_progress else range(target_episodes)
     for episode in episodes:
         if episode % opci == 0:
             opponent_agent_vector_e = self_play_scheme.opponent_sampling_distribution(menagerie, training_agent)
