@@ -5,10 +5,14 @@ import torch
 
 
 def turn_into_single_element_batch(x: np.ndarray, use_cuda=False) -> torch.Tensor:
-    x = np.concatenate(x, axis=None) 
-    tensor = torch.from_numpy(x).unsqueeze(0).type(torch.FloatTensor)
+    tensor = torch.Tensor(x).unsqueeze(0).type(torch.FloatTensor)
     if use_cuda: tensor = tensor.cuda()
     return tensor
+
+
+def flatten_and_turn_into_single_element_batch(x: np.ndarray,
+                                               use_cuda=False) -> torch.Tensor:
+    return turn_into_single_element_batch(np.concatenate(x, axis=None))
 
 
 def flatten_and_turn_into_batch(x: List[np.ndarray]) -> torch.Tensor:

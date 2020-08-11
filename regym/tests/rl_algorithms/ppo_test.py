@@ -4,7 +4,8 @@ from test_fixtures import ppo_config_dict, ppo_rnn_config_dict, RPSTask, KuhnTas
 import tqdm
 
 import regym
-from regym.networks.preprocessing import batch_vector_observation
+from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix_opponent
+from regym.networks.preprocessing import batch_vector_observation, flatten_and_turn_into_single_element_batch
 from regym.environments import generate_task, EnvType
 from regym.rl_algorithms.agents import Agent, build_Deterministic_Agent
 from regym.rl_algorithms.agents import build_PPO_Agent
@@ -31,38 +32,51 @@ def test_ppo_can_solve_multi_env_cartpole(CartPoleTask, ppo_config_dict):
 
     from torch.utils.tensorboard import SummaryWriter
     regym.rl_algorithms.PPO.ppo_loss.summary_writer = SummaryWriter('ppo_test_tensorboard')
-    singleactorr_task_test(CartPoleTask, agent)
+
+    test_trajectories = multiactor_task_test(CartPoleTask, agent, train_episodes=5000, test_episodes=100)
+    #test_trajectories = singleactor_task_test(CartPoleTask, agent, train_episodes=5000, test_episodes=100)
+
+    max_traj_len = 200
+    solved_threshold = 100
+    total_test_trajectory_len = reduce(lambda acc, t: acc + len(t),
+                                       test_trajectories, 0)
+    assert total_test_trajectory_len / len(test_trajectories) >= solved_threshold
 
 
-def singleactorr_task_test(task, agent):
+from regym.util import profile
+@profile(filename='singleactor_task_profile.pstats')
+def singleactor_task_test(task, agent, train_episodes: int, test_episodes: int):
+    agent.training = True
+    agent.algorithm.horizon = 2046
+    agent.algorithm.mini_batch_size = 256
     assert agent.training, 'Agent should be training in order to solve test environment'
     import tqdm
-    progress_bar = tqdm.tqdm(range(20000))
+    progress_bar = tqdm.tqdm(range(train_episodes))
     for _ in progress_bar:
         trajectory = task.run_episode([agent], training=True)
         progress_bar.set_description(f'{agent.name} in {task.env.spec.id}. Episode length: {len(trajectory)}')
-    max_traj_len = 200
-    solved_threshold = 180
-    total_test_trajectory_len = reduce(lambda acc, t: acc + len(t),
-                                       test_trajectories, 0)
-    #for t in test_trajectories: print(len(t))
-    assert total_test_trajectory_len / test_episodes >= solved_threshold
+    agent.training = False
+    test_trajectories = []
+    progress_bar = tqdm.tqdm(range(test_episodes))
+    for _ in progress_bar:
+        trajectory = task.run_episode([agent], training=False)
+        test_trajectories.append(trajectory)
+        progress_bar.set_description(f'{agent.name} in {task.env.spec.id}. Episode length: {len(trajectory)}')
+    return test_trajectories
 
-def multiactor_task_test(task, agent):
+
+@profile(filename='multiactor_task_profile.pstats')
+def multiactor_task_test(task, agent, train_episodes, test_episodes):
+    agent.training = True
+    agent.algorithm.horizon = 2046
+    agent.algorithm.mini_batch_size = 256
     assert agent.training, 'Agent should be training in order to solve test environment'
-    train_episodes = 5000
-    test_episodes = 100
     train_trajectories = task.run_episodes([agent], training=True,
             num_episodes=train_episodes, num_envs=12)
-    #for t in train_trajectories: print(len(t))
-    test_trajectories = task.run_episodes([agent], training=True,
+    agent.training = False
+    test_trajectories = task.run_episodes([agent], training=False,
             num_episodes=test_episodes, num_envs=12)
-    max_traj_len = 200
-    solved_threshold = 180
-    total_test_trajectory_len = reduce(lambda acc, t: acc + len(t),
-                                       test_trajectories, 0)
-    #for t in test_trajectories: print(len(t))
-    assert total_test_trajectory_len / test_episodes >= solved_threshold
+    return test_trajectories
 
 
 def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
@@ -71,9 +85,9 @@ def test_learns_to_beat_rock_in_RPS(RPSTask, ppo_config_dict):
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    from play_against_fixed_opponent import learn_against_fix_opponent
 
     agent = build_PPO_Agent(RPSTask, ppo_config_dict, 'PPO')
+    agent.state_preprocessing = flatten_and_turn_into_single_element_batch
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0, # Doesn't matter in RPS
@@ -107,8 +121,6 @@ def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    from play_against_fixed_opponent import learn_against_fix_opponent
-
     agent = build_PPO_Agent(RPSTask, ppo_rnn_config_dict, 'RNN_PPO')
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
@@ -177,8 +189,6 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
     against an agent that only plays rock in rock paper scissors.
     i.e from random, learns to play only (or mostly) paper
     '''
-    from play_against_fixed_opponent import learn_against_fix_opponent
-
     kuhn_task = generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
     fixed_opponent = build_Deterministic_Agent(kuhn_task, {'action': fixed_agent_action})
     assert agent.training

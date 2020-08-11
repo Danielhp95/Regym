@@ -1,17 +1,19 @@
 from typing import Dict, List
-import torch
 import copy
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
 
 import regym
 from regym.rl_algorithms.agents import Agent
 from regym.networks import CategoricalActorCriticNet, GaussianActorCriticNet
-from regym.networks import FCBody, LSTMBody
+from regym.networks import FCBody, LSTMBody, Convolutional2DBody
 from regym.networks.preprocessing import turn_into_single_element_batch
 
 from regym.rl_algorithms.PPO import PPOAlgorithm
 
-import torch.nn.functional as F
-import numpy as np
 
 
 class PPOAgent(Agent):
@@ -77,8 +79,8 @@ class PPOAgent(Agent):
         storage = self.algorithm.storages[storage_idx]
 
         non_terminal = torch.ones(1)*(1 - int(done))
-        state = self.state_preprocessing(s).view(1, -1)
-        r = torch.ones(1)*r
+        state = self.state_preprocessing(s)
+        r = torch.FloatTensor([r])
 
         # This is not pretty, and is the remnants of
         # porting single actor PPO to multiactor
@@ -88,7 +90,7 @@ class PPOAgent(Agent):
         storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
         if (self.handled_experiences % self.algorithm.horizon) == 0:
-            next_state = self.state_preprocessing(succ_s).view(1, -1)
+            next_state = self.state_preprocessing(succ_s)
 
             if self.recurrent:
                 self._pre_process_rnn_states(done=done)
@@ -137,40 +139,41 @@ class PPOAgent(Agent):
         return clone
 
 
-def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str) -> PPOAgent:
-    '''
-    :param task: Environment specific configuration
-    :param config: Dict containing configuration for ppo agent
-    :returns: PPOAgent adapted to be trained on :param: task under :param: config
-    '''
-    kwargs = config.copy()
-    kwargs['state_preprocess'] = turn_into_single_element_batch
-
+def create_model(task: regym.environments.Task,
+                 config: Dict[str, object]) -> nn.Module:
     input_dim = task.observation_dim
-    if kwargs['phi_arch'] != 'None':
+    if config['phi_arch'] != 'None':
         output_dim = 64
-        if kwargs['phi_arch'] == 'RNN':
+        if config['phi_arch'] == 'RNN':
             body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
-        elif kwargs['phi_arch'] == 'MLP':
+        elif config['phi_arch'] == 'MLP':
             body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+        elif config['phi_arch'] == 'CNN':
+            body = Convolutional2DBody(input_shape=config['preprocessed_input_dimensions'],
+                                        channels=config['channels'],
+                                        kernel_sizes=config['kernel_sizes'],
+                                        paddings=config['paddings'],
+                                        strides=config['strides'],
+                                        residual_connections=config.get('residual_connections', []),
+                                        use_batch_normalization=config['use_batch_normalization'])
         input_dim = output_dim
     else:
         body = None
 
-    if kwargs['actor_arch'] != 'None':
+    if config['actor_arch'] != 'None':
         output_dim = 64
-        if kwargs['actor_arch'] == 'RNN':
+        if config['actor_arch'] == 'RNN':
             actor_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
-        elif kwargs['actor_arch'] == 'MLP':
+        elif config['actor_arch'] == 'MLP':
             actor_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
     else:
         actor_body = None
 
-    if kwargs['critic_arch'] != 'None':
+    if config['critic_arch'] != 'None':
         output_dim = 64
-        if kwargs['critic_arch'] == 'RNN':
+        if config['critic_arch'] == 'RNN':
             critic_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
-        elif kwargs['critic_arch'] == 'MLP':
+        elif config['critic_arch'] == 'MLP':
             critic_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
     else:
         critic_body = None
@@ -190,8 +193,20 @@ def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], ag
                                        body=body,
                                        actor_body=actor_body,
                                        critic_body=critic_body)
+    return model
 
+
+def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], agent_name: str) -> PPOAgent:
+    '''
+    :param task: Environment specific configuration
+    :param config: Dict containing configuration for ppo agent
+    :returns: PPOAgent adapted to be trained on :param: task under :param: config
+    '''
+    kwargs = config.copy()
+    kwargs['state_preprocess'] = turn_into_single_element_batch
+
+    model = create_model(task, config)
     model.share_memory()
-    ppo_algorithm = PPOAlgorithm(kwargs, model)
 
+    ppo_algorithm = PPOAlgorithm(kwargs, model)
     return PPOAgent(name=agent_name, algorithm=ppo_algorithm)

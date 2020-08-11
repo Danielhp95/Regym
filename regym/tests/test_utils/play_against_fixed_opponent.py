@@ -126,6 +126,7 @@ def benchmark_agent(task: Task, agent: Agent, fixed_opponent: Agent,
     avg_episode_length = reduce(lambda acc, t: acc + len(t), trajectories, 0) / len(trajectories)
     avg_episode_reward = reduce(lambda acc, t: acc + trajectory_reward(t, agent_position),
                                 trajectories, 0) / len(trajectories)
+    print(f'Bencharming at {starting_episode}. winrate = {winrate}')
     if summary_writer:
         summary_writer.add_scalar('Benchmarking/Winrate', winrate, starting_episode)
         summary_writer.add_scalar('Benchmarking/Average_episode_length', avg_episode_length, starting_episode)
