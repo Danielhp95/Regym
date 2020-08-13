@@ -143,7 +143,7 @@ def create_model(task: regym.environments.Task,
                  config: Dict[str, object]) -> nn.Module:
     input_dim = task.observation_dim
     if config['phi_arch'] != 'None':
-        output_dim = 64
+        output_dim = 64  # TODO: beware of magic number
         if config['phi_arch'] == 'RNN':
             body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif config['phi_arch'] == 'MLP':
