@@ -19,6 +19,9 @@ class DeterministicAgent(Agent):
     def handle_experience(self, s, a, r, succ_s, done=False):
         pass
 
+    def __repr__(self):
+        return f'DeterministicAgent: {self.action}'
+
 
 def build_Deterministic_Agent(task, config: Dict, agent_name: str):
     if task.action_type != 'Discrete':
@@ -26,4 +29,4 @@ def build_Deterministic_Agent(task, config: Dict, agent_name: str):
     if 'action' not in config:
         raise ValueError("Config must specify an (int) 'action' for DeterministicAgent {agent_name}")
     action = int(config['action'])
-    return DeterministicAgent(action=action)
+    return DeterministicAgent(action=action, name=agent_name)

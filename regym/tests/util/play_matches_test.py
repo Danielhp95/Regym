@@ -2,7 +2,7 @@ from typing import List
 import pytest
 import numpy as np
 
-from regym.rl_algorithms.agents import Agent
+from regym.rl_algorithms.agents import Agent, build_Deterministic_Agent
 from regym.rl_algorithms import rockAgent, scissorsAgent 
 from regym.environments import generate_task
 from regym.environments import EnvType
@@ -27,20 +27,8 @@ def test_can_play_simultaneous_action_environments(RPS_task):
 
 
 def test_can_play_sequential_action_environments(Kuhn_task):
-    class FixedAgent(Agent):
-        def __init__(self, action):
-            super(FixedAgent, self).__init__(name=f'FixedAction: {action}')
-            self.action = action
-
-        def take_action(self, state, legal_actions):
-            return self.action
-
-        def handle_experience(self, *args):
-            pass
-
-        def clone(self, *args):
-            pass
-    agent_vector = [FixedAgent(1), FixedAgent(0)]
+    agent_vector = [build_Deterministic_Agent(Kuhn_task, {'action': 1}, 'DeterministicAgent-1'),
+                    build_Deterministic_Agent(Kuhn_task, {'action': 0}, 'DeterministicAgent-0')]
     play_matches_given_task_and_agent_vector(Kuhn_task, agent_vector)
 
 
