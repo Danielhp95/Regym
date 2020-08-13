@@ -40,4 +40,4 @@ class MixedStrategyAgent(Agent):
         return MixedStrategyAgent(support_vector=self.support_vector, name=self.name)
 
     def __repr__(self):
-        return f'name: {self.name}. strategy support vector: {self.support_vector}'
+        return f'{self.name}. strategy support vector: {self.support_vector}'
