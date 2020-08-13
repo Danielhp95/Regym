@@ -136,11 +136,13 @@ def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
 
 def test_ppo_can_take_actions(KuhnTask, ppo_config_dict):
     agent = build_PPO_Agent(KuhnTask, ppo_config_dict, 'PPO')
+    agent.state_preprocessing = flatten_and_turn_into_single_element_batch
     act_in_task_env(KuhnTask, agent)
 
 
 def test_ppo_rnn_can_take_actions(KuhnTask, ppo_rnn_config_dict):
     agent = build_PPO_Agent(KuhnTask, ppo_rnn_config_dict, 'RNN_PPO')
+    agent.state_preprocessing = flatten_and_turn_into_single_element_batch
     act_in_task_env(KuhnTask, agent)
 
 
