@@ -97,10 +97,10 @@ def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
 
     for i, j in product(range(len(population_1)), range(len(population_2))):
         player_1_winrate = play_multiple_matches(task,
-                                                 agent_vector=(
+                                                 agent_vector=[
                                                      population_1[i],
                                                      population_2[j]
-                                                     ),
+                                                     ],
                                                  n_matches=episodes_per_matchup)[0]
         winrate_matrix[i, j] = player_1_winrate
     return winrate_matrix
@@ -213,7 +213,7 @@ def generate_upper_triangular_symmetric_metagame(population: List[Agent],
 
     for i, j in matchups_agent_indices:
         player_1_winrate = play_multiple_matches(task,
-                                                 agent_vector=(population[i], population[j]),
+                                                 agent_vector=[population[i], population[j]],
                                                  n_matches=episodes_per_matchup)[0]
         winrate_matrix[i, j] = player_1_winrate
     return winrate_matrix
