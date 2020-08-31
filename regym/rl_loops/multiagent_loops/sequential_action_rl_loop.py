@@ -21,7 +21,6 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     :param env: OpenAI gym environment
     :param agent_vector: Vector containing the agent for each agent in the environment
     :param training: (boolean) Whether the agents will learn from the experience they recieve
-
     :param render_mode: TODO: add explanation
     :returns: Episode trajectory (o,a,r,o')
     '''
@@ -33,6 +32,7 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     # Thus: Assumption: all actions are permitted on the first state
     legal_actions: List = None
     while not done:
+        if render_mode: env.render(mode=render_mode)
         agent = agent_vector[current_player]
 
         # Take action
