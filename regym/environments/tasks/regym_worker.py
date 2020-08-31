@@ -4,7 +4,7 @@ from functools import reduce
 import sys
 import torch
 
-from multiprocessing import Queue
+from multiprocessing import Queue, cpu_count
 from multiprocessing.sharedctypes import SynchronizedArray
 from multiprocessing.connection import Connection
 
@@ -27,6 +27,7 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         - Don't allow for all all of the default values above to be used,
           hard code them instead.
         '''
+        if num_envs == -1: num_envs = cpu_count()
         worker = _regym_worker_shared_memory
         env_fns = [self._make_env_fn(env_name) for _ in range(num_envs)]
         super().__init__(env_fns, observation_space, action_space,

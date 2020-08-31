@@ -1,6 +1,6 @@
 from copy import deepcopy
 from enum import Enum
-from typing import List, Tuple, Callable, Any, Dict
+from typing import List, Tuple, Callable, Any, Dict, Optional
 from dataclasses import dataclass, field
 
 import gym
@@ -72,7 +72,8 @@ class Task:
     extended_agents: Dict = field(default_factory=dict)
     total_episodes_run: int = 0
 
-    def run_episode(self, agent_vector: List['Agent'], training: bool, render_mode: str = ''):
+    def run_episode(self, agent_vector: List['Agent'], training: bool,
+                    render_mode: Optional[str] = None):
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
