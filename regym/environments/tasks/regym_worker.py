@@ -17,25 +17,31 @@ from gym.vector import AsyncVectorEnv
 
 class RegymAsyncVectorEnv(AsyncVectorEnv):
 
-    def __init__(self, env_name, num_envs: int,
-                 observation_space: Optional[gym.Space] = None,
-                 action_space: Optional[gym.Space] = None,
-                 shared_memory=True, copy=True, context=None, daemon=True):
+    def __init__(self, env_name: str, num_envs: int):
         '''
-        TODO:
-        - Document
-        - Don't allow for all all of the default values above to be used,
-          hard code them instead.
+        Extension of OpenAI Gym's AsyncVectorEnv which also supports
+        retrieving a copy of each of the underlying environments inside of the
+        AsyncVectorEnv (via `get_envs()` method). This extra feature is key for
+        model based learning, as such algorithms require a copy of the
+        environment at every step.
+
+        :param env_name: Name of OpenAI Gym environment
+        :param num_envs: Number of parallel environments to run.
         '''
         if num_envs == -1: num_envs = cpu_count()
         worker = _regym_worker_shared_memory
         env_fns = [self._make_env_fn(env_name) for _ in range(num_envs)]
-        super().__init__(env_fns, observation_space, action_space,
-                         shared_memory, copy, context, daemon, worker)
+        super().__init__(env_fns,
+                         observation_space=None, action_space=None, # Default params
+                         shared_memory=True, copy=True,  # Default parameters
+                         context=None, daemon=True,      # Default parameters
+                         worker=worker)
 
-    def get_envs(self) -> Tuple[gym.Env]:
+    def get_envs(self) -> List[gym.Env]:
         '''
-        TODO
+        Copies the environment of all the underlying processes.
+        :returns: List of copies of the environments handled by :self: worker
+                  (one for each process)
         '''
         for pipe in self.parent_pipes: pipe.send(('environment', None))
         envs, successes = zip(*[pipe.recv() for pipe in self.parent_pipes])
@@ -43,7 +49,21 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         return envs
 
     def _make_env_fn(self, env_name: str) -> Callable[[], gym.Env]:
+        '''
+        Creates a function that takes no arguments and generates an instance of
+        :param: env_name.
+
+        NOTE: Because of `multiprocessing.set_start_method()`,
+        if we want to generate a function that uses an environment which by
+        default is not in Gym's registry (built-in environments), we need to modify
+        this source code of this function to add the import statement to the
+        package defining such environment.
+
+        :param env_name: Name of the OpenAI Gym environment
+        :returns: Environment generation function
+        '''
         def _make_env_from_name():
+            # Necessary hack. Import other env names if necessary.
             import gym_connect4
             return gym.make(env_name)
         return _make_env_from_name
@@ -55,10 +75,13 @@ def _regym_worker_shared_memory(index: int, env_fn: Callable[[], gym.Env],
                                 error_queue: Queue):
     '''
     Based on function `gym.vector.async_vector_env._worker_shared_memory`
+    See that function's documentation
 
     Custom additions:
         - 'environment' command: To return underlying environment
-        - 'step' command returns : ???
+        - 'step' command returns:
+            Note: succ_obs dimensions:
+            [num_agents, num_environments, environment_observations]
     '''
     assert shared_memory is not None
     env = env_fn()
