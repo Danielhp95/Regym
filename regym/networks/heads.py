@@ -99,8 +99,7 @@ class CategoricalHead(nn.Module, BaseNet):
         self.output_dim = output_dim
 
     def forward(self, x: torch.Tensor, legal_actions: List[int] = None):
-        if self.body:
-            body_embedding = self.body(x)
+        body_embedding = self.body(x) if self.body else x
         logits = self.fc_categorical(body_embedding)
 
         if legal_actions:
