@@ -102,7 +102,7 @@ def neural_net_server(net: torch.nn.Module,
                 observations.append(request[0])
                 legal_actions.append(request[1])
         if observations:
-            pre_processed_obs = pre_processing_fn(observations)
+            pre_processed_obs = pre_processing_fn(observations).to(device)
             prediction = net(pre_processed_obs, legal_actions=legal_actions)
 
             responses = _generate_responses(len(pipes_to_serve), prediction)
@@ -122,6 +122,7 @@ def _generate_responses(num_pipes_to_serve: int,
     for k, v in prediction.items():
         for i in range(num_pipes_to_serve):
             # TODO: figure out if we really need to put predictions on cpu
+            # might be better to leave them in the original devicw for loss calculations
             responses[i][k] = v[i].cpu().detach()
     return responses
 

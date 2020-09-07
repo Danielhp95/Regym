@@ -1,5 +1,9 @@
+from typing import List
 from copy import deepcopy
 import multiprocessing
+import time
+
+import pytest
 import numpy as np
 import torch
 
@@ -15,7 +19,7 @@ def test_can_process_single_observation():
             target=neural_net_server,
             args=(deepcopy(net), [server_connection1]))
 
-    observation_1 = np.array([0]) 
+    observation_1 = np.array([0])
     client_connection1.send((observation_1, None))
 
     server.start()
@@ -23,7 +27,7 @@ def test_can_process_single_observation():
     expected_response_1 = {'output': torch.Tensor([0])}
     assert expected_response_1 == client_connection1.recv()
     server.terminate()
-    
+
 
 def test_can_process_batch_observation_and_respond_individually():
     client_connection1, server_connection1 = multiprocessing.Pipe()
@@ -35,8 +39,8 @@ def test_can_process_batch_observation_and_respond_individually():
             target=neural_net_server,
             args=(deepcopy(net), [server_connection1, server_connection2]))
 
-    observation_1 = np.array([0]) 
-    observation_2 = np.array([1]) 
+    observation_1 = np.array([0])
+    observation_2 = np.array([1])
 
 
     client_connection1.send((observation_1, None))
@@ -66,15 +70,39 @@ def test_can_update_the_neural_net_in_the_server():
 
     server_handler.client_connections[0].send((observation, None))
     actual_response = server_handler.client_connections[0].recv()
-    assert expected_response_1 == actual_response 
+    assert expected_response_1 == actual_response
 
     server_handler.update_neural_net(net2)
 
     server_handler.client_connections[0].send((observation, None))
     actual_response = server_handler.client_connections[0].recv()
-    assert expected_response_2 == actual_response 
+    assert expected_response_2 == actual_response
 
     server_handler.close_server()
+
+
+#@pytest.mark.skipif(not torch.cuda.is_available(),
+#                    reason="Requires a gpu and cuda to be available")
+def test_server_is_faster_on_gpu():
+    cpu_time = _test_server_speed(device='cpu')
+    gpu_time = _test_server_speed(device='cpu')
+    assert gpu_time < cpu_time
+
+
+def _test_server_speed(device, init_dim=32, num_connections=10,
+                       num_requests=10):
+    net = generate_timing_neural_net(dims=[init_dim,32,32,32])
+    server_handler = NeuralNetServerHandler(num_connections=num_connections,
+                                            net=net, device=device)
+    total_time = 0
+    for _ in range(num_requests):
+        for connection_i in range(num_connections):
+            observation = torch.rand(size=(1, init_dim))
+            server_handler.client_connections[connection_i].send((observation, None))
+        responses = [server_handler.client_connections[connection_i].recv()
+                     for connection_i in range(num_connections)]
+        total_time += sum([x['time'] for x in responses])
+    return total_time.item()
 
 
 def generate_dummy_neural_net(weight):
@@ -85,5 +113,19 @@ def generate_dummy_neural_net(weight):
             self.linear.weight.data = torch.Tensor([[weight]])
         def forward(self, x, legal_actions=None):
             return {'output': self.linear(x)}
-
     return DummyNet(weight)
+
+
+def generate_timing_neural_net(dims: List[int]):
+    class TimingDummyNet(torch.nn.Module):
+        def __init__(self, dims: List[int]):
+            super().__init__()
+            self.layers = torch.nn.Sequential(
+                *[torch.nn.Linear(in_features=h_in, out_features=h_out, bias=True)
+                 for h_in, h_out in zip(dims, dims[1:])])
+        def forward(self, x, legal_actions=None):
+            start = time.time()
+            self.layers(x)
+            total_time = time.time() - start
+            return {'time': torch.Tensor([total_time] * x.shape[0])}
+    return TimingDummyNet(dims)
