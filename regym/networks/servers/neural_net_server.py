@@ -1,8 +1,10 @@
-import os
 from typing import Callable, Dict, List
-from torch import multiprocessing
+import os
 from copy import deepcopy
+
+from torch import multiprocessing
 import torch
+import textwrap
 
 from regym.networks.preprocessing import batch_vector_observation
 
@@ -26,6 +28,7 @@ class NeuralNetServerHandler:
         self.num_connections = num_connections
         self.device = device
         self.pre_processing_fn = pre_processing_fn
+        self.net_representation = str(net)
 
         self.server_connections, self.client_connections = [], []
         for _ in range(num_connections):
@@ -45,7 +48,6 @@ class NeuralNetServerHandler:
                               # when the main script terminates
         self.server.start()
 
-
     def update_neural_net(self, net):
         # Delete server, create new server with a deepcopy of :param: net
         self.server.terminate()
@@ -58,7 +60,10 @@ class NeuralNetServerHandler:
     def close_server(self):
         self.server.terminate()
 
-    # TODO: __repr__ function
+    def __repr__(self):
+        server_info = f"Connections: {self.num_connections}\tDevice: {self.device}\tprepocessing_fn: {self.pre_processing_fn}"
+        net_str = f"{textwrap.indent(self.net_representation, '    ')}"
+        return f"NeuralNetServer:\n" + server_info + "\n" + net_str
 
 
 def neural_net_server(net: torch.nn.Module,
@@ -116,6 +121,7 @@ def _generate_responses(num_pipes_to_serve: int,
     responses = [{} for _ in range(num_pipes_to_serve)]
     for k, v in prediction.items():
         for i in range(num_pipes_to_serve):
+            # TODO: figure out if we really need to put predictions on cpu
             responses[i][k] = v[i].cpu().detach()
     return responses
 
