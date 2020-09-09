@@ -114,7 +114,7 @@ def _regym_worker_shared_memory(index: int, env_fn: Callable[[], gym.Env],
                 pipe.send((data == observation_space, True))
             else:
                 raise RuntimeError('Received unknown command `{0}`. Must '
-                    'be one of {`reset`, `step`, `seed`, `close`, '
+                    'be one of {`reset`, `step`, `seed`, `close`, `env`'
                     '`_check_observation_space`}.'.format(command))
     except (KeyboardInterrupt, Exception):
         error_queue.put((index,) + sys.exc_info()[:2])

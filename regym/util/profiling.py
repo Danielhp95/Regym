@@ -1,6 +1,5 @@
 import cProfile
 import pstats
-import io
 
 
 def profile(filename: str = ''):
