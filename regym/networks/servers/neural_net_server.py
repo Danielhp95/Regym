@@ -1,6 +1,7 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Tuple
 import os
 from copy import deepcopy
+import math
 
 from torch import multiprocessing
 import torch
@@ -15,7 +16,8 @@ class NeuralNetServerHandler:
                  net: torch.nn.Module,
                  pre_processing_fn: Callable = batch_vector_observation,
                  device: str = 'cpu',
-                 niceness: int = -5):
+                 niceness: int = -5,
+                 max_requests: float = math.inf):
         '''
         NOTE: net will be deepcopied
 
@@ -24,6 +26,8 @@ class NeuralNetServerHandler:
         :param pre_processing_fn: TODO
         :param device: TODO
         :param server_niceness: TODO (document -20:+19 range)
+        :param max_requests: Maximum number of requests handled by the server.
+                             Meant for debugging purposes.
         '''
         self.num_connections = num_connections
         self.device = device
@@ -70,7 +74,8 @@ def neural_net_server(net: torch.nn.Module,
                       connections: List[multiprocessing.Pipe],
                       pre_processing_fn: Callable = batch_vector_observation,
                       device: str = 'cpu',
-                      niceness: int = -5):
+                      niceness: int = -5,
+                      max_requests: float = math.inf):
     """
     Server style function which continuously polls :params: parent_connections
     for observations (inputs) to be fed to torch.nn.Module :param: net.
@@ -87,31 +92,37 @@ def neural_net_server(net: torch.nn.Module,
     :param connections: TODO
     :param device: TODO
     :param niceness: TODO
+    :param max_requests: Maximum number of requests handled by the server.
+                         Meant for debugging purposes.
     """
     # Sets process niceness to :param: niceness.
     #parent_niceness = os.nice(0)
     #os.nice(niceness - parent_niceness)
 
     net.to(device)
-    pipes_to_serve, observations, legal_actions = [], [], []
-    while True:
-        for conn in connections:
-            if conn.poll():
-                pipes_to_serve.append(conn)
-                request = conn.recv()
-                observations.append(request[0])
-                legal_actions.append(request[1])
+    processed_requests = 0
+    while True or processed_requests >= max_requests:
+        (observations, legal_actions,
+        connections_to_serve) = _poll_connections(connections)
         if observations:
+            processed_requests += len(observations)
             pre_processed_obs = pre_processing_fn(observations).to(device)
             prediction = net(pre_processed_obs, legal_actions=legal_actions)
 
-            responses = _generate_responses(len(pipes_to_serve), prediction)
+            responses = _generate_responses(len(connections_to_serve), prediction)
 
-            _send_responses(pipes_to_serve, responses)
+            _send_responses(connections_to_serve, responses)
 
-            pipes_to_serve.clear()
-            observations.clear()
-            legal_actions.clear()
+
+def _poll_connections(connections) -> Tuple:
+    observations, legal_actions, connections_to_serve = [], [], []
+    for conn in connections:
+        if conn.poll():
+            connections_to_serve.append(conn)
+            request = conn.recv()
+            observations.append(request[0])
+            legal_actions.append(request[1])
+    return observations, legal_actions, connections_to_serve
 
 
 def _generate_responses(num_pipes_to_serve: int,
@@ -123,7 +134,9 @@ def _generate_responses(num_pipes_to_serve: int,
         for i in range(num_pipes_to_serve):
             # TODO: figure out if we really need to put predictions on cpu
             # might be better to leave them in the original devicw for loss calculations
-            responses[i][k] = v[i].cpu().detach()
+
+            # Detaching is necessary for torch.Tensor(s) to be sent over processes
+            responses[i][k] = v[i].detach()  # .cpu()
     return responses
 
 
