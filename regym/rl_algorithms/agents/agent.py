@@ -174,7 +174,7 @@ class Agent(ABC):
         raise NotImplementedError('To be implemented in Subclass')
 
     def start_server(self, num_connections: int):
-        raise NotImplementedError('To be implemented in appropiate subclass') 
+        raise NotImplementedError('To be implemented in appropiate subclass')
 
     def close_server(self):
         self.server_handler.close_server()
@@ -185,7 +185,7 @@ class Agent(ABC):
 
         Pickling processes handlers (a pointer to a multiprocessing.Process)
         is notoriously annoying in Python. Thus when pickling an agent
-        the opinionated decision is taken to destroy the pointer to 
+        the opinionated decision is taken to destroy the pointer to
         the `Agent.server_handler` to allow for easy pickling.
         Server can be started again via `Agent.start_server()`
         '''
