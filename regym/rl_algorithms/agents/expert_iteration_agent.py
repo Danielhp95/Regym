@@ -151,6 +151,7 @@ class ExpertIterationAgent(Agent):
 
     def start_server(self, num_connections):
         ''' Explain that this is needed because different MCTS experts need to send requests '''
+        if num_connections == -1: num_connections = multiprocessing.cpu_count()
         self.server_handler = NeuralNetServerHandler(
             num_connections=num_connections, net=self.apprentice)
         self.expert.server_handler = self.server_handler
@@ -193,7 +194,6 @@ class ExpertIterationAgent(Agent):
 
 
 def choose_feature_extractor(task, config: Dict):
-    # TODO: Mess around with connect4 and conv bodies to see what to do.
     if config['feature_extractor_arch'] == 'CNN':
         model = Convolutional2DBody(input_shape=config['preprocessed_input_dimensions'],
                                     channels=config['channels'],
