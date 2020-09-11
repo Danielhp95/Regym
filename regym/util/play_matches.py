@@ -65,3 +65,7 @@ def extract_cumulative_rewards(trajectory: List) -> List[float]:
         individal_agent_trajectory_reward = lambda t, agent_index: sum(map(lambda experience: reward_vector(experience)[agent_index], t))
         cum_reward = [individal_agent_trajectory_reward(trajectory, i) for i in range(number_of_agents)]
     return cum_reward
+
+
+def trajectory_reward(trajectory: List, agent_position: int) -> float:
+    return sum(map(lambda experience: experience[2][agent_position], trajectory))

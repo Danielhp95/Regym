@@ -9,7 +9,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from regym.environments import Task
-from regym.util import extract_winner
+from regym.util import extract_winner, trajectory_reward
 from regym.rl_algorithms.agents import Agent
 
 # TODO: consider moving some of these functions to regym.utils
@@ -158,10 +158,6 @@ def average_reward(trajectories, agent_position):
     rewards = sum(map(lambda t: trajectory_reward(t, agent_position),
                     trajectories))
     return rewards / float(len(trajectories))
-
-
-def trajectory_reward(trajectory, agent_position):
-    return sum(map(lambda experience: experience[2][agent_position], trajectory))
 
 
 def last_trajectory_reward(trajectory, agent_position):
