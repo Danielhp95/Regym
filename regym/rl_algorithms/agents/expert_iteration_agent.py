@@ -78,7 +78,7 @@ class ExpertIterationAgent(Agent):
         # Parallel environments
         self.expert.server_based_policy_fn = self.__class__.server_based_policy_fn
         self.expert.server_based_evaluation_fn = self.__class__.server_based_evaluation_fn
-        
+
     def init_storage(self, size: int):
         storage = Storage(size=size)
         storage.add_key('normalized_child_visitations')
