@@ -100,6 +100,7 @@ def multienv_choose_action(agent_vector: List[Agent],
 
     :param agent_vector: Vector containing agent policies
     :param env: RegymAsyncVectorEnv where agents are acting
+    :param obs: TODO
     :param current_players: List indicating which agent should act on
                             each environment
     :param legal_actions: Dict indicating which actions are allowed on each
@@ -297,6 +298,8 @@ def extract_signals_for_acting_agents(agent_vector: List[Agent], obs,
     - For each player in :param: current_players,
       a mapping to another dictionary containing:
     - (1) Environment observations, (2) legal actions on each env, (3) env_ids
+
+    :param agent_vector:
     '''
     agent_signals: Dict[int, Dict[str, List]] = dict()
 
