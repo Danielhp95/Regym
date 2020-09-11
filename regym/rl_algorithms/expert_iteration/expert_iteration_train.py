@@ -76,7 +76,7 @@ class ExpertIterationAlgorithm():
                             keys=['s', 'V', 'normalized_child_visitations'])
 
         # We are concatenating the entire datasat, this might be too memory expensive?
-        s, v    = torch.cat(self.memory.s), torch.cat(self.memory.v)
+        s, v    = torch.cat(self.memory.s), torch.cat(self.memory.V)
         mcts_pi = torch.stack(self.memory.normalized_child_visitations)
 
         # We look at number of 's' states, but we could have used anything else
