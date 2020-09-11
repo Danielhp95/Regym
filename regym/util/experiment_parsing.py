@@ -10,7 +10,7 @@ from regym.training_schemes import DeltaDistributionalSelfPlay
 
 from regym.rl_algorithms import build_DQN_Agent
 from regym.rl_algorithms import build_TabularQ_Agent
-from regym.rl_algorithms import build_PPO_Agent
+from regym.rl_algorithms import build_PPO_Agent, build_ExpertIteration_Agent
 from regym.rl_algorithms import rockAgent, paperAgent, scissorsAgent, randomAgent
 
 
@@ -57,6 +57,7 @@ def initialize_agents(task, agent_configurations):
         if agent_name.startswith('tabularqlearning'): return build_TabularQ_Agent(task, config, agent_name)
         if agent_name.startswith('deepqlearning'): return build_DQN_Agent(task, config, agent_name)
         if agent_name.startswith('ppo'): return build_PPO_Agent(task, config, agent_name)
+        if agent_name.startswith('expert_iteration'): return build_ExpertIteration_Agent(task, config, agent_name)
         else: raise ValueError('Unkown agent name: {agent_name}'.format(agent_name))
     return [partial_match_build_function(agent, task, config) for agent, config in agent_configurations.items()]
 
