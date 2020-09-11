@@ -63,7 +63,7 @@ class ExpertIterationAlgorithm():
         for i in range(dataset_size):
             self.memory.add({'normalized_child_visitations': episode_trajectory.normalized_child_visitations[i],
                              's': episode_trajectory.s[i],
-                             'V': episode_trajectory.v[i]})
+                             'V': episode_trajectory.V[i]})
 
     def train(self, apprentice_model: nn.Module):
         ''' Highest level function '''
