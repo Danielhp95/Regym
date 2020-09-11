@@ -31,7 +31,8 @@ def compute_loss(states: torch.Tensor,
     # returns policy loss (cross entropy against normalized_child_visitations):
 
     # learning to copy expert: Cross entropy
-    cross_entropy_policy_loss, kl_divergence = cross_entropy_loss(predictions['probs'], pi_mcts)
+    cross_entropy_policy_loss = cross_entropy_loss(predictions['probs'], pi_mcts)
+    kl_divergence = torch.nn.functional.kl_div(predictions['probs'], pi_mcts.log(), reduction='batchmean')
 
     # Learning game outcomes: Mean Square Error
     value_loss = nn.MSELoss()(values.view((-1, 1)), predictions['V'])
