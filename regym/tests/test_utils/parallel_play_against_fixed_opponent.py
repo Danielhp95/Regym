@@ -75,7 +75,6 @@ def parallel_learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
     test_reward = extract_test_reward(evaluation_method, test_trajectories, agent_position)
 
     reward_threshold = maximum_average_reward - reward_tolerance
-    import ipdb; ipdb.set_trace()
     assert test_reward >= reward_threshold, \
            f'Reward obtained during inference wasn\'t high enough\n{test_reward} < {reward_threshold}'
 
