@@ -29,9 +29,7 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
     # Thus: Assumption: all actions are permitted on the first state
     legal_actions: List = None
     while not done:
-        if render_mode != '': rendered_state = env.render(render_mode)
-        if render_mode == 'string': print(rendered_state)
-        elif render_mode == 'rgb': env.render('rgb')
+        if render_mode: render(env, render_mode)
 
         iteration += 1
         action_vector = [
@@ -47,3 +45,9 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool, render_
         if 'legal_actions' in info: legal_actions = info['legal_actions']
 
     return trajectory
+
+
+def render(env: gym.Env, render_mode: str):
+    if render_mode == 'string': print(env.render(render_mode))
+    elif render_mode == 'rgb': env.render('rgb')
+    else: NotImplementedError(f'Rendering for render_mode {render_mode} not currently supported')
