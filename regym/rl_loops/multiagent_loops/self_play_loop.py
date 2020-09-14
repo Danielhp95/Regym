@@ -23,8 +23,6 @@ def self_play_training(task, training_agent, self_play_scheme,
     :param task: Mutiagent task
     :param training_scheme: Self play training scheme that extends the multiagent rl loop
     :param training_agent: AgentHook of the agent being trained, together with training algorithm
-    :param opponent_sampling_distribution: Probability distribution that
-    :param curator: Gating function which determines if the current agent will be added to the menagerie at the end of an episode
     :param target_episodes: number of episodes that will be run before training ends.
     :param opci: Opponent policy Change Interval
     :param menageries_path: path to folder where all menageries are stored.
