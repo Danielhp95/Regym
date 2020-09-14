@@ -23,7 +23,7 @@ class PSRONashResponse():
 
     def __init__(self,
                  task: Task,
-                 meta_game_solver: Callable = lambda winrate_matrix: solve_zero_sum_game(winrate_matrix)[0],
+                 meta_game_solver: Callable = lambda winrate_matrix: solve_zero_sum_game(winrate_matrix)[0].reshape((-1)),
                  threshold_best_response: float = 0.7,
                  benchmarking_episodes: int = 10,
                  match_outcome_rolling_window_size: int = 10):
