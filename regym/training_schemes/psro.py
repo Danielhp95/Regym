@@ -13,7 +13,7 @@ from itertools import product
 import numpy as np
 
 from regym.rl_algorithms import AgentHook
-from regym.game_theory import compute_nash_averaging
+from regym.game_theory import solve_zero_sum_game
 from regym.util import play_multiple_matches
 from regym.util import extract_winner
 from regym.environments import generate_task, Task, EnvType
@@ -24,12 +24,12 @@ class PSRONashResponse():
 
     def __init__(self,
                  task: Task,
-                 meta_game_solver: Callable = lambda winrate_matrix: compute_nash_averaging(winrate_matrix, perform_logodds_transformation=True)[0],
+                 meta_game_solver: Callable = lambda winrate_matrix: solve_zero_sum_game(winrate_matrix)[0],
                  threshold_best_response: float = 0.7,
                  benchmarking_episodes: int = 10,
                  match_outcome_rolling_window_size: int = 10):
         '''
-        :param task: Multiagent task 
+        :param task: Multiagent task
         :param meta_game_solver: Function which takes a meta-game and returns a probability
                                  distribution over the policies in the meta-game.
                                  Default uses maxent-Nash equilibrium for the logodds transformation
@@ -152,6 +152,7 @@ class PSRONashResponse():
                                                          agent_vector=[policies[i],
                                                                        policies[j]],
                                                          n_matches=benchmarking_episodes)[0]
+                # Because we are asumming a symmetrical zero-sum game.
                 updated_meta_game[i, j] = winrate_estimate
                 updated_meta_game[j, i] = 1 - winrate_estimate
         return updated_meta_game
