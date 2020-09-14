@@ -115,7 +115,7 @@ class Task:
                      training: bool) \
                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
         '''
-        Runs :param: num_episodes inside of the Task's underlying environment  
+        Runs :param: num_episodes inside of the Task's underlying environment
         in :param: num_envs parallel environments.  If the flag
         :param: training is set, the agents in :param: agent_vector will be fed
         the 'experiences'* collected during the :param: num_episodes.
