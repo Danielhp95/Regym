@@ -21,7 +21,6 @@ from regym.environments import generate_task, Task, EnvType
 
 class PSRONashResponse():
 
-
     def __init__(self,
                  task: Task,
                  meta_game_solver: Callable = lambda winrate_matrix: solve_zero_sum_game(winrate_matrix)[0],
@@ -148,14 +147,28 @@ class PSRONashResponse():
             # TODO: maybe use regym.evaluation. benchmark on tasks?
             if i == j: updated_meta_game[j, j] = 0.5
             else:
-                winrate_estimate = play_multiple_matches(task=task,
-                                                         agent_vector=[policies[i],
-                                                                       policies[j]],
-                                                         n_matches=benchmarking_episodes)[0]
+                winrate_estimate = self.estimate_winrate(task, policies[i],
+                                                         policies[j], benchmarking_episodes)
                 # Because we are asumming a symmetrical zero-sum game.
                 updated_meta_game[i, j] = winrate_estimate
                 updated_meta_game[j, i] = 1 - winrate_estimate
         return updated_meta_game
+
+    def estimate_winrate(self, task: Task, policy_1: 'Agent', policy_2: 'Agent',
+                         benchmarking_episodes: int) -> float:
+        '''
+        ASSUMPTION: Task is a 2-player, non-symmetrical game.
+        Thus the :param: policies need to be benchmarked on both positions.
+        '''
+        first_position_winrates = play_multiple_matches(
+            task=task, agent_vector=[policy_1, policy_2],
+            n_matches=(benchmarking_episodes // 2))
+        second_position_winrates = play_multiple_matches(
+            task=task, agent_vector=[policy_2, policy_1],
+            n_matches=(benchmarking_episodes // 2))
+        policy_1_overall_winrate = (first_position_winrates[0] +
+                                    second_position_winrates[1]) / 2
+        return policy_1_overall_winrate
 
     def add_agent_to_menagerie(self, training_agent, candidate_save_path=None):
         if candidate_save_path is not None:
