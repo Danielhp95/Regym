@@ -84,6 +84,7 @@ def test_can_update_the_neural_net_in_the_server():
 #@pytest.mark.skipif(not torch.cuda.is_available(),
 #                    reason="Requires a gpu and cuda to be available")
 def test_server_is_faster_on_gpu():
+    import cProfile
     pr = cProfile.Profile()
     pr.enable()
     cpu_time = _test_server_speed(device='cpu')
