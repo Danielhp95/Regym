@@ -110,7 +110,8 @@ class ExpertIterationAgent(Agent):
         storage.reset()
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
-            self.server_handler.update_neural_net(self.apprentice)
+            if self.server_handler:  # This will be set if self.use_apprentice_in_expert
+                self.server_handler.update_neural_net(self.apprentice)
 
     def process_environment_signals(self, o, r: float):
         processed_s = self.state_preprocess_fn(o)
