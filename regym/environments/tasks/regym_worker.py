@@ -28,6 +28,7 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         :param env_name: Name of OpenAI Gym environment
         :param num_envs: Number of parallel environments to run.
         '''
+        self.name = env_name
         if num_envs == -1: num_envs = cpu_count()
         worker = _regym_worker_shared_memory
         env_fns = [self._make_env_fn(env_name) for _ in range(num_envs)]

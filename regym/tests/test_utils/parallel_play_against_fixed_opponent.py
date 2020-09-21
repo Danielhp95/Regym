@@ -27,6 +27,7 @@ def parallel_learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
                                         benchmarking_episodes: int = 0,
                                         benchmark_every_n_episodes: int = 0,
                                         num_envs: int = -1,
+                                        show_progress: bool = False,
                                         summary_writer: Optional[SummaryWriter] = None):
     '''
     Test used to :assert: that :param: agent is 'learning' by
@@ -52,6 +53,7 @@ def parallel_learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
                                   after each episode
     :param num_envs: Number of processes that will be spawned to run
                      the underlying environment. Default: -1 == cpu_count.
+    :param show_progress: Wether to show a progress bar in stdout
     :param summary_writer: Torch SummaryWriter to log info during
                            training and benchmarking.
     '''
@@ -65,12 +67,13 @@ def parallel_learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
                                                 agent_position,
                                                 alter_agent_positions,
                                                 num_envs,
+                                                show_progress,
                                                 summary_writer)
 
     agent.training = False
     test_trajectories = simulate(task, agent, fixed_opponent, agent_position,
                                  episodes=test_episodes, training=False,
-                                 mode='TESTING')
+                                 show_progress=show_progress, mode='TESTING')
 
     test_reward = extract_test_reward(evaluation_method, test_trajectories, agent_position)
 
@@ -81,19 +84,19 @@ def parallel_learn_against_fix_opponent(agent: Agent, fixed_opponent: Agent,
 
 def simulate(task: Task, agent: Agent, fixed_opponent: Agent,
              agent_position: int, episodes: int, num_envs,
-             training, mode: str) -> List:
+             training: bool, show_progress: bool, mode: str) -> List:
     agent_vector = [fixed_opponent]
     agent_vector.insert(agent_position, agent)
     return task.run_episodes(agent_vector, training=training,
-                             num_envs=num_envs,
-                             num_episodes=episodes)
+                             num_envs=num_envs, num_episodes=episodes,
+                             show_progress=show_progress)
 
 
 def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
                         training_episodes: int, benchmark_every_n_episodes: int,
                         benchmarking_episodes: int,
                         agent_position: int, alter_agent_positions: bool,
-                        num_envs,
+                        num_envs: int, show_progress: bool,
                         summary_writer: Optional[SummaryWriter]):
     training_trajectories = list()
     interval = min(training_episodes, benchmark_every_n_episodes)
@@ -104,7 +107,9 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
                                           agent_position,
                                           episodes=interval,
                                           num_envs=num_envs,
-                                          training=True, mode='TRAINING')
+                                          training=True,
+                                          show_progress=show_progress,
+                                          mode='TRAINING')
         end = time() - start
         print(f'Training for {interval} took: {end}s')
 
@@ -114,7 +119,7 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
         benchmark_agent(task, agent, fixed_opponent, agent_position,
                         starting_episode=(e + interval),
                         episodes=benchmarking_episodes,
-                        num_envs=num_envs,
+                        num_envs=num_envs, show_progress=show_progress,
                         summary_writer=summary_writer)
         end = time() - start
         print(f'Benchmarking for {benchmarking_episodes} took: {end}s')
@@ -126,10 +131,11 @@ def train_and_benchmark(task, agent: Agent, fixed_opponent: Agent,
 def benchmark_agent(task: Task, agent: Agent, fixed_opponent: Agent,
                     agent_position, episodes,
                     starting_episode: int,
-                    num_envs: int,
+                    num_envs: int, show_progress: bool,
                     summary_writer: Optional[SummaryWriter]):
     trajectories = simulate(task, agent, fixed_opponent, agent_position,
-                            episodes, num_envs, training=False, mode='BENCHMARKING')
+                            episodes, num_envs, training=False,
+                            show_progress=show_progress, mode='BENCHMARKING')
 
     # How can we also print this info in a useful way?
     winrate = len(list(filter(lambda t: extract_winner(t) == agent_position,

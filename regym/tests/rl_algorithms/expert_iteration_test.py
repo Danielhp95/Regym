@@ -5,7 +5,7 @@ import regym
 
 from regym.util import extract_winner
 
-from play_against_fixed_opponent import learn_against_fix_opponent
+from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix_opponent
 from regym.tests.test_utils.parallel_play_against_fixed_opponent import parallel_learn_against_fix_opponent
 from regym.rl_algorithms import rockAgent, build_Random_Agent, build_MCTS_Agent
 from regym.rl_algorithms import build_ExpertIteration_Agent
@@ -39,7 +39,7 @@ def test_can_defeat_random_play_in_connect4_both_positions_multi_env(Connect4Tas
 
     trajectories = Connect4Task.run_episodes(
             [ex_it, random_agent], training=False, num_envs=4, num_episodes=4)
-            
+
     assert all(map(lambda t: extract_winner(t) == 0, trajectories))  # First player (index 0) has a much higher budget
 
     trajectories = Connect4Task.run_episodes(
@@ -90,6 +90,7 @@ def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, exp
             reward_tolerance=0.2,
             maximum_average_reward=1.0,
             evaluation_method='last',
+            show_progress=True,
             summary_writer=summary_writer)
 
 
@@ -114,9 +115,9 @@ def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iterati
     expert_iteration_config_dict['num_epochs_per_iteration'] = 4
     # expert_iteration_config_dict['residual_connections'] = [(2, 3), (3, 4)]
 
-    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-test')
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name=f"ExIt-test:{expert_iteration_config_dict['mcts_budget']}")
 
-    mcts_config_dict['budget'] = 100
+    mcts_config_dict['budget'] = 1
     mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name=f"MCTS:{mcts_config_dict['budget']}")
 
     parallel_learn_against_fix_opponent(ex_it,
@@ -130,5 +131,6 @@ def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iterati
             reward_tolerance=0.2,
             maximum_average_reward=1.0,
             evaluation_method='last',
+            show_progress=True,
             num_envs=torch.multiprocessing.cpu_count(),
             summary_writer=summary_writer)

@@ -112,7 +112,7 @@ class Task:
 
     def run_episodes(self, agent_vector: List['Agent'],
                      num_episodes: int, num_envs: int,
-                     training: bool) \
+                     training: bool, show_progress: bool = False) \
                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
         '''
         Runs :param: num_episodes inside of the Task's underlying environment
@@ -141,6 +141,7 @@ class Task:
         :param training:     Whether to propagate experiences to agents.
                              Note that agents must also have their own
                              `Agent.training` flag set.
+        :param show_progress: Whether to output a progress bar to stdout
         :returns: List of trajectories experienced by agents in
                   :param: agent_vector
         '''
@@ -157,7 +158,7 @@ class Task:
                     vector_env, extended_agent_vector[0], training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             ts = regym.rl_loops.multiagent_loops.vectorenv_sequential_action_rl_loop.async_run_episode(
-                    vector_env, extended_agent_vector, training, num_episodes)
+                    vector_env, extended_agent_vector, training, num_episodes, show_progress)
         elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
         self.total_episodes_run += num_episodes

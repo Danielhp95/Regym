@@ -2,19 +2,20 @@ from functools import reduce
 from typing import List, Tuple, Any, Dict, NewType
 from copy import deepcopy
 
+from tqdm import tqdm
 import numpy as np
 import gym
 
 import regym
 from regym.rl_algorithms.agents import Agent
 from regym.environments.tasks import RegymAsyncVectorEnv
-
 from regym.rl_loops.utils import update_parallel_sequential_trajectories, update_finished_trajectories
 from regym.rl_loops.utils import agents_to_update_finished_trajectory_sequential_env
 
 
 def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
-                      training: bool, num_episodes: int) \
+                      training: bool, num_episodes: int,
+                      show_progress: bool = False) \
                       -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
     '''
     Runs :param: num_episodes of asynchronous environment :param: env
@@ -39,6 +40,7 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
     :param training: Whether to propagate experiences to agents
                      in :param: agent_vector
     :param num_episodes: Number of target episodes to run environment for
+    :param show_progress: Whether to output a progress bar to stdout
     :returns: List of environment trajectories experienced during simulation.
     '''
     ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
@@ -49,8 +51,13 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
     current_players: List[int] = [0] * env.num_envs
     legal_actions: List[List] = [None] * env.num_envs # Revise
     num_agents = len(agent_vector)
-    while len(finished_trajectories) < num_episodes:
 
+    if show_progress:
+        agent_names = ', '.join([a.name for a in agent_vector])
+        description = f'Simulating env {env.name} ({env.num_envs} processes). Agents [{agent_names}]. Training {training}'
+        progress_bar = tqdm(total=num_episodes, desc=description)
+
+    while len(finished_trajectories) < num_episodes:
         # Take action
         action_vector = multienv_choose_action(
                 agent_vector, env, obs, current_players, legal_actions)
@@ -81,7 +88,9 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
                     handle_finished_episodes(training, agent_vector,
                             ongoing_trajectories, done_envs,
                             finished_trajectories, current_players)
+            if show_progress: progress_bar.update(len(done_envs))
 
+    if show_progress: progress_bar.close()
     return finished_trajectories
 
 
