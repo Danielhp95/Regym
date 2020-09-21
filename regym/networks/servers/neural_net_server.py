@@ -124,8 +124,6 @@ class NeuralNetServerHandler:
         return f"NeuralNetServer:\n" + server_info + "\n" + net_str
 
 
-from regym.util.profiling import profile
-@profile(filename='inside_neural_net_server')
 def neural_net_server(net: torch.nn.Module,
                       connections: List[multiprocessing.Pipe],
                       pre_processing_fn: Callable = batch_vector_observation,
