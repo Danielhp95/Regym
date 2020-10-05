@@ -34,7 +34,6 @@ def test_ppo_can_solve_multi_env_cartpole(CartPoleTask, ppo_config_dict):
     regym.rl_algorithms.PPO.ppo_loss.summary_writer = SummaryWriter('ppo_test_tensorboard')
 
     test_trajectories = multiactor_task_test(CartPoleTask, agent, train_episodes=5000, test_episodes=100)
-    #test_trajectories = singleactor_task_test(CartPoleTask, agent, train_episodes=5000, test_episodes=100)
 
     max_traj_len = 200
     solved_threshold = 100
@@ -65,7 +64,6 @@ def singleactor_task_test(task, agent, train_episodes: int, test_episodes: int):
     return test_trajectories
 
 
-@profile(filename='multiactor_task_profile.pstats')
 def multiactor_task_test(task, agent, train_episodes, test_episodes):
     agent.training = True
     agent.algorithm.horizon = 2046

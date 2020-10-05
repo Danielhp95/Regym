@@ -32,8 +32,10 @@ class PPOAgent(Agent):
 
     @Agent.num_actors.setter
     def num_actors(self, n):
-        self.algorithm.storages = self.algorithm.create_storages(num_storages=n)
         self._num_actors = n
+        self.algorithm.storages = self.algorithm.create_storages(
+            num_storages=n,
+            size=(self.algorithm.horizon // self._num_actors)+1)
 
     def _reset_rnn_states(self):
         self.rnn_states = {k: None for k in self.rnn_keys}

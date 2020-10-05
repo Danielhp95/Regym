@@ -59,8 +59,9 @@ class PPOAlgorithm():
 
         self.num_updates = 0
 
-    def create_storages(self, num_storages: int) -> List[Storage]:
-        storages = [Storage(self.horizon) for _ in range(num_storages)]
+    def create_storages(self, num_storages: int, size=-1) -> List[Storage]:
+        if size == -1: size = self.horizon
+        storages = [Storage(size) for _ in range(num_storages)]
         if self.recurrent:
             for storage in storages:
                 storage.add_key('rnn_states')
