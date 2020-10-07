@@ -59,6 +59,7 @@ class ExpertIterationAgent(Agent):
             self.embed_apprentice_in_expert()
 
         self.use_agent_modelling: bool = use_agent_modelling
+        if self.use_agent_modelling: self.requires_opponents_prediction = True
         ####
 
         # Replay buffer style storage
@@ -86,24 +87,26 @@ class ExpertIterationAgent(Agent):
 
     def handle_experience(self, o, a, r: float, succ_s, done=False):
         super().handle_experience(o, a, r, succ_s, done)
-        o, r = self.process_environment_signals(o, r)
-        normalized_visits = torch.Tensor(self.normalize(self.expert.current_prediction['child_visitations']))
-        self.update_storage(self.storage, o, r, done,
-                            mcts_policy=normalized_visits)
-        if done: self.handle_end_of_episode(self.storage)
-        self.expert.handle_experience(o, a, r, succ_s, done)
+        expert_child_visitations = self.expert.current_prediction['child_visitations']
+        self._handle_experience(o, a, r, succ_s, done,
+                                self.storage, expert_child_visitations)
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
         for (o, a, r, succ_o, done), e_i in zip(experiences, env_ids):
             self.storages[e_i] = self.storages.get(e_i, self.init_storage(size=100))
-            o_prime, r_prime = self.process_environment_signals(o, r)
-            normalized_visits = torch.Tensor(self.normalize(self.expert.current_prediction[e_i]['child_visitations']))
-            self.update_storage(self.storages[e_i], o_prime, r_prime, done,
-                                normalized_visits)
-            if done:
-                # Check that by deleting you don't remove datapoints for self.algorithm
-                self.handle_end_of_episode(self.storages[e_i])
-                del self.storages[e_i]
+            expert_child_visitations = self.expert.current_prediction[e_i]['child_visitations']
+            self._handle_experience(o, a, r, succ_o, done,
+                                    self.storages[e_i], expert_child_visitations)
+            if done: del self.storages[e_i]
+
+    def _handle_experience(self, o, a, r, succ_s, done: bool, storage: Storage,
+                           expert_child_visitations: List[int]):
+        o, r = self.process_environment_signals(o, r)
+        normalized_visits = torch.Tensor(self.normalize(expert_child_visitations))
+        self.update_storage(storage, o, r, done,
+                            mcts_policy=normalized_visits)
+        if done: self.handle_end_of_episode(storage)
+        self.expert.handle_experience(o, a, r, succ_s, done)
 
     def handle_end_of_episode(self, storage: Storage):
         self.algorithm.add_episode_trajectory(storage)
@@ -137,11 +140,6 @@ class ExpertIterationAgent(Agent):
         action = self.expert.model_based_take_action(env, observation,
                                                      player_index,
                                                      multi_action)
-        #fake_action = self.fake_expert.model_based_take_action(env, observation, player_index)
-        #fake_pi_mcts = self.normalize(self.fake_expert.current_prediction['child_visitations'])
-        #distance_vector = [abs(pi_a_mcts - pi_a_nn)
-        #                   for pi_a_nn, pi_a_mcts
-        #                   in zip(self.policy_fn(observation, env.get_moves()), fake_pi_mcts)]
         return action
 
     def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):

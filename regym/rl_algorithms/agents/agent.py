@@ -1,4 +1,4 @@
-from typing import List, Union, Any
+from typing import List, Dict, Union, Any
 from abc import ABC, abstractmethod
 
 import gym
@@ -59,8 +59,24 @@ class Agent(ABC):
         self.requires_environment_model: bool = requires_environment_model
         self.multi_action_requires_server: bool = multi_action_requires_server
 
-        self.num_actors: int = 1
+        self._num_actors: int = 1
         self.server_handler: NeuralNetServerHandler = None
+
+        '''
+        Dictionary containing agent-specific information regarding the last
+        action that was taken.
+        (Like values computed during a forward pass of a neural network)
+        '''
+        self.current_prediction: Dict[str, Any] = None
+
+        '''
+        Flag denoting if this agent requires information
+        from other opponents as part of any of the following:
+            - Compute an action
+            - Update its policy
+            - Make new friends
+        '''
+        self.requires_opponents_prediction: bool = False
 
     @property
     def num_actors(self) -> int:
@@ -128,7 +144,8 @@ class Agent(ABC):
         raise NotImplementedError('To be implemented in Subclass')
 
     @abstractmethod
-    def handle_experience(self, o, a, r, succ_o, done=False):
+    def handle_experience(self, o, a, r, succ_o, done=False,
+                          external_agent_infos={}):
         '''
         Processes a single 'experience' (defined by the parameters of this function),
         which is the main method of gathering data of an RL algorithm.
@@ -142,6 +159,8 @@ class Agent(ABC):
         :param succ_o: Environment observation reached after after taking
                        :param a: action at :param o: observation
         :param done:   Boolean denoting episode termination
+        :param external_agent_infos: Information about other agents
+                                     current_prediction (described in Agent.__init__)
         '''
         self.handled_experiences += 1
 

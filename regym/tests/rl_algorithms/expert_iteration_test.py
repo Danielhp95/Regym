@@ -1,8 +1,8 @@
-from test_fixtures import expert_iteration_config_dict, mcts_config_dict, Connect4Task
-
+import torch
 from torch.utils.tensorboard import SummaryWriter
-import regym
 
+from test_fixtures import expert_iteration_config_dict, mcts_config_dict, Connect4Task
+import regym
 from regym.util import extract_winner
 
 from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix_opponent
@@ -98,7 +98,6 @@ def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iterati
     summary_writer = SummaryWriter('expert_iteration_test')
     regym.rl_algorithms.expert_iteration.expert_iteration_loss.summary_writer = summary_writer
     import torch
-    torch.multiprocessing.set_start_method('forkserver')
 
     # Train worthy params
     expert_iteration_config_dict['use_apprentice_in_expert'] = True
