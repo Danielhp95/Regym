@@ -143,7 +143,6 @@ class Agent(ABC):
         '''
         raise NotImplementedError('To be implemented in Subclass')
 
-    @abstractmethod
     def handle_experience(self, o, a, r, succ_o, done=False,
                           external_agent_infos={}):
         '''
