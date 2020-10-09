@@ -48,10 +48,6 @@ class ExpertIterationAgent(Agent):
         self.expert: Agent = expert
         self.apprentice: nn.Module = apprentice
 
-        #self.fake_expert = expert.clone()
-        #self.fake_expert.policy_fn = self.expert.random_selection_policy
-        #self.fake_expert.use_dirichlet = False
-
         #### Algorithmic variations ####
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
         if use_apprentice_in_expert:
