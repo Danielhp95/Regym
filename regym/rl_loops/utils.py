@@ -1,30 +1,53 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional, Any
 from copy import deepcopy
+
+from regym.rl_algorithms.agents import Agent
+from regym.rl_loops.trajectory import Trajectory
 
 
 def update_trajectories(trajectories: List[List],
                         action_vector: List[int], obs: List,
                         rewards: List[float], succ_obs: List,
-                        dones: List[bool]):
+                        dones: List[bool],
+                        current_players: List[int],
+                        extra_infos: Dict[int, Optional[Dict[str, Any]]]):
     '''
     Appends to each trajectory in :param: trajectories its most recent
     experience (state, action, reward, succ_state, done_flag)
     '''
     num_envs = len(trajectories)
     for i in range(num_envs):
-        e = (obs[i], action_vector[i], rewards[i], succ_obs[i], dones[i])
-        trajectories[i] += [e]
+        trajectories[i].add_timestep(
+            o=obs[i], a=action_vector[i], r=rewards[i], succ_o=succ_obs[i],
+            done=dones[i], acting_agents=[current_players[i]])
 
 
 def update_parallel_sequential_trajectories(trajectories: List[List],
+                                            agent_vector: List[Agent],
                                             action_vector: List[int],
                                             obs: List,
                                             rewards: List[float],
-                                            succ_obs: List, dones: List[bool]):
+                                            succ_obs: List, dones: List[bool],
+                                            current_players: List[int],
+                                            store_extra_information: bool):
+    '''
+    TODO
+    :param trajectories:
+    :param agent_vector:
+    :param action_vector:
+    :param obs:
+    :param rewards:
+    :param succ_obs:
+    :param current_players: Mapping of agent indexes that just acted on each environment
+    :param store_extra_information:
+    '''
     res_obs, res_succ_obs = restructure_parallel_observations(obs, succ_obs,
                                                               num_players=len(obs))
+    extra_infos = extract_current_predictions(current_players, agent_vector)\
+        if store_extra_information else {}
+
     update_trajectories(trajectories, action_vector, res_obs, rewards,
-                        res_succ_obs, dones)
+                        res_succ_obs, dones, current_players, extra_infos)
 
 
 def restructure_parallel_observations(observations, succ_observations,
@@ -54,7 +77,7 @@ def update_finished_trajectories(ongoing_trajectories: List[List[Tuple]],
     :param: finished_trajectories as dictated by :param: done_envs'''
     for env_i in done_envs:
         finished_trajectories += [deepcopy(ongoing_trajectories[env_i])]
-        ongoing_trajectories[env_i].clear()
+        ongoing_trajectories[env_i] = Trajectory(env_type=finished_trajectories[-1].env_type)
     return ongoing_trajectories, finished_trajectories
 
 
