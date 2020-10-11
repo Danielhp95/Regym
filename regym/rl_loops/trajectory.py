@@ -83,10 +83,10 @@ class Trajectory:
     def agent_reward(self, agent_position: int) -> float:
         return sum(map(lambda t: t.reward[agent_position], self._timesteps))
 
-    def __getitem__(self, n):
+    def __getitem__(self, n) -> Union[Timestep, List[Timestep]]:
         return self._timesteps[n]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._timesteps)
 
     def __iter__(self):

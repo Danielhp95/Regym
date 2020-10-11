@@ -52,8 +52,7 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool,
                                 extra_info=extra_info)
 
         # Update agents
-        if training: propagate_experience(agent_vector, trajectory,
-                                          reward_vector, succ_observations, done)
+        if training: propagate_experience(agent_vector, trajectory)
 
         # Update observation
         observations = succ_observations
@@ -65,11 +64,12 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool,
     if training: propagate_last_experience(agent_vector, trajectory)
     return trajectory
 
-def extract_extra_info(store_extra_information, current_player, agent_vector):
-    extra_info = None
+
+def extract_extra_info(store_extra_information: bool, current_player: int,
+                       agent_vector: List[Agent]) -> Dict[int, Dict[str, Any]]:
     if store_extra_information:
         extra_info = {current_player: agent_vector[current_player].current_prediction}
-    else: extra_info = None
+    else: extra_info = {}
     return extra_info
 
 
@@ -88,28 +88,25 @@ def choose_action(agent, env, observation, current_player, legal_actions):
     return action
 
 
-def propagate_experience(agent_vector: List, trajectory: List,
-                         reward_vector: List, succ_observations: List,
-                         done: bool):
+def propagate_experience(agent_vector: List, trajectory: Trajectory):
     '''
     Propagates the experience tuple to the corresponding agent
 
     ASSUMPTION: Agents take action in a circular fashion:
         Action order: 0 -> 1 -> ... -> number_agents -> 0 -> 1 -> ...
     :param agent_vector: List of agents acting in current environment
-    :param reward_vector: Reward vector for environment step
-    :param succ_observations: Succesor observations for current env step
-    :param done: Termination flag, whether the episode has finished
+    :param trajectory: Current episode trajectory
     '''
     if len(trajectory) < len(agent_vector): return
 
     agent_to_update = len(trajectory) % len(agent_vector)
     if agent_vector[agent_to_update].training:
-        (o, a, r, succ_o, d) = extract_latest_experience(agent_to_update, trajectory, agent_vector)
-        agent_vector[agent_to_update].handle_experience(o, a, r, succ_o, d)
+        import ipdb; ipdb.set_trace()
+        (o, a, r, succ_o, d, extra_info) = extract_latest_experience(agent_to_update, trajectory, agent_vector)
+        agent_vector[agent_to_update].handle_experience(o, a, r, succ_o, d, extra_info)
 
 
-def extract_latest_experience(agent_id: int, trajectory: List, agent_vector: List):
+def extract_latest_experience(agent_id: int, trajectory: Trajectory, agent_vector: List):
     '''
     ASSUMPTION:
         - every non-terminal observation corresponds to
@@ -123,14 +120,28 @@ def extract_latest_experience(agent_id: int, trajectory: List, agent_vector: Lis
     :param trajectory: Current episode trajectory
     :param agent_vector: List of agents acting in current environment
     '''
-    o, a = get_last_observation_and_action_for_agent(agent_id,
-                                                     trajectory,
-                                                     len(agent_vector))
-    (_, _, reward, succ_observation, done) = trajectory[-1]
-    return (o, a, reward[agent_id], succ_observation[agent_id], done)
+    o, a = get_last_observation_and_action_for_agent(agent_id, trajectory)
+    extra_info = extract_extra_info_from_trajectory(agent_id, trajectory)
+    t = trajectory[-1]
+    return (o, a, t.reward[agent_id], t.succ_observation[agent_id], t.done,
+            extra_info)
 
 
-def propagate_last_experience(agent_vector: List, trajectory: List):
+def extract_extra_info_from_trajectory(agent_id: int,
+                                       trajectory: Trajectory) \
+                            -> Dict[int, Dict[str, Any]]:
+    time_index_after_agent_action = -(trajectory.num_agents) + 1
+    relevant_timesteps = trajectory[time_index_after_agent_action:]
+
+    extra_info = {}
+    for timestep in relevant_timesteps:
+        for a_i, v in timestep.extra_info.items():
+            assert a_i not in extra_info, 'Breaking cyclic turn assumption'
+            extra_info[a_i] = v
+    return extra_info
+
+
+def propagate_last_experience(agent_vector: List, trajectory: Trajectory):
     '''
     Sequential environments will often feature a terminal state which yields
     a reward signal to each agent (i.e how much each agent wins / loses on poker).
@@ -141,22 +152,21 @@ def propagate_last_experience(agent_vector: List, trajectory: List):
     :param agent_vector: List of agents acting in current environment
     :param trajectory: Current (finished) episode trajectory
     '''
-    reward_vector = trajectory[-1][2]
-    succ_observations = trajectory[-1][3]
+    reward_vector = trajectory[-1].reward
+    succ_observations = trajectory[-1].succ_observation
     agent_indices = list(range(len(agent_vector)))
     # This agent already processed the last experience
     agent_indices.pop(len(trajectory) % len(agent_vector))
 
     for i in agent_indices:
         if not agent_vector[i].training: continue
-        o, a = get_last_observation_and_action_for_agent(i, trajectory,
-                                                         len(agent_vector))
+        o, a = get_last_observation_and_action_for_agent(i, trajectory)
         agent_vector[i].handle_experience(o, a, reward_vector[i],
                                           succ_observations[i], done=True)
 
 
 def get_last_observation_and_action_for_agent(target_agent_id: int,
-                                              trajectory: List, num_agents: int) -> Tuple:
+                                              trajectory: Trajectory) -> Tuple:
     '''
     # TODO: assume games where turns are taken in cyclic fashion.
 
@@ -171,7 +181,7 @@ def get_last_observation_and_action_for_agent(target_agent_id: int,
               at such observation by player :param: target_agent_id.
     '''
     # Offsets are negative, exploiting Python's backwards index lookup
-    previous_timestep = trajectory[-num_agents]
-    last_observation = previous_timestep[0][target_agent_id]
-    last_action = previous_timestep[1]
+    previous_timestep = trajectory[-trajectory.num_agents]
+    last_observation = previous_timestep.observation[target_agent_id]
+    last_action = previous_timestep.action
     return last_observation, last_action
