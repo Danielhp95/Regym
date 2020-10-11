@@ -26,7 +26,7 @@ class DeepQNetworkAgent(Agent):
         self.kwargs = algorithm.kwargs
 
         self.algorithm = algorithm
-        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
+        self.state_preprocessing_fn = self.algorithm.kwargs["preprocess"]
 
         self.epsend = self.kwargs['epsend']
         self.epsstart = self.kwargs['epsstart']
@@ -37,8 +37,8 @@ class DeepQNetworkAgent(Agent):
         return self.algorithm.model
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        hs = self.preprocessing_function(s)
-        hsucc = self.preprocessing_function(succ_s)
+        hs = self.state_preprocessing_fn(s)
+        hsucc = self.state_preprocessing_fn(succ_s)
         r = T.ones(1)*r
         a_tensor = T.from_numpy(a) if isinstance(a, np.ndarray) else T.LongTensor([a])
         experience = EXP(hs, a_tensor, hsucc, r, done)
@@ -51,7 +51,7 @@ class DeepQNetworkAgent(Agent):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
         action = self.select_action(model=self.algorithm.model,
-                                    state=self.preprocessing_function(state),
+                                    state=self.state_preprocessing_fn(state),
                                     eps=self.eps,
                                     legal_actions=legal_actions,
                                     training=self.training)
