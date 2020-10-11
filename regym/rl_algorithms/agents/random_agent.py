@@ -29,7 +29,7 @@ class RandomAgent(Agent):
         if multi_action:
             action = self.compute_multi_action_and_propagate_current_prediction(
                 observations=observations,
-                num_actions=len(legal_actions),
+                num_actions=len(observations),
                 legal_actions=legal_actions
             )
         if not multi_action:

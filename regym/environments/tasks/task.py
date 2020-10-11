@@ -8,16 +8,7 @@ import gym
 import regym
 from .regym_worker import RegymAsyncVectorEnv
 
-
-class EnvType(Enum):
-    '''
-    Enumerator representing what kind of environment a task will deal with.
-    Useful because different environments (simulatenous vs sequential) require
-    a different underlying mathematical construct to simulate an episode
-    '''
-    SINGLE_AGENT = 'single-agent'
-    MULTIAGENT_SIMULTANEOUS_ACTION = 'multiagent-simultaneous'
-    MULTIAGENT_SEQUENTIAL_ACTION = 'multiagent-sequential'
+from ..env_type import EnvType
 
 
 @dataclass
@@ -101,11 +92,11 @@ class Task:
         '''
         self._check_required_number_of_agents_are_present(len(agent_vector))
         extended_agent_vector = self._extend_agent_vector(agent_vector)
-        if self.env_type == EnvType.SINGLE_AGENT:
+        if self.env_type == regym.environments.EnvType.SINGLE_AGENT:
             ts = regym.rl_loops.singleagent_loops.rl_loop.run_episode(self.env, extended_agent_vector[0], training, render_mode)
-        if self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
+        if self.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             ts = regym.rl_loops.multiagent_loops.simultaneous_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
-        if self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
+        if self.env_type == regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             ts = regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
         self.total_episodes_run += 1
         return ts

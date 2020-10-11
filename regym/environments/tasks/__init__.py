@@ -1,3 +1,3 @@
-from .task import Task, EnvType
+from .task import Task
 
 from .regym_worker import RegymAsyncVectorEnv

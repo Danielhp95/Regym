@@ -4,7 +4,9 @@ import numpy as np
 import gym
 from gym.spaces import Box, Discrete, MultiDiscrete, Tuple
 
-from regym.environments.tasks import Task, EnvType
+from .tasks import Task
+
+from .env_type import EnvType
 
 
 def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:

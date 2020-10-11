@@ -5,12 +5,12 @@ import numpy as np
 import gym
 
 import regym
+from regym.rl_loops import Trajectory
 from regym.rl_algorithms.agents import Agent
 
-from regym.rl_loops.utils import update_trajectories
 
-
-def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: str):
+def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool,
+                render_mode: str) -> Trajectory:
     '''
     Runs a single multi-agent rl loop until termination for a sequential environment
 
@@ -24,7 +24,11 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
     :param render_mode: TODO: add explanation
     :returns: Episode trajectory (o,a,r,o')
     '''
-    observations, done, trajectory = env.reset(), False, []
+    store_extra_information = any([agent.requires_opponents_prediction for agent in agent_vector])
+
+    trajectory = Trajectory(env_type=regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION,
+                            num_agents=len(agent_vector))
+    observations, done = env.reset(), False
     current_player = 0  # Assumption: The first agent to act is always the 0th agent
     # Unfortunately, OpenAIGym does not have a standardized interface
     # To support which actions are legal at an initial state. These can only be extracted
@@ -40,7 +44,12 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
         # Environment step
         succ_observations, reward_vector, done, info = env.step(action)
-        trajectory.append((observations, action, reward_vector, succ_observations, done))
+
+        extra_info = extract_extra_info(store_extra_information, current_player, agent_vector)
+
+        trajectory.add_timestep(observations, action, reward_vector, succ_observations, done,
+                                acting_agents=[current_player],
+                                extra_info=extra_info)
 
         # Update agents
         if training: propagate_experience(agent_vector, trajectory,
@@ -55,6 +64,13 @@ def run_episode(env: gym.Env, agent_vector: List, training: bool, render_mode: s
 
     if training: propagate_last_experience(agent_vector, trajectory)
     return trajectory
+
+def extract_extra_info(store_extra_information, current_player, agent_vector):
+    extra_info = None
+    if store_extra_information:
+        extra_info = {current_player: agent_vector[current_player].current_prediction}
+    else: extra_info = None
+    return extra_info
 
 
 def choose_action(agent, env, observation, current_player, legal_actions):

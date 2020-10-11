@@ -5,18 +5,18 @@ http://papers.nips.cc/paper/7007-a-unified-game-theoretic-approach-to-multiagent
 TODO: difference between PSRO which takes 3 separate stages and our method, which is an online method.
 '''
 
+from typing import Callable, List
 import dill
 import logging
 import time
-from typing import Callable, List
 from itertools import product
 import numpy as np
 
 from regym.rl_algorithms import AgentHook
 from regym.game_theory import solve_zero_sum_game
 from regym.util import play_multiple_matches
-from regym.util import extract_winner
 from regym.environments import generate_task, Task, EnvType
+from regym.rl_loops import Trajectory
 
 
 class PSRONashResponse():
@@ -62,7 +62,7 @@ class PSRONashResponse():
 
         self.statistics = [self.IterationStatistics(0, 0, 0, [0], np.nan)]
 
-    def opponent_sampling_distribution(self, menagerie, training_agent):
+    def opponent_sampling_distribution(self, menagerie: List['Agent'], training_agent: 'Agent'):
         '''
         :param menagerie: archive of agents selected by the curator and the potential opponents
         :param training_agent: Agent currently being trained
@@ -79,8 +79,10 @@ class PSRONashResponse():
         self.meta_game = np.array([[0.5]])
         self.meta_game_solution = np.array([1.0])
 
-    def curator(self, menagerie, training_agent, episode_trajectory,
-                training_agent_index, candidate_save_path):
+    def curator(self, menagerie: List['Agent'], training_agent: 'Agent',
+                episode_trajectory: Trajectory,
+                training_agent_index: int,
+                candidate_save_path: str) -> List['Agent']:
         '''
         :param menagerie: archive of agents selected by the curator and the potential opponents
         :param training_agent: AgentHook of the Agent currently being trained
@@ -104,9 +106,8 @@ class PSRONashResponse():
                            / self.match_outcome_rolling_window_size)
         return current_winrate >= self.threshold_best_response
 
-    def update_rolling_winrates(self, episode_trajectory, training_agent_index):
-        winner_index = extract_winner(episode_trajectory)
-        victory = int(winner_index == training_agent_index)
+    def update_rolling_winrates(self, episode_trajectory: Trajectory, training_agent_index: int):
+        victory = int(episode_trajectory.winner == training_agent_index)
         if len(self.match_outcome_rolling_window) >= self.match_outcome_rolling_window_size:
             self.match_outcome_rolling_window.pop(0)
         self.match_outcome_rolling_window.append(victory)

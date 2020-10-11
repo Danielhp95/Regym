@@ -2,9 +2,10 @@ from typing import Optional, Dict
 
 import gym
 
-from regym.environments.gym_parser import parse_gym_environment
-from regym.environments.unity_parser import parse_unity_environment
-from regym.environments.tasks import Task, EnvType
+from .gym_parser import parse_gym_environment
+from .unity_parser import parse_unity_environment
+from .tasks import Task
+from .env_type import EnvType 
 
 
 def generate_task(env_name: str, env_type: EnvType = EnvType.SINGLE_AGENT, **kwargs: Optional[Dict]) -> Task:

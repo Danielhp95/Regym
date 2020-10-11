@@ -6,12 +6,14 @@ import gym
 
 import regym
 from regym.rl_algorithms.agents import Agent
+from regym.environments import EnvType
 from regym.environments.tasks import RegymAsyncVectorEnv
 from regym.rl_loops.utils import update_trajectories, update_finished_trajectories
+from regym.rl_loops.trajectory import Trajectory
 
 
 def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
-                -> List[Tuple[Any, Any, Any, Any, bool]]:
+                -> List[Trajectory]:
     '''
     Runs a single episode of a single-agent rl loop until termination.
     :param env: OpenAI gym environment
@@ -22,7 +24,7 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
     '''
     observation = env.reset()
     done = False
-    trajectory = []
+    trajectory = Trajectory(env_type=EnvType.SINGLE_AGENT)
     legal_actions: List = None
     while not done:
         if agent.requires_environment_model:
@@ -30,7 +32,7 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
         else:
             action = agent.model_free_take_action(observation, legal_actions)
         succ_observation, reward, done, info = env.step(action)
-        trajectory.append((observation, action, reward, succ_observation, done))
+        trajectory.add_timestep(observation, action, reward, succ_observation, done)
         if training: agent.handle_experience(observation, action, reward, succ_observation, done)
         observation = succ_observation
 
@@ -41,7 +43,7 @@ def run_episode(env: gym.Env, agent: Agent, training: bool, render_mode: str) \
 
 def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
                       num_episodes: int, show_progress=True) \
-                      -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
+                      -> List[Trajectory]:
     '''
     TODO
 
@@ -53,13 +55,15 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent: Agent, training: bool,
     :param training: (boolean) Whether the agents will learn from the experience they recieve
     :returns: List of episode trajectories: list of (list of (o,a,r,o'))
     '''
-    ongoing_trajectories: List[List[Tuple[Any, Any, Any, Any, bool]]]
-    ongoing_trajectories = [[] for _ in range(env.num_envs)]
+    ongoing_trajectories = [Trajectory(env_type=EnvType.SINGLE_AGENT)
+                            for _ in range(env.num_envs)]
     finished_trajectories = []
 
     obs = env.reset()
     legal_actions: List[List] = None  # Revise
+
     if show_progress: progress_bar = tqdm.tqdm(total=num_episodes)
+
     while len(finished_trajectories) < num_episodes:
         action_vector = choose_action(agent, env, obs, legal_actions)
         succ_obs, rewards, dones, infos = env.step(action_vector)
@@ -92,7 +96,7 @@ def choose_action(agent: 'Agent', env: RegymAsyncVectorEnv, observation,
     return action_vector
 
 
-def update_agent(agent: 'Agent', ongoing_trajectories: List):
+def update_agent(agent: 'Agent', ongoing_trajectories: List[Trajectory]):
     ''' Propagates latest experiences from :param: ongoing_trajectories
     '''
     experiences = [t[-1] for t in ongoing_trajectories]
@@ -100,9 +104,8 @@ def update_agent(agent: 'Agent', ongoing_trajectories: List):
                                       list(range(len(ongoing_trajectories))))
 
 
-
-def handle_finished_episodes(ongoing_trajectories: List,
-                             finished_trajectories: List,
+def handle_finished_episodes(ongoing_trajectories: List[Trajectory],
+                             finished_trajectories: List[Trajectory],
                              dones: List[bool],
                              progress_bar: Optional[tqdm.std.tqdm]) \
                              -> Tuple[List, List]:

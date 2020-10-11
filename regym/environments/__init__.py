@@ -1,2 +1,3 @@
 from .parse_environment import generate_task
-from .tasks import Task, EnvType
+from .env_type import EnvType
+from .tasks import Task

@@ -9,17 +9,18 @@ def update_trajectories(trajectories: List[List],
                         action_vector: List[int], obs: List,
                         rewards: List[float], succ_obs: List,
                         dones: List[bool],
-                        current_players: List[int],
-                        extra_infos: Dict[int, Optional[Dict[str, Any]]]):
+                        current_players: List[int] = None,
+                        extra_infos: Dict[int, Optional[Dict[str, Any]]] = None):
     '''
     Appends to each trajectory in :param: trajectories its most recent
     experience (state, action, reward, succ_state, done_flag)
     '''
     num_envs = len(trajectories)
     for i in range(num_envs):
+        acting_agents = current_players[i] if (current_players is not None) else None
         trajectories[i].add_timestep(
             o=obs[i], a=action_vector[i], r=rewards[i], succ_o=succ_obs[i],
-            done=dones[i], acting_agents=[current_players[i]])
+            done=dones[i], acting_agents=[acting_agents])
 
 
 def update_parallel_sequential_trajectories(trajectories: List[List],
