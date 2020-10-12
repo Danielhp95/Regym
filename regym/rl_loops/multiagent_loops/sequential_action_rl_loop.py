@@ -45,7 +45,7 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool,
         # Environment step
         succ_observations, reward_vector, done, info = env.step(action)
 
-        extra_info = extract_extra_info(store_extra_information, current_player, agent_vector)
+        extra_info = collect_extra_information_from_agent(store_extra_information, current_player, agent_vector)
 
         trajectory.add_timestep(observations, action, reward_vector, succ_observations, done,
                                 acting_agents=[current_player],
@@ -65,7 +65,7 @@ def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool,
     return trajectory
 
 
-def extract_extra_info(store_extra_information: bool, current_player: int,
+def collect_extra_information_from_agent(store_extra_information: bool, current_player: int,
                        agent_vector: List[Agent]) -> Dict[int, Dict[str, Any]]:
     if store_extra_information:
         extra_info = {current_player: agent_vector[current_player].current_prediction}
@@ -99,14 +99,36 @@ def propagate_experience(agent_vector: List, trajectory: Trajectory):
     '''
     if len(trajectory) < len(agent_vector): return
 
-    agent_to_update = len(trajectory) % len(agent_vector)
+    agent_to_update = len(trajectory) % len(agent_vector)  # Cyclic assumption
     if agent_vector[agent_to_update].training:
-        import ipdb; ipdb.set_trace()
-        (o, a, r, succ_o, d, extra_info) = extract_latest_experience(agent_to_update, trajectory, agent_vector)
+        (o, a, r, succ_o, d, extra_info) = extract_latest_experience(agent_to_update, trajectory)
         agent_vector[agent_to_update].handle_experience(o, a, r, succ_o, d, extra_info)
 
 
-def extract_latest_experience(agent_id: int, trajectory: Trajectory, agent_vector: List):
+def propagate_last_experience(agent_vector: List, trajectory: Trajectory):
+    '''
+    Sequential environments will often feature a terminal state which yields
+    a reward signal to each agent (i.e how much each agent wins / loses on poker).
+
+    This function propagates this reward signal to all agents
+    who have not received it, because they have not taken an acion on the
+    environment state leading up to it.
+
+    :param agent_vector: List of agents acting in current environment
+    :param trajectory: Current (finished) episode trajectory
+    '''
+    agent_indices = list(range(len(agent_vector)))
+    # This agent already processed the last experience
+    agent_indices.pop(len(trajectory) % len(agent_vector))
+
+    for a_i in agent_indices:
+        if not agent_vector[a_i].training: continue
+        (o, a, r, succ_o, d, extra_info) = extract_latest_experience(a_i, trajectory)
+        assert d, 'Episode should be finished'
+        agent_vector[a_i].handle_experience(o, a, r, succ_o, d, extra_info)
+
+
+def extract_latest_experience(agent_id: int, trajectory: Trajectory) -> Tuple:
     '''
     ASSUMPTION:
         - every non-terminal observation corresponds to
@@ -118,70 +140,36 @@ def extract_latest_experience(agent_id: int, trajectory: Trajectory, agent_vecto
 
     :param agent_id: Index of agent which will receive a new experience
     :param trajectory: Current episode trajectory
-    :param agent_vector: List of agents acting in current environment
     '''
-    o, a = get_last_observation_and_action_for_agent(agent_id, trajectory)
+    t1 = trajectory.last_acting_timestep_for_agent(agent_id)
+    t2 = trajectory[-1]
+
+    o, succ_o = t1.observation[agent_id], t2.succ_observation[agent_id]
+    a = t1.action
+    r = t1.reward[agent_id]  # Perhaps there's a better way of computting agent's reward?
+                             # Such as summing up all intermediate rewards for :agent_id:
+                             # between t1.t and t2.t?
+    done = t2.done
+
     extra_info = extract_extra_info_from_trajectory(agent_id, trajectory)
-    t = trajectory[-1]
-    return (o, a, t.reward[agent_id], t.succ_observation[agent_id], t.done,
-            extra_info)
+    return (o, a, r, succ_o, done, extra_info)
 
 
 def extract_extra_info_from_trajectory(agent_id: int,
                                        trajectory: Trajectory) \
                             -> Dict[int, Dict[str, Any]]:
+    '''
+    TODO: mention about stiching together current predicions from trajectory
+    '''
     time_index_after_agent_action = -(trajectory.num_agents) + 1
     relevant_timesteps = trajectory[time_index_after_agent_action:]
 
     extra_info = {}
     for timestep in relevant_timesteps:
         for a_i, v in timestep.extra_info.items():
+            if a_i == agent_id:
+                # An agent should not be fed info about it's own predictions
+                continue
             assert a_i not in extra_info, 'Breaking cyclic turn assumption'
             extra_info[a_i] = v
     return extra_info
-
-
-def propagate_last_experience(agent_vector: List, trajectory: Trajectory):
-    '''
-    Sequential environments will often feature a terminal state which yields
-    a reward signal to each agent (i.e how much each agent wins / loses on poker).
-
-    This function propagates this reward signal to all agents
-    who have not received it.
-
-    :param agent_vector: List of agents acting in current environment
-    :param trajectory: Current (finished) episode trajectory
-    '''
-    reward_vector = trajectory[-1].reward
-    succ_observations = trajectory[-1].succ_observation
-    agent_indices = list(range(len(agent_vector)))
-    # This agent already processed the last experience
-    agent_indices.pop(len(trajectory) % len(agent_vector))
-
-    for i in agent_indices:
-        if not agent_vector[i].training: continue
-        o, a = get_last_observation_and_action_for_agent(i, trajectory)
-        agent_vector[i].handle_experience(o, a, reward_vector[i],
-                                          succ_observations[i], done=True)
-
-
-def get_last_observation_and_action_for_agent(target_agent_id: int,
-                                              trajectory: Trajectory) -> Tuple:
-    '''
-    # TODO: assume games where turns are taken in cyclic fashion.
-
-    Obtains the last observation and action for agent :param: target_agent_id
-    from the :param: trajectory.
-
-    :param target_agent_id: Index of agent whose last observation / action
-                            we are searching for
-    :param trajectory: Sequence of (o_i,a_i,r_i,o'_{i+1}) for all players i.
-    :param num_agents: Number of agents acting in the current environment
-    :returns: The last observation (information state) and action taken
-              at such observation by player :param: target_agent_id.
-    '''
-    # Offsets are negative, exploiting Python's backwards index lookup
-    previous_timestep = trajectory[-trajectory.num_agents]
-    last_observation = previous_timestep.observation[target_agent_id]
-    last_action = previous_timestep.action
-    return last_observation, last_action

@@ -43,6 +43,11 @@ class Trajectory:
         self._timesteps.append(t)
 
     @property
+    def t(self) -> int:
+        ''' Current trajectory timestep '''
+        return len(self._timesteps)
+
+    @property
     def winner(self) -> int:
         '''
         Winner is defined as the agent with the largest cumulative reward.
@@ -82,6 +87,29 @@ class Trajectory:
     # Formerly known as trajectory reward
     def agent_reward(self, agent_position: int) -> float:
         return sum(map(lambda t: t.reward[agent_position], self._timesteps))
+
+    def last_acting_timestep_for_agent(self, agent_i: int, skip=0) -> Timestep:
+        '''
+        Backwards search for a timestep where :param: agent_i last acted.
+        Useful when constructing an "experience tuple" for an agent in
+        sequential games.
+
+        :param: skip is used to skip a fixed number of timesteps where the agent
+        acts.
+
+        '''
+        if not (0 <= agent_i < self.num_agents):
+            raise ValueError(f':param: agent_i should be between 0 and {self.num_agents - 1}')
+        if not(0 <= skip < len(self._timesteps)):
+            raise ValueError(f'Param :skip: must lay between [0, len(trajectory)]')
+        remaining_skips = skip
+        for t in reversed(self._timesteps):
+            if agent_i in t.acting_agents:
+                if remaining_skips <= 0:
+                    return t
+                remaining_skips -= 1
+        raise ValueError(f'Could not find a timestep (with {skip} skips) steps back where agent ({agent_i}) acts')
+
 
     def __getitem__(self, n) -> Union[Timestep, List[Timestep]]:
         return self._timesteps[n]
