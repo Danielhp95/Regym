@@ -2,8 +2,8 @@ from typing import List
 import pytest
 import numpy as np
 
-from regym.rl_algorithms.agents import Agent, build_Deterministic_Agent
-from regym.rl_algorithms import rockAgent, scissorsAgent 
+from regym.rl_algorithms.agents import build_Deterministic_Agent
+from regym.rl_algorithms import rockAgent, scissorsAgent
 from regym.environments import generate_task
 from regym.environments import EnvType
 from regym.util.play_matches import play_multiple_matches
@@ -32,7 +32,7 @@ def test_can_play_sequential_action_environments(Kuhn_task):
     play_matches_given_task_and_agent_vector(Kuhn_task, agent_vector)
 
 
-def play_matches_given_task_and_agent_vector(task, agent_vector: List[Agent]):
+def play_matches_given_task_and_agent_vector(task, agent_vector: List):
     expected_winrates = [1., 0.]
     number_matches = 10
 
