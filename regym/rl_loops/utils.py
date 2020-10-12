@@ -25,7 +25,7 @@ def update_trajectories(trajectories: List[List],
             extra_info=extra_infos[i])
 
 
-def update_parallel_sequential_trajectories(trajectories: List[List],
+def update_parallel_sequential_trajectories(trajectories: List[Trajectory],
                                             agent_vector: List[Agent],
                                             action_vector: List[int],
                                             obs: List,
@@ -47,7 +47,7 @@ def update_parallel_sequential_trajectories(trajectories: List[List],
     res_obs, res_succ_obs = restructure_parallel_observations(obs, succ_obs,
                                                               num_players=len(obs))
     extra_infos = extract_current_predictions(current_players, agent_vector)\
-        if store_extra_information else {}
+        if store_extra_information else {env_i: {} for env_i in range(len(current_players))}
 
     update_trajectories(trajectories, action_vector, res_obs, rewards,
                         res_succ_obs, dones, current_players, extra_infos)
@@ -73,7 +73,8 @@ def restructure_parallel_observations(observations, succ_observations,
 
 
 def extract_current_predictions(current_players: List[int],
-                                agent_vector: List[Agent]) -> Dict[int, Dict[str, Any]]:
+                                agent_vector: List[Agent]) \
+                        -> Dict[int, Dict[str, Any]]:
     '''
     ASSUMES: The batch dimension in `agent.current_prediction` corresponds to
              env_ids in ASCENDING ORDER
@@ -82,13 +83,13 @@ def extract_current_predictions(current_players: List[int],
           performance. Bottleneck is still forward / backward passes in neural
           nets. So This doesn't meaningfully matter.
     '''
+    # Required for doing the indexing
     environments_per_agent = {
         a_i: [env_id
               for env_id, player_i in enumerate(current_players)
               if a_i == player_i]
         for a_i in set(current_players)
     }
-    # TODO: Not working as expected
     return {env_i:
             {
                 a_i: parse_individual_entry_in_prediction(
@@ -137,3 +138,50 @@ def agents_to_update_finished_trajectory_sequential_env(trajectory_length: int,
     # This agent already processed the last experience
     agent_indices.pop(trajectory_length % num_agents)
     return agent_indices
+
+
+def extract_latest_experience_sequential_trajectory(agent_id: int, trajectory: Trajectory) -> Tuple:
+    '''
+    ASSUMPTION:
+        - every non-terminal observation corresponds to
+          the an information set unique for the player whose turn it is.
+          This means that each "experience" is from which an RL agent will learn
+          (o, a, r, o') is fragmented throughout the trajectory. This function
+          "stiches together" the right environmental signals, ensuring that
+          each agent only has access to information from their own information sets.
+
+    :param agent_id: Index of agent which will receive a new experience
+    :param trajectory: Current episode trajectory
+    '''
+    t1 = trajectory.last_acting_timestep_for_agent(agent_id)
+    t2 = trajectory[-1]
+
+    o, succ_o = t1.observation[agent_id], t2.succ_observation[agent_id]
+    a = t1.action
+    r = t1.reward[agent_id]  # Perhaps there's a better way of computting agent's reward?
+                             # Such as summing up all intermediate rewards for :agent_id:
+                             # between t1.t and t2.t?
+    done = t2.done
+
+    extra_info = extract_extra_info_from_sequential_trajectory(agent_id, trajectory)
+    return (o, a, r, succ_o, done, extra_info)
+
+
+def extract_extra_info_from_sequential_trajectory(agent_id: int,
+                                       trajectory: Trajectory) \
+                            -> Dict[int, Dict[str, Any]]:
+    '''
+    TODO: mention about stiching together current predicions from trajectory
+    '''
+    time_index_after_agent_action = -(trajectory.num_agents) + 1
+    relevant_timesteps = trajectory[time_index_after_agent_action:]
+
+    extra_info = {}
+    for timestep in relevant_timesteps:
+        for a_i, v in timestep.extra_info.items():
+            if a_i == agent_id:
+                # An agent should not be fed info about it's own predictions
+                continue
+            assert a_i not in extra_info, 'Breaking cyclic turn assumption'
+            extra_info[a_i] = v
+    return extra_info

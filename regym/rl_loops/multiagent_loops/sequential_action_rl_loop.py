@@ -8,6 +8,8 @@ import regym
 from regym.rl_loops import Trajectory
 from regym.rl_algorithms.agents import Agent
 
+from regym.rl_loops.utils import extract_latest_experience_sequential_trajectory
+
 
 def run_episode(env: gym.Env, agent_vector: List[Agent], training: bool,
                 render_mode: str) -> Trajectory:
@@ -101,7 +103,7 @@ def propagate_experience(agent_vector: List, trajectory: Trajectory):
 
     agent_to_update = len(trajectory) % len(agent_vector)  # Cyclic assumption
     if agent_vector[agent_to_update].training:
-        (o, a, r, succ_o, d, extra_info) = extract_latest_experience(agent_to_update, trajectory)
+        (o, a, r, succ_o, d, extra_info) = extract_latest_experience_sequential_trajectory(agent_to_update, trajectory)
         agent_vector[agent_to_update].handle_experience(o, a, r, succ_o, d, extra_info)
 
 
@@ -123,53 +125,6 @@ def propagate_last_experience(agent_vector: List, trajectory: Trajectory):
 
     for a_i in agent_indices:
         if not agent_vector[a_i].training: continue
-        (o, a, r, succ_o, d, extra_info) = extract_latest_experience(a_i, trajectory)
+        (o, a, r, succ_o, d, extra_info) = extract_latest_experience_sequential_trajectory(a_i, trajectory)
         assert d, 'Episode should be finished'
         agent_vector[a_i].handle_experience(o, a, r, succ_o, d, extra_info)
-
-
-def extract_latest_experience(agent_id: int, trajectory: Trajectory) -> Tuple:
-    '''
-    ASSUMPTION:
-        - every non-terminal observation corresponds to
-          the an information set unique for the player whose turn it is.
-          This means that each "experience" is from which an RL agent will learn
-          (o, a, r, o') is fragmented throughout the trajectory. This function
-          "stiches together" the right environmental signals, ensuring that
-          each agent only has access to information from their own information sets.
-
-    :param agent_id: Index of agent which will receive a new experience
-    :param trajectory: Current episode trajectory
-    '''
-    t1 = trajectory.last_acting_timestep_for_agent(agent_id)
-    t2 = trajectory[-1]
-
-    o, succ_o = t1.observation[agent_id], t2.succ_observation[agent_id]
-    a = t1.action
-    r = t1.reward[agent_id]  # Perhaps there's a better way of computting agent's reward?
-                             # Such as summing up all intermediate rewards for :agent_id:
-                             # between t1.t and t2.t?
-    done = t2.done
-
-    extra_info = extract_extra_info_from_trajectory(agent_id, trajectory)
-    return (o, a, r, succ_o, done, extra_info)
-
-
-def extract_extra_info_from_trajectory(agent_id: int,
-                                       trajectory: Trajectory) \
-                            -> Dict[int, Dict[str, Any]]:
-    '''
-    TODO: mention about stiching together current predicions from trajectory
-    '''
-    time_index_after_agent_action = -(trajectory.num_agents) + 1
-    relevant_timesteps = trajectory[time_index_after_agent_action:]
-
-    extra_info = {}
-    for timestep in relevant_timesteps:
-        for a_i, v in timestep.extra_info.items():
-            if a_i == agent_id:
-                # An agent should not be fed info about it's own predictions
-                continue
-            assert a_i not in extra_info, 'Breaking cyclic turn assumption'
-            extra_info[a_i] = v
-    return extra_info

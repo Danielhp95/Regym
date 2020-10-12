@@ -11,8 +11,8 @@ from regym.rl_algorithms.agents import Agent
 from regym.environments.tasks import RegymAsyncVectorEnv
 from regym.rl_loops.utils import update_parallel_sequential_trajectories, update_finished_trajectories
 from regym.rl_loops.utils import agents_to_update_finished_trajectory_sequential_env
+from regym.rl_loops.utils import extract_latest_experience_sequential_trajectory
 
-from regym.environments import EnvType
 from regym.rl_loops.trajectory import Trajectory
 
 
@@ -50,7 +50,8 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
     store_extra_information = any([agent.requires_opponents_prediction for agent in agent_vector])
 
     # Initialize trajectories
-    ongoing_trajectories = [Trajectory(env_type=EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+    ongoing_trajectories = [Trajectory(env_type=regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION,
+                                       num_agents=len(agent_vector))
                             for _ in range(env.num_envs)]
     finished_trajectories = []
 
@@ -59,7 +60,6 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
     legal_actions: List[List] = [None] * env.num_envs # Revise
     num_agents = len(agent_vector)
     obs = env.reset()
-
 
     if show_progress:
         agent_names = ', '.join([a.name for a in agent_vector])
@@ -216,13 +216,7 @@ def propagate_experiences(agent_vector: List[Agent], trajectories: List[Trajecto
             trajectories,
             agent_vector)
 
-    external_agent_infos = collect_external_agent_info(
-            agents_to_update,
-            agent_to_update_per_env,
-            agent_vector)
-
     propagate_batched_experiences(agent_experiences,
-                                  external_agent_infos,
                                   agent_vector,
                                   environment_per_agents)
 
@@ -268,7 +262,6 @@ def collect_external_agent_info(agents_to_update: List[int],
 
 
 def propagate_batched_experiences(agent_experiences: Dict[int, List[Tuple]],
-                                  external_agent_infos: Dict[int, Dict],
                                   agent_vector: List[Agent],
                                   environment_per_agents: Dict[int, List[int]]):
     for a_i, experiences in agent_experiences.items():
@@ -291,16 +284,16 @@ def propagate_last_experiences(agent_vector: List[Agent],
                               for a_i in agents_to_update}
 
     agent_experiences = {a_i: [] for a_i in agents_to_update}
+    import ipdb; ipdb.set_trace()
+    # Potential refactoring by using `collect_agent_experiences_from_trajectories`
     for a_i, envs in environment_per_agents.items():
         for e_i in envs:
-            reward = trajectories[e_i][-1].reward[a_i]
-            succ_obs = trajectories[e_i][-1].succ_observation[a_i]
-            o, a = get_last_observation_and_action_for_agent(
-                    a_i, trajectories[e_i], len(agent_vector))
-            agent_experiences[a_i] += [(o, a, reward, succ_obs, True)]
+            (o, a, r, succ_o, d, extra_info) = extract_latest_experience_sequential_trajectory(
+                    a_i, trajectories[e_i])
+            assert d, f'Episode should in environment {e_i} should be finished'
+            agent_experiences[a_i] += [(o, a, r, succ_o, True, extra_info)]
 
     propagate_batched_experiences(agent_experiences,
-                                  {},  # Extra agent information
                                   agent_vector, environment_per_agents)
 
 
@@ -333,31 +326,10 @@ def collect_agent_experiences_from_trajectories(agents_to_update: List[int],
     agent_experiences = {a_i: [] for a_i in agents_to_update}
 
     for env_i, target_agent in agent_to_update_per_env.items():
-        experience = extract_latest_experience(target_agent,
-                           trajectories[env_i], agent_vector)
+        experience = extract_latest_experience_sequential_trajectory(
+            target_agent, trajectories[env_i])
         agent_experiences[target_agent] += [experience]
     return agent_experiences
-
-
-def extract_latest_experience(agent_id: int, trajectory: Trajectory, agent_vector: List):
-    '''
-    ASSUMPTION:
-        - every non-terminal observation corresponds to
-          the an information set unique for the player whose turn it is.
-          This means that each "experience" is from which an RL agent will learn
-          (o, a, r, o') is fragmented throughout the trajectory. This function
-          "stiches together" the right environmental signals, ensuring that
-          each agent only has access to information from their own information sets.
-
-    :param agent_id: Index of agent which will receive a new experience
-    :param trajectory: Current episode trajectory
-    :param agent_vector: List of agents acting in current environment
-    '''
-    o, a = get_last_observation_and_action_for_agent(agent_id, trajectory,
-                                                     len(agent_vector))
-    last_timestep = trajectory[-1]
-    return (o, a, last_timestep.reward[agent_id],
-            last_timestep.succ_observation[agent_id], last_timestep.done)
 
 
 def extract_signals_for_acting_agents(agent_vector: List[Agent], obs,
@@ -385,27 +357,3 @@ def extract_signals_for_acting_agents(agent_vector: List[Agent], obs,
         agent_signals[cp]['legal_actions'] += [legal_actions[e_i]]
         agent_signals[cp]['env_ids'] += [e_i]
     return agent_signals
-
-
-def get_last_observation_and_action_for_agent(target_agent_id: int,
-                                              trajectory: Trajectory, num_agents: int) -> Tuple:
-    '''
-    ASSUMES that turns are taken in clockwise fashion:
-        - Player 1 acts, player 2 acts..., player n acts, player 1 acts...
-        - where n is the length of :param: agent_vector
-
-    Obtains the last observation and action for agent :param: target_agent_id
-    from the :param: trajectory.
-
-    :param target_agent_id: Index of agent whose last observation / action
-                            we are searching for
-    :param trajectory: Sequence of (o_i,a_i,r_i,o'_{i+1}) for all players i.
-    :param num_agents: Number of agents acting in the current environment
-    :returns: The last observation (information state) and action taken
-              at such observation by player :param: target_agent_id.
-    '''
-    # Offsets are negative, exploiting Python's backwards index lookup
-    previous_timestep = trajectory[-num_agents]
-    last_observation = previous_timestep.observation[target_agent_id]
-    last_action = previous_timestep.action
-    return last_observation, last_action
