@@ -64,7 +64,7 @@ class Task:
     total_episodes_run: int = 0
 
     def run_episode(self, agent_vector: List['Agent'], training: bool,
-                    render_mode: Optional[str] = None):
+                    render_mode: Optional[str] = None) -> 'Trajectory':
         '''
         Runs an episode of the Task's underlying environment using the
         :param: agent_vector to populate the agents in the environment.
@@ -104,7 +104,7 @@ class Task:
     def run_episodes(self, agent_vector: List['Agent'],
                      num_episodes: int, num_envs: int,
                      training: bool, show_progress: bool = False) \
-                     -> List[List[Tuple[Any, Any, Any, Any, bool]]]:
+                     -> List['Trajectory']:
         '''
         Runs :param: num_episodes inside of the Task's underlying environment
         in :param: num_envs parallel environments.  If the flag
