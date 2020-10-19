@@ -9,7 +9,6 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from regym.environments import Task
-from regym.util import extract_winner, trajectory_reward
 from regym.rl_algorithms.agents import Agent
 
 # TODO: consider moving some of these functions to regym.utils
@@ -138,7 +137,7 @@ def benchmark_agent(task: Task, agent: Agent, fixed_opponent: Agent,
                             show_progress=show_progress, mode='BENCHMARKING')
 
     # How can we also print this info in a useful way?
-    winrate = len(list(filter(lambda t: extract_winner(t) == agent_position,
+    winrate = len(list(filter(lambda t: t.winner == agent_position,
                               trajectories))) / len(trajectories)
     avg_episode_length = reduce(lambda acc, t: acc + len(t), trajectories, 0) / len(trajectories)
     avg_episode_reward = reduce(lambda acc, t: acc + trajectory_reward(t, agent_position),
@@ -155,13 +154,13 @@ def extract_test_reward(evaluation_method, test_trajectories, agent_position):
                                           agent_position)
 
     elif evaluation_method == 'winner':
-        test_reward = list(map(lambda t: extract_winner(t), test_trajectories)).count(agent_position)
+        test_reward = list(map(lambda t: t.winner, test_trajectories)).count(agent_position)
         test_reward /= len(test_trajectories)
     return test_reward
 
 
 def average_reward(trajectories, agent_position):
-    rewards = sum(map(lambda t: trajectory_reward(t, agent_position),
+    rewards = sum(map(lambda t: t.agent_specific_cumulative_reward(agent_position),
                     trajectories))
     return rewards / float(len(trajectories))
 

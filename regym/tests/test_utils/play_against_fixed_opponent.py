@@ -7,7 +7,6 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from regym.environments import Task
-from regym.util import extract_winner
 from regym.rl_algorithms.agents import Agent
 
 # TODO: consider moving some of these functions to regym.utils
@@ -83,7 +82,7 @@ def simulate(task: Task, agent: Agent, fixed_opponent: Agent,
     for e in progress_bar:
         trajectory = task.run_episode(agent_vector, training=training)
         trajectories.append(trajectory)
-        traj_reward = trajectory_reward(trajectory, agent_position)
+        traj_reward = trajectory.agent_specific_cumulative_reward(agent_position)
         progress_bar.set_description(f'{mode} [{task.name}] [{agent_names}]. Last trajectory reward: {traj_reward}')
     return trajectories
 
@@ -121,7 +120,7 @@ def benchmark_agent(task: Task, agent: Agent, fixed_opponent: Agent,
                             episodes, training=False, mode='BENCHMARKING')
 
     # How can we also print this info in a useful way?
-    winrate = len(list(filter(lambda t: extract_winner(t) == agent_position,
+    winrate = len(list(filter(lambda t: t.winner == agent_position,
                               trajectories))) / len(trajectories)
     avg_episode_length = reduce(lambda acc, t: acc + len(t), trajectories, 0) / len(trajectories)
     avg_episode_reward = reduce(lambda acc, t: acc + trajectory_reward(t, agent_position),
@@ -139,21 +138,13 @@ def extract_test_reward(evaluation_method, test_trajectories, agent_position):
                                           agent_position)
 
     elif evaluation_method == 'last':
-        test_reward = sum(map(lambda t: last_trajectory_reward(t, agent_position),
-                                   test_trajectories))
+        test_reward = sum(map(lambda t: t[-1].reward[agent_position],
+                              test_trajectories))
         test_reward /= float(len(test_trajectories))
     return test_reward
 
 
 def average_reward(trajectories, agent_position):
-    rewards = sum(map(lambda t: trajectory_reward(t, agent_position),
-                     trajectories))
+    rewards = sum(map(lambda t: t.agent_specific_cumulative_reward(agent_position),
+                      trajectories))
     return rewards / float(len(trajectories))
-
-
-def trajectory_reward(trajectory, agent_position):
-    return sum(map(lambda experience: experience[2][agent_position], trajectory))
-
-
-def last_trajectory_reward(trajectory, agent_position):
-    return trajectory[-1][2][agent_position]
