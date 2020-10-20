@@ -15,7 +15,6 @@ from regym.networks.preprocessing import turn_into_single_element_batch
 from regym.rl_algorithms.PPO import PPOAlgorithm
 
 
-
 class PPOAgent(Agent):
 
     def __init__(self, name, algorithm):
@@ -76,7 +75,7 @@ class PPOAgent(Agent):
                     self.rnn_states[k][0][idx] = self.rnn_states[k][0][idx].cuda()
                     self.rnn_states[k][1][idx] = self.rnn_states[k][1][idx].cuda()
 
-    def handle_experience(self, s, a, r, succ_s, done, storage_idx=0):
+    def handle_experience(self, s, a, r, succ_s, done, extra_info: Dict, storage_idx=0):
         super(PPOAgent, self).handle_experience(s, a, r, succ_s, done)
         storage = self.algorithm.storages[storage_idx]
 
@@ -108,8 +107,8 @@ class PPOAgent(Agent):
             self.handled_experiences = 0
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        for (o, a, r, succ_o, done), e_i in zip(experiences, env_ids):
-            self.handle_experience(o, a, r, succ_o, done, storage_idx=e_i)
+        for (o, a, r, succ_o, done, extra_info), e_i in zip(experiences, env_ids):
+            self.handle_experience(o, a, r, succ_o, done, extra_info, storage_idx=e_i)
 
     def model_free_take_action(self, state, legal_actions: List[int] = None,
                                multi_action: bool = False):
@@ -205,7 +204,8 @@ def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], ag
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
-    kwargs['state_preprocess'] = turn_into_single_element_batch
+    if 'state_preprocess' not in kwargs:
+        kwargs['state_preprocess'] = turn_into_single_element_batch
 
     model = create_model(task, config)
     model.share_memory()

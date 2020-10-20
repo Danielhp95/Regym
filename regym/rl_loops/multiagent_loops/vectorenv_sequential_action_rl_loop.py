@@ -284,7 +284,6 @@ def propagate_last_experiences(agent_vector: List[Agent],
                               for a_i in agents_to_update}
 
     agent_experiences = {a_i: [] for a_i in agents_to_update}
-    import ipdb; ipdb.set_trace()
     # Potential refactoring by using `collect_agent_experiences_from_trajectories`
     for a_i, envs in environment_per_agents.items():
         for e_i in envs:
