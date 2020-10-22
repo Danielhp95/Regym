@@ -3,10 +3,9 @@ from typing import Dict
 
 import numpy as np
 
-from regym.training_schemes import HalfHistoryLimitSelfPlay, LastQuarterHistoryLimitSelfPlay, FullHistoryLimitSelfPlay
 from regym.training_schemes import NaiveSelfPlay
 from regym.training_schemes import PSRONashResponse
-from regym.training_schemes import DeltaDistributionalSelfPlay
+from regym.training_schemes import DeltaDistributionalSelfPlay, DeltaLimitDistributionalSelfPlay
 
 from regym.rl_algorithms import build_DQN_Agent
 from regym.rl_algorithms import build_TabularQ_Agent
@@ -34,15 +33,20 @@ def initialize_training_schemes(training_schemes_configs, task):
     :return: list containing pointers to the corresponding self_play training schemes functions
     '''
     def partial_match_build_function(self_play_name, config, task):
-        if self_play_name.startswith('psro'): return PSRONashResponse(task=task, **config)
-        if self_play_name.startswith('naiveselfplay'): return NaiveSelfPlay
-        if self_play_name.startswith('fullhistorylimitselfplay'): return FullHistoryLimitSelfPlay
-        if self_play_name.startswith('halfhistorylimitselfplay'): return HalfHistoryLimitSelfPlay
-        if self_play_name.startswith('lastquarterhistorylimitselfplay'): return LastQuarterHistoryLimitSelfPlay
+        if self_play_name.startswith('psro'):
+            return PSRONashResponse(task=task, **config)
+        if self_play_name.startswith('naiveselfplay'):
+            return NaiveSelfPlay
+        if self_play_name.startswith('deltalimituniform'):
+            return DeltaLimitDistributionalSelfPlay(
+                delta=config['delta'],
+                distribution=np.random.choice,
+                save_every_n_episodes=config.get('save_every_n_episodes', 1))
         if self_play_name.startswith('deltauniform'):
-            return DeltaDistributionalSelfPlay(delta=config['delta'],
-                                               distribution=np.random.choice,
-                                               save_every_n_episodes=config.get('save_every_n_episodes', 1))
+            return DeltaDistributionalSelfPlay(
+                delta=config['delta'],
+                distribution=np.random.choice,
+                save_every_n_episodes=config.get('save_every_n_episodes', 1))
         else: raise ValueError(f'Unkown Self Play training scheme: {self_play_name}')
     return [partial_match_build_function(t_s.lower(), config, task) for t_s, config in training_schemes_configs.items()]
 
