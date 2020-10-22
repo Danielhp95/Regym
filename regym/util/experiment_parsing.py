@@ -40,7 +40,9 @@ def initialize_training_schemes(training_schemes_configs, task):
         if self_play_name.startswith('halfhistorylimitselfplay'): return HalfHistoryLimitSelfPlay
         if self_play_name.startswith('lastquarterhistorylimitselfplay'): return LastQuarterHistoryLimitSelfPlay
         if self_play_name.startswith('deltauniform'):
-            return DeltaDistributionalSelfPlay(delta=config['delta'], distribution=np.random.choice)
+            return DeltaDistributionalSelfPlay(delta=config['delta'],
+                                               distribution=np.random.choice,
+                                               save_every_n_episodes=config.get('save_every_n_episodes', 1))
         else: raise ValueError(f'Unkown Self Play training scheme: {self_play_name}')
     return [partial_match_build_function(t_s.lower(), config, task) for t_s, config in training_schemes_configs.items()]
 
