@@ -19,11 +19,15 @@ from regym.environments import generate_task, Task, EnvType
 from regym.rl_loops import Trajectory
 
 
+def default_meta_game_solver(winrate_matrix: np.ndarray):
+    return solve_zero_sum_game(winrate_matrix)[0].reshape((-1))
+
+
 class PSRONashResponse():
 
     def __init__(self,
                  task: Task,
-                 meta_game_solver: Callable = lambda winrate_matrix: solve_zero_sum_game(winrate_matrix)[0].reshape((-1)),
+                 meta_game_solver: Callable = default_meta_game_solver,
                  threshold_best_response: float = 0.7,
                  benchmarking_episodes: int = 10,
                  match_outcome_rolling_window_size: int = 10):
