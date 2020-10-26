@@ -4,9 +4,9 @@ import multiprocessing
 from multiprocessing import cpu_count
 from multiprocessing.connection import Connection
 from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import as_completed
 from functools import partial
 
+import torch
 import numpy as np
 import gym
 
@@ -74,6 +74,7 @@ class MCTSAgent(Agent):
 
     def model_based_take_action(self, env: Union[gym.Env, Dict[int, gym.Env]],
                                 observation, player_index: int, multi_action: bool = False):
+        self.current_prediction = {}
         if multi_action:
             return self.multi_action_model_based_take_action(env, observation,
                                                              player_index)
@@ -87,6 +88,7 @@ class MCTSAgent(Agent):
         action_vector = []
         # NOTE: ordering of parameters depends on the underlying
         # function in self.algorithm
+        # TODO: refactor
         with ProcessPoolExecutor(max_workers=min(len(envs), cpu_count())) as ex:
 
             policy_fns, evaluation_fns = \
@@ -102,13 +104,17 @@ class MCTSAgent(Agent):
                        for (env_i, env), policy_fn, evaluation_fn
                        in zip(envs.items(), policy_fns, evaluation_fns)]
 
+            visitation_vector = []
             for f in futures:
                 i, (action, visitations) = f.result()
                 action_vector += [action]
+                visitation_vector += [visitations]
 
-                self.current_prediction[i] = {}
-                self.record_selected_action(self.current_prediction[i],
-                                            action, visitations)
+            child_visitations = [[visitation[move_id] if move_id in visitation else 0.
+                                 for move_id in range(self.action_dim)]
+                                 for visitation in visitation_vector]
+            self.current_prediction['child_visitations'] = torch.FloatTensor(child_visitations)
+            self.current_prediction['action'] = torch.tensor(action_vector)
         return action_vector
 
     def multi_action_select_policy_and_evaluation_fns(self, num_envs) \
@@ -156,14 +162,6 @@ class MCTSAgent(Agent):
                              for move_id in range(self.action_dim)]
         prediction['action'] = action
         prediction['child_visitations'] = child_visitations
-
-    def handle_experience(self, s, a, r, succ_s, done=False):
-        super(MCTSAgent, self).handle_experience(s, a, r, succ_s, done)
-        self.current_prediction.clear()
-
-    def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        super().handle_multiple_experiences(experiences, env_ids)
-        self.current_prediction.clear()
 
     def clone(self):
         cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,
