@@ -6,7 +6,7 @@ from regym.game_theory import (compute_winrate_matrix_metagame,
                                generate_evaluation_matrix_multi_population,
                                relative_population_performance,
                                evolution_relative_population_performance)
-from regym.rl_algorithms import build_Reinforce_Agent, build_PPO_Agent
+from regym.rl_algorithms import build_Reinforce_Agent, build_Random_Agent
 from regym.rl_algorithms.agents import rockAgent, paperAgent, scissorsAgent
 
 
@@ -85,9 +85,9 @@ def test_can_compute_rock_paper_scissors_metagame(RPSTask):
     np.testing.assert_array_equal(expected_winrate_matrix, actual_winrate_matrix)
 
 
-def test_integration_ppo_rock_paper_scissors(ppo_config_dict, RPSTask):
-    population = [build_PPO_Agent(RPSTask, ppo_config_dict, 'Test-1'),
-                  build_PPO_Agent(RPSTask, ppo_config_dict.copy(), 'Test-2')]
+def test_integration_ppo_rock_paper_scissors(RPSTask):
+    population = [build_Random_Agent(RPSTask, {}, 'Test-1'),
+                  build_Random_Agent(RPSTask, {}, 'Test-2')]
     winrate_matrix_metagame = compute_winrate_matrix_metagame(population=population,
                                                               episodes_per_matchup=5,
                                                               task=RPSTask,
