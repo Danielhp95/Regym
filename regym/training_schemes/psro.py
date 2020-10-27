@@ -200,6 +200,9 @@ class PSRONashResponse():
             raise ValueError('Parameter \'benchmarking_episodes\' corresponds to ' +
                              'the lenght of a list. It must be strictly positive')
 
+    def __repr__(self):
+        return f'{self.name}. Meta-game size: {len(self.menagerie)}.'
+
     class IterationStatistics():
         def __init__(self, iteration_number: int,
                      total_elapsed_episodes: int,
