@@ -85,7 +85,7 @@ def test_can_compute_rock_paper_scissors_metagame(RPSTask):
     np.testing.assert_array_equal(expected_winrate_matrix, actual_winrate_matrix)
 
 
-def test_integration_ppo_rock_paper_scissors(RPSTask):
+def test_integration_random_agent_rock_paper_scissors(RPSTask):
     population = [build_Random_Agent(RPSTask, {}, 'Test-1'),
                   build_Random_Agent(RPSTask, {}, 'Test-2')]
     winrate_matrix_metagame = compute_winrate_matrix_metagame(population=population,
