@@ -57,7 +57,11 @@ class PPOAlgorithm():
         # As a default, create a single storage
         self.storages: List[Storage] = self.create_storages(num_storages=1)
 
+        # Number of times train was called
         self.num_updates = 0
+
+        # Number of policy updates (Number of times compute_loss() was called)
+        self.num_optimizer_steps = 0
 
     def create_storages(self, num_storages: int, size=-1) -> List[Storage]:
         if size == -1: size = self.horizon
@@ -69,6 +73,7 @@ class PPOAlgorithm():
         return storages
 
     def train(self):
+        self.num_updates += 1
         for storage in self.storages:
             storage.placeholder(num_elements=len(storage.s))
             self.compute_advantages_and_returns(storage)
@@ -175,7 +180,7 @@ class PPOAlgorithm():
             nbr_layers_per_rnn = { k:len(rnn_states[k][0] ) for k in self.rnn_keys}
 
         for batch_indices in sampler:
-            self.num_updates += 1
+            self.num_optimizer_steps += 1
             batch_indices = torch.from_numpy(batch_indices).long()
 
             (sampled_states, sampled_actions, sampled_log_probs_old,
@@ -193,7 +198,7 @@ class PPOAlgorithm():
                                       rnn_states=sampled_rnn_states,
                                       ratio_clip=self.ppo_ratio_clip,
                                       entropy_weight=self.entropy_weight,
-                                      iteration_count=self.num_updates)
+                                      iteration_count=self.num_optimizer_steps)
 
             self.optimizer.zero_grad()
             total_loss.backward(retain_graph=False)
