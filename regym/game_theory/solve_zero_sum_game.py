@@ -59,8 +59,14 @@ def solve_for_row_player(matrix: np.array) -> Tuple[np.ndarray, float]:
     '''
     c, g_mat, h, a_mat, b = generate_solver_compliant_matrices(matrix)
     solution = cvxopt.solvers.lp(c, g_mat, h, a_mat, b)
-    # To avoid negative probabilities, we clip between 0 and 1
-    distribution = np.clip(np.array(solution['x'][:-1]), 0., 1.)
+
+    distribution = np.array(solution['x'][:-1])
+
+    # HACK required due to numerical inconsistencies in cvxopt linear solvers
+    if (any(map(lambda x: x < 0, distribution))  # Any negative values
+            or sum(distribution) != 1.):    # Individual probs don't aggregate to a distribution!
+        distribution = _fix_distribution(distribution)
+
     # Last element of 'solution['x'] is the minimax value
     return (distribution, solution['x'][-1])
 
@@ -168,6 +174,22 @@ def is_matrix_antisymmetrical(m: np.array) -> bool:
     :returns: whether (1) and (2) hold
     '''
     return m.shape[0] == m.shape[1] and np.allclose(m, -1 * m.T, rtol=1e-03, atol=1e-03)
+
+
+def _fix_distribution(dist: np.ndarray) -> np.ndarray:
+    '''
+    Modifies :param: dist so that:
+        (1) All it's values are between [0,1]
+        (2) All values sum to 1
+    '''
+    max_val_index = np.where(dist == np.amax(dist))[0][0]
+    clipped_dist = np.clip(dist, 0., 1.)  # (1)
+    # TODO: probably can use np.abs here
+    if sum(clipped_dist) > 1.:
+        clipped_dist[max_val_index] -= (sum(clipped_dist) - 1.)  # (2)
+    if sum(clipped_dist) < 1.:
+        clipped_dist[max_val_index] += (1. - sum(clipped_dist))  # (2)
+    return clipped_dist
 
 
 def check_parameter_validity(matrix: np.ndarray):
