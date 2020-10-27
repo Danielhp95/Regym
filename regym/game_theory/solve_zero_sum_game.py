@@ -27,11 +27,11 @@ def solve_zero_sum_game(matrix: np.ndarray) \
 
     solution_player1 = solve_for_row_player(matrix)
     solution_player2 = solution_player1 if is_matrix_antisymmetrical(matrix) else solve_for_row_player(-1 * matrix.T)
-    return (np.array(solution_player1[0]), np.array(solution_player2[0]),
+    return (solution_player1[0], solution_player2[0],
             solution_player1[1], solution_player2[1])
 
 
-def solve_for_row_player(matrix: np.array) -> Tuple[cvxopt.base.matrix, float]:
+def solve_for_row_player(matrix: np.array) -> Tuple[np.ndarray, float]:
     r'''
     Solving the :param matrix: game for the row player corresponds to finding
     a mixed strategy (a probability distribution over the actions [rows])
@@ -59,8 +59,10 @@ def solve_for_row_player(matrix: np.array) -> Tuple[cvxopt.base.matrix, float]:
     '''
     c, g_mat, h, a_mat, b = generate_solver_compliant_matrices(matrix)
     solution = cvxopt.solvers.lp(c, g_mat, h, a_mat, b)
+    # To avoid negative probabilities, we clip between 0 and 1
+    distribution = np.clip(np.array(solution['x'][:-1]), 0., 1.)
     # Last element of 'solution['x'] is the minimax value
-    return (solution['x'][:-1], solution['x'][-1])
+    return (distribution, solution['x'][-1])
 
 
 def generate_solver_compliant_matrices(matrix: np.array) \
