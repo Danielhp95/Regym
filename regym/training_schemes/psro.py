@@ -55,7 +55,8 @@ class PSRONashResponse():
         self.task = task
 
         self.meta_game_solver = meta_game_solver
-        self.meta_game, self.meta_game_solution = None, None
+        self.meta_game: np.ndarray = None
+        self.meta_game_solution: np.ndarray = None
         self.menagerie = []
 
         self.threshold_best_response = threshold_best_response

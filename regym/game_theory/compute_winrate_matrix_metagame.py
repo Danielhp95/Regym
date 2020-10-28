@@ -166,7 +166,7 @@ def evolution_relative_population_performance(population_1: List[Agent],
     if task.env_type == EnvType.SINGLE_AGENT:
         raise ValueError('Task is single-agent. Metagames can only be computed for multiagent tasks.')
     if len(population_1) != len(population_2):
-        raise ValueError('Population must be of the same size. This constraint could be relaxed')
+        raise ValueError(f'Population must be of the same size: size 1 {len(population_1)}, size 2 {len(population_2)}. This constraint could be relaxed')
     if not (0 <= initial_index < len(population_1)):
         raise ValueError(f'Initial index must be a valid index for population vector: [0,{len(population_1)}]')
     if episodes_per_matchup <= 0:
