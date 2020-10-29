@@ -24,7 +24,8 @@ class ExpertIterationAgent(Agent):
                  name: str,
                  expert: MCTSAgent, apprentice: nn.Module,
                  use_apprentice_in_expert: bool,
-                 use_agent_modelling: bool):
+                 use_agent_modelling: bool,
+                 num_opponents: int):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
                           trajectories computed by this agent, in turn
@@ -42,6 +43,7 @@ class ExpertIterationAgent(Agent):
                                          is equivalent to DAGGER
         :param use_agent_modelling: Wether to model other agent's actions as
                                     an axuliary task. As in DPIQN paper
+        :param num_opponents: Number of opponents that will be playing in an environment
         '''
         super().__init__(name=name, requires_environment_model=True)
         self.algorithm: ExpertIterationAlgorithm = algorithm
@@ -55,7 +57,11 @@ class ExpertIterationAgent(Agent):
             self.embed_apprentice_in_expert()
 
         self.use_agent_modelling: bool = use_agent_modelling
-        if self.use_agent_modelling: self.requires_opponents_prediction = True
+        self.num_opponents: int = num_opponents
+        if self.use_agent_modelling:
+            self.requires_opponents_prediction = True
+            # Key used to extract opponent policy from extra_info in handle_experienco
+            self.extra_info_key = 'probs'  # Allow for 'a' (opponent action) to be used at some point
         ####
 
         # Replay buffer style storage
@@ -68,6 +74,11 @@ class ExpertIterationAgent(Agent):
 
         self.state_preprocess_fn: Callable = turn_into_single_element_batch
 
+    @Agent.num_actors.setter
+    def num_actors(self, n):
+        self._num_actors = n
+        self.expert.num_actors = n
+
     def embed_apprentice_in_expert(self):
         # Non-parallel environments
         self.expert.policy_fn = self.policy_fn
@@ -78,28 +89,44 @@ class ExpertIterationAgent(Agent):
 
     def init_storage(self, size: int):
         storage = Storage(size=size)
-        storage.add_key('normalized_child_visitations')
+        storage.add_key('normalized_child_visitations')  # MCTS policy
+        if self.use_agent_modelling: storage.add_key(f'opponent_policy')
         return storage
 
-    def handle_experience(self, o, a, r: float, succ_s, done=False):
+    def handle_experience(self, o, a, r: float, succ_s, done=False,
+                          extra_info: Dict[int, Dict[str, Any]] = {}):
         super().handle_experience(o, a, r, succ_s, done)
         expert_child_visitations = self.expert.current_prediction['child_visitations']
-        self._handle_experience(o, a, r, succ_s, done,
+        self._handle_experience(o, a, r, succ_s, done, extra_info,
                                 self.storage, expert_child_visitations)
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        for (o, a, r, succ_o, done), e_i in zip(experiences, env_ids):
+        # Simplify & explain the idea behind
+        # pred_index corresponds to the (tensor) index for self.current_prediction
+        # corresponding to environment index (e_i)
+        for (o, a, r, succ_o, done, extra_info), (pred_index, e_i) in zip(experiences, enumerate(env_ids)):
             self.storages[e_i] = self.storages.get(e_i, self.init_storage(size=100))
-            expert_child_visitations = self.expert.current_prediction[e_i]['child_visitations']
-            self._handle_experience(o, a, r, succ_o, done,
+            expert_child_visitations = self.current_prediction['child_visitations'][pred_index]
+            self._handle_experience(o, a, r, succ_o, done, extra_info,
                                     self.storages[e_i], expert_child_visitations)
             if done: del self.storages[e_i]
 
-    def _handle_experience(self, o, a, r, succ_s, done: bool, storage: Storage,
+    def _handle_experience(self, o, a, r, succ_s, done: bool,
+                           extra_info: Dict[int, Dict[str, Any]],
+                           storage: Storage,
                            expert_child_visitations: List[int]):
+        # Preprocessing all variables
         o, r = self.process_environment_signals(o, r)
         normalized_visits = torch.Tensor(self.normalize(expert_child_visitations))
+
+        # TODO: refactor this into a variable. which can be 'a' or 'probs',
+        # to gather 1 hot encodings or the actual distribution
+        if self.use_agent_modelling:
+            opponent_policy = self.process_opponent_policy(extra_info)
+        else: opponent_policy = {}
+
         self.update_storage(storage, o, r, done,
+                            opponent_policy=opponent_policy,
                             mcts_policy=normalized_visits)
         if done: self.handle_end_of_episode(storage)
         self.expert.handle_experience(o, a, r, succ_s, done)
@@ -117,11 +144,33 @@ class ExpertIterationAgent(Agent):
         processed_r = torch.Tensor([r]).float()
         return processed_s, processed_r
 
-    def update_storage(self, storage: Storage, o: torch.Tensor,
-                       r: torch.Tensor, done: bool,
+    def process_opponent_policy(self, extra_info: Dict[str, Any]) -> torch.Tensor:
+        # At most there is information about 1 agent
+        # Because opponent modelling is only supported
+        # For tasks with two agents
+        assert len(extra_info) <= 1
+
+        if not bool(extra_info):  # if dictionary is empty
+            processed_opponent_policy = torch.Tensor([float('nan')])
+        else:
+            opponent_index = list(extra_info.keys())[0]  # Not super pretty
+            # TODO: extra processing (turn into one hot encoding) will be necessary
+            # If using self.extra_info_key = 'a'.
+            opponent_policy = extra_info[opponent_index][self.extra_info_key]
+            processed_opponent_policy = torch.FloatTensor(opponent_policy)
+        return processed_opponent_policy
+
+    def update_storage(self, storage: Storage,
+                       o: torch.Tensor,
+                       r: torch.Tensor,
+                       done: bool,
+                       opponent_policy: torch.Tensor,
                        mcts_policy: torch.Tensor):
-        # TODO: get opponents action from current_prediction
         storage.add({'normalized_child_visitations': mcts_policy, 's': o})
+
+        # TODO: check if I need to modify size (add batch dimension)
+        if self.use_agent_modelling: storage.add({'opponent_policy': opponent_policy})
+
         if done:
             # Hendrik idea:
             # Using MCTS value for current search might be better?
@@ -136,6 +185,7 @@ class ExpertIterationAgent(Agent):
         action = self.expert.model_based_take_action(env, observation,
                                                      player_index,
                                                      multi_action)
+        self.current_prediction = self.expert.current_prediction
         return action
 
     def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
@@ -235,8 +285,10 @@ def build_apprentice_with_agent_modelling(feature_extractor, task, config):
 
     # We model all agents but ourselves
     num_agents_to_model = task.num_agents - 1
+    if not isinstance(task.action_dim, (int, float)): raise ValueError('number of actions must be an integer (1D)')
     return PolicyInferenceActorCriticNet(feature_extractor=feature_extractor,
                                          num_policies=num_agents_to_model,
+                                         num_actions=task.action_dim,
                                          policy_inference_body=policy_inference_body,
                                          actor_critic_body=actor_critic_body)
 
@@ -253,7 +305,19 @@ def build_expert(task, config: Dict, expert_name: str) -> MCTSAgent:
     return build_MCTS_Agent(task, expert_config, agent_name=expert_name)
 
 
-def build_ExpertIteration_Agent(task, config, agent_name):
+def check_parameter_validity(task: 'Task', config: Dict[str, Any]):
+    ''' Checks whether :param: config is compatible with :param: task '''
+    if config.get('use_agent_modelling', False) and task.num_agents != 2:
+        raise ValueError('ExpertIterationAgent with agent modelling '
+                         'is only supported with tasks with 2 agents '
+                         '(one agent is this ExpertIterationAgent and the other '
+                         f'will be the opponent). Given task {task.name} '
+                         f'features {task.num_agents} agents.')
+
+
+def build_ExpertIteration_Agent(task: 'Task',
+                                config: Dict[str, Any],
+                                agent_name: str) -> ExpertIterationAgent:
     '''
     :param task: Environment specific configuration
     :param agent_name: String identifier for the agent
@@ -301,6 +365,7 @@ def build_ExpertIteration_Agent(task, config, agent_name):
                             output head. Supported: ['None', 'tanh']
     '''
 
+    check_parameter_validity(task, config)
     apprentice = build_apprentice_model(task, config)
     expert = build_expert(task, config, expert_name=f'Expert:{agent_name}')
 
@@ -312,7 +377,9 @@ def build_ExpertIteration_Agent(task, config, agent_name):
             games_per_iteration=config['games_per_iteration'],
             memory_size_increase_frequency=config['memory_size_increase_frequency'],
             initial_memory_size=config['initial_memory_size'],
-            end_memory_size=config['end_memory_size'])
+            end_memory_size=config['end_memory_size'],
+            use_agent_modelling=config['use_agent_modelling'],
+            num_opponents=(task.num_agents - 1))  # We don't model ourselves
 
     return ExpertIterationAgent(
             name=agent_name,
@@ -320,4 +387,5 @@ def build_ExpertIteration_Agent(task, config, agent_name):
             expert=expert,
             apprentice=apprentice,
             use_apprentice_in_expert=config['use_apprentice_in_expert'],
-            use_agent_modelling=config['use_agent_modelling'])
+            use_agent_modelling=config['use_agent_modelling'],
+            num_opponents=(task.num_agents - 1))

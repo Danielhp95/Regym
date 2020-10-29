@@ -20,7 +20,9 @@ class ExpertIterationAlgorithm():
                  model_to_train: nn.Module,
                  initial_memory_size: int,
                  memory_size_increase_frequency: int,
-                 end_memory_size: int):
+                 end_memory_size: int,
+                 use_agent_modelling: bool,
+                 num_opponents: int):
         '''
         :param games_per_iteration: Number of game trajectories to be collected before training
         :param num_epochs_per_iteration: Number of times (epochs) that the
@@ -33,6 +35,8 @@ class ExpertIterationAlgorithm():
         :param memory_size_increase_frequency: Number of generations to elapse
                                                before increasing dataset size.
         :param end_memory_size: Maximum memory size
+        :param use_agent_modelling: Flag to control whether to add a loss of
+                                    from modelling opponent actions during training
         '''
         self.generation = 0
         self.games_per_iteration = games_per_iteration
@@ -42,6 +46,12 @@ class ExpertIterationAlgorithm():
         # Init dataset
         self.memory = Storage(size=initial_memory_size)
         self.memory.add_key('normalized_child_visitations')
+
+        self.use_agent_modelling = use_agent_modelling
+        self.num_opponents = num_opponents  # TODO: maybe move this to agent?
+        if self.use_agent_modelling:
+            assert self.num_opponents == 1, 'Opponent modelling only supported against 1 opponent. This should have broken in ExpertIterationAgent!'
+            self.memory.add_key('opponent_policy')
 
         self.initial_memory_size = initial_memory_size
         self.memory_size_increase_frequency = memory_size_increase_frequency
@@ -64,6 +74,8 @@ class ExpertIterationAlgorithm():
             self.memory.add({'normalized_child_visitations': episode_trajectory.normalized_child_visitations[i],
                              's': episode_trajectory.s[i],
                              'V': episode_trajectory.V[i]})
+            if self.use_agent_modelling:
+                self.memory.add({'opponent_policy': episode_trajectory.opponent_policy[i]})
 
     def train(self, apprentice_model: nn.Module):
         ''' Highest level function '''
@@ -113,10 +125,12 @@ class ExpertIterationAlgorithm():
 
     def update_storage(self, dataset, max_memory, keys):
         self.update_storage_size(dataset)
+        avg_keys = ['normalized_child_visitations', 'V'] + (['opponent_policy'] if self.use_agent_modelling else [])
+        # Will there be an issue if we try to average over 'opponent_policy' when there are NaNs?
         dataset.remove_duplicates(target_key='s',
-                                  avg_keys=['normalized_child_visitations', 'V'])
+                                  avg_keys=avg_keys)
         self.curate_dataset(dataset, dataset.size,
-                            keys=['s', 'V', 'normalized_child_visitations'])
+                            keys=['s', 'V', 'normalized_child_visitations', 'opponent_policy'])
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''

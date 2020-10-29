@@ -53,7 +53,7 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
     ongoing_trajectories = [Trajectory(env_type=regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION,
                                        num_agents=len(agent_vector))
                             for _ in range(env.num_envs)]
-    finished_trajectories = []
+    finished_trajectories: List[Trajectory] = []
 
     # Reset environment
     current_players: List[int] = [0] * env.num_envs

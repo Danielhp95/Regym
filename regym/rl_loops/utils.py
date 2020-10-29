@@ -126,7 +126,8 @@ def update_finished_trajectories(ongoing_trajectories: List[List[Tuple]],
     for env_i in done_envs:
         finished_trajectories += [deepcopy(ongoing_trajectories[env_i])]
         ongoing_trajectories[env_i] = Trajectory(
-            env_type=finished_trajectories[-1].env_type)
+            env_type=ongoing_trajectories[env_i].env_type,
+            num_agents=ongoing_trajectories[env_i].num_agents)
     return ongoing_trajectories, finished_trajectories
 
 

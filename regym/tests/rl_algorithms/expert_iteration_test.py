@@ -3,7 +3,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from test_fixtures import expert_iteration_config_dict, mcts_config_dict, Connect4Task
 import regym
-from regym.util import extract_winner
 
 from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix_opponent
 from regym.tests.test_utils.parallel_play_against_fixed_opponent import parallel_learn_against_fix_opponent
@@ -24,10 +23,10 @@ def test_can_defeat_random_play_in_connect4_both_positions_single_env(Connect4Ta
     random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
 
     trajectory = Connect4Task.run_episode([ex_it, random_agent], training=False)
-    assert extract_winner(trajectory) == 0  # First player (index 0) has a much higher budget
+    assert trajectory.winner == 0  # First player (index 0) has a much higher budget
 
     trajectory = Connect4Task.run_episode([random_agent, ex_it], training=False)
-    assert extract_winner(trajectory) == 1  # Second player (index 1) has a much higher budget
+    assert trajectory.winner == 1  # Second player (index 1) has a much higher budget
 
 
 def test_can_defeat_random_play_in_connect4_both_positions_multi_env(Connect4Task, expert_iteration_config_dict):
@@ -40,11 +39,28 @@ def test_can_defeat_random_play_in_connect4_both_positions_multi_env(Connect4Tas
     trajectories = Connect4Task.run_episodes(
             [ex_it, random_agent], training=False, num_envs=4, num_episodes=4)
 
-    assert all(map(lambda t: extract_winner(t) == 0, trajectories))  # First player (index 0) has a much higher budget
+    assert all(map(lambda t: t.winner == 0, trajectories))  # First player (index 0) has a much higher budget
 
     trajectories = Connect4Task.run_episodes(
             [random_agent, ex_it], training=False, num_envs=4, num_episodes=4)
-    assert all(map(lambda t: extract_winner(t) == 1, trajectories))  # Second player (index 1) has a much higher budget
+    assert all(map(lambda t: t.winner == 1, trajectories))  # Second player (index 1) has a much higher budget
+
+
+def test_can_collect_opponent_action_distributions_multi_env(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['use_agent_modelling'] = True
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-opponent_modelling-test')
+    assert ex_it.requires_opponents_prediction
+
+    random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
+
+    _ = Connect4Task.run_episodes(
+        agent_vector=[ex_it, random_agent],
+        training=True,  # Required for ExIt agent to `handle_experience`s
+        num_envs=2, num_episodes=2)
+    # We only check for existance of the key, rather than it's content
+    assert 'opponent_policy' in ex_it.algorithm.memory.keys
+    # ex_it.algorithm.memory. Once you fix it. push!
+    assert len(ex_it.algorithm.memory.opponent_policy) == len(ex_it.algorithm.memory.s)
 
 
 def test_can_use_apprentice_in_expert_in_expansion_and_rollout_phase(Connect4Task, expert_iteration_config_dict):
