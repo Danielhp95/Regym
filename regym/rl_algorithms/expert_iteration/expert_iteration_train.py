@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
@@ -90,15 +90,28 @@ class ExpertIterationAlgorithm():
         # We are concatenating the entire datasat, this might be too memory expensive?
         s, v    = torch.cat(self.memory.s), torch.cat(self.memory.V)
         mcts_pi = torch.stack(self.memory.normalized_child_visitations)
+        if self.use_agent_modelling:
+            opponent_policy = torch.stack(self.memory.opponent_policy)  # Check this works!
+        else:
+            opponent_policy = None
 
         # We look at number of 's' states, but we could have used anything else
         dataset_size = len(self.memory.s)
-        self.regress_against_dataset(s, v, mcts_pi, apprentice_model,
-                                     indices=np.arange(dataset_size),
-                                     batch_size=self.batch_size,
-                                     num_epochs=self.num_epochs_per_iteration)
+        self.regress_against_dataset(
+            s,
+            v,
+            mcts_pi,
+            opponent_policy,
+            apprentice_model,
+            indices=np.arange(dataset_size),
+            batch_size=self.batch_size,
+            num_epochs=self.num_epochs_per_iteration)
 
-    def regress_against_dataset(self, s, v, mcts_pi, apprentice_model: nn.Module,
+    def regress_against_dataset(self, s: torch.FloatTensor,
+                                v: torch.FloatTensor,
+                                mcts_pi: torch.FloatTensor,
+                                opponent_policy: Optional[torch.FloatTensor],
+                                apprentice_model: nn.Module,
                                 indices: List[int], batch_size: int,
                                 num_epochs: int):
         '''
@@ -112,10 +125,17 @@ class ExpertIterationAlgorithm():
             for batch_indices in random_sample(indices, batch_size):
                 self.num_batches_sampled += 1
 
+                if self.use_agent_modelling:
+                    opponent_policy_batch = opponent_policy[batch_indices]
+                else:
+                    opponent_policy_batch = None
+
                 loss = compute_loss(s[batch_indices],
                                     mcts_pi[batch_indices],
                                     v[batch_indices],
-                                    apprentice_model,
+                                    opponent_policy=opponent_policy_batch,
+                                    use_agent_modelling=self.use_agent_modelling,
+                                    apprentice_model=apprentice_model,
                                     iteration_count=self.num_batches_sampled)
 
                 # Name a more iconic trio
