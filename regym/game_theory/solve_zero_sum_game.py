@@ -22,7 +22,7 @@ def solve_zero_sum_game(matrix: np.ndarray) \
     :returns: (support over row actions, support over column actions,
                minimax value for player1, minimax value for player 2)
     '''
-    if not isinstance(matrix, np.ndarray): matrix = np.array(matrix)
+    matrix = np.array(matrix, dtype=np.float64)
     check_parameter_validity(matrix)
 
     solution_player1 = solve_for_row_player(matrix)
