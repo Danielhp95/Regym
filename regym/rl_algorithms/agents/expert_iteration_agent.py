@@ -25,6 +25,7 @@ class ExpertIterationAgent(Agent):
                  expert: MCTSAgent, apprentice: nn.Module,
                  use_apprentice_in_expert: bool,
                  use_agent_modelling: bool,
+                 action_dim: int,
                  num_opponents: int):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
@@ -52,6 +53,7 @@ class ExpertIterationAgent(Agent):
 
         #### Algorithmic variations ####
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
+        self.action_dim = action_dim
         if use_apprentice_in_expert:
             self.multi_action_requires_server = True
             self.embed_apprentice_in_expert()
@@ -151,7 +153,7 @@ class ExpertIterationAgent(Agent):
         assert len(extra_info) <= 1
 
         if not bool(extra_info):  # if dictionary is empty
-            processed_opponent_policy = torch.Tensor([float('nan')])
+            processed_opponent_policy = torch.Tensor([float('nan')] * self.action_dim)
         else:
             opponent_index = list(extra_info.keys())[0]  # Not super pretty
             # TODO: extra processing (turn into one hot encoding) will be necessary
@@ -388,4 +390,5 @@ def build_ExpertIteration_Agent(task: 'Task',
             apprentice=apprentice,
             use_apprentice_in_expert=config['use_apprentice_in_expert'],
             use_agent_modelling=config['use_agent_modelling'],
+            action_dim=task.action_dim,
             num_opponents=(task.num_agents - 1))
