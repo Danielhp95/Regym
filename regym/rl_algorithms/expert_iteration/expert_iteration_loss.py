@@ -47,11 +47,12 @@ def compute_loss(states: torch.FloatTensor,
     exit_loss = policy_imitation_loss + value_loss
 
     # Learning to model opponents: Cross entropy loss
-    if use_agent_modelling:
+    if not use_agent_modelling: total_loss = exit_loss
+    else:
         opponent_modelling_loss = compute_opponent_modelling_loss(opponent_policy, predictions)
-
-    if use_agent_modelling: total_loss = opponent_modelling_loss + exit_loss
-    else: total_loss = exit_loss
+        policy_inference_weight = 1 / (torch.sqrt)  # dynamically computed weight
+        ''' First focus on learning the opponent, then focus on baseline loss'''
+        total_loss = exit_loss * policy_inference_weight + opponent_modelling_loss
 
     # Sumary writer:
     # Policy inference (opponent modelling) loss
@@ -76,8 +77,12 @@ def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
     the episode, the experience propagated to the agent has no extra_info regarding
     other agents, and a placeholder 'nan' value takes it's place which needs to be removed
     '''
-    processed_opponent_policies = opponent_policy[~torch.any(torch.isnan(opponent_policy), dim=1)]
+    non_nan_indexes = ~(torch.any(torch.isnan(opponent_policy), dim=1))  # Can't use built-in not()
+
+    import ipdb; ipdb.set_trace()
+    filtered_opponent_policies = opponent_policy[non_nan_indexes]
+    filtered_predictions = predictions['policy_0']['probs'][non_nan_indexes]
     opponent_modelling_loss = cross_entropy_loss(
-        model_prediction=predictions['policy_0'],
-        target=processed_opponent_policies)
+        model_prediction=filtered_predictions,
+        target=filtered_opponent_policies)
     return opponent_modelling_loss
