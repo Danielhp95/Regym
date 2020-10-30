@@ -65,6 +65,7 @@ def compute_loss(states: torch.FloatTensor,
         summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
         if use_agent_modelling:
             summary_writer.add_scalar('Training/Opponent_modelling_loss', opponent_modelling_loss.cpu().item(), iteration_count)
+            summary_writer.add_scalar('Training/Policy_inference_weight', opponent_modelling_loss.cpu().item(), iteration_count)
     return total_loss
 
 
@@ -78,8 +79,6 @@ def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
     other agents, and a placeholder 'nan' value takes it's place which needs to be removed
     '''
     non_nan_indexes = ~(torch.any(torch.isnan(opponent_policy), dim=1))  # Can't use built-in not()
-
-    import ipdb; ipdb.set_trace()
     filtered_opponent_policies = opponent_policy[non_nan_indexes]
     filtered_predictions = predictions['policy_0']['probs'][non_nan_indexes]
     opponent_modelling_loss = cross_entropy_loss(
