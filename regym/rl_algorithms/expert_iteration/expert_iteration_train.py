@@ -145,6 +145,7 @@ class ExpertIterationAlgorithm():
                                     mcts_pi[batch_indices],
                                     v[batch_indices],
                                     opponent_policy=opponent_policy_batch,
+                                    opponent_s=opponent_s_batch,
                                     use_agent_modelling=self.use_agent_modelling,
                                     apprentice_model=apprentice_model,
                                     iteration_count=self.num_batches_sampled)
