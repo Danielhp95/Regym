@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Callable, Union
+from typing import List, Dict, Any, Callable, Union, Tuple
 import multiprocessing
 import textwrap
 
@@ -26,6 +26,7 @@ class ExpertIterationAgent(Agent):
                  use_apprentice_in_expert: bool,
                  use_agent_modelling: bool,
                  action_dim: int,
+                 observation_dim: Tuple[int],
                  num_opponents: int):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
@@ -44,6 +45,8 @@ class ExpertIterationAgent(Agent):
                                          is equivalent to DAGGER
         :param use_agent_modelling: Wether to model other agent's actions as
                                     an axuliary task. As in DPIQN paper
+        :param action_dim: Shape of actions, use to generate placeholder values
+        :param observation_dim: Shape of observations, use to generate placeholder values
         :param num_opponents: Number of opponents that will be playing in an environment
         '''
         super().__init__(name=name, requires_environment_model=True)
@@ -53,7 +56,6 @@ class ExpertIterationAgent(Agent):
 
         #### Algorithmic variations ####
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
-        self.action_dim = action_dim
         if use_apprentice_in_expert:
             self.multi_action_requires_server = True
             self.embed_apprentice_in_expert()
@@ -61,6 +63,8 @@ class ExpertIterationAgent(Agent):
         self.use_agent_modelling: bool = use_agent_modelling
         self.num_opponents: int = num_opponents
         if self.use_agent_modelling:
+            self.action_dim = action_dim
+            self.observation_dim = observation_dim
             self.requires_opponents_prediction = True
             # Key used to extract opponent policy from extra_info in handle_experienco
             self.extra_info_key = 'probs'  # Allow for 'a' (opponent action) to be used at some point
@@ -92,7 +96,9 @@ class ExpertIterationAgent(Agent):
     def init_storage(self, size: int):
         storage = Storage(size=size)
         storage.add_key('normalized_child_visitations')  # MCTS policy
-        if self.use_agent_modelling: storage.add_key(f'opponent_policy')
+        if self.use_agent_modelling:
+            storage.add_key('opponent_policy')
+            storage.add_key('opponent_s')
         return storage
 
     def handle_experience(self, o, a, r: float, succ_s, done=False,
@@ -124,11 +130,12 @@ class ExpertIterationAgent(Agent):
         # TODO: refactor this into a variable. which can be 'a' or 'probs',
         # to gather 1 hot encodings or the actual distribution
         if self.use_agent_modelling:
-            opponent_policy = self.process_opponent_policy(extra_info)
+            opponent_policy, opponen_obs = self.process_extra_info(extra_info)
         else: opponent_policy = {}
 
         self.update_storage(storage, o, r, done,
                             opponent_policy=opponent_policy,
+                            opponent_s=opponen_obs,
                             mcts_policy=normalized_visits)
         if done: self.handle_end_of_episode(storage)
         self.expert.handle_experience(o, a, r, succ_s, done)
@@ -146,32 +153,39 @@ class ExpertIterationAgent(Agent):
         processed_r = torch.Tensor([r]).float()
         return processed_s, processed_r
 
-    def process_opponent_policy(self, extra_info: Dict[str, Any]) -> torch.Tensor:
+    def process_extra_info(self, extra_info: Dict[str, Any]) \
+                           -> Tuple[torch.Tensor, torch.Tensor]:
         # At most there is information about 1 agent
         # Because opponent modelling is only supported
         # For tasks with two agents
         assert len(extra_info) <= 1
 
         if not bool(extra_info):  # if dictionary is empty
-            processed_opponent_policy = torch.Tensor([float('nan')] * self.action_dim)
+            # First argument to `torch.full` might create an issue (might break for non 1D actions)
+            processed_opponent_policy = torch.full((self.action_dim,), float('nan'))
+            processed_opponent_obs = torch.full(self.observation_dim, float('nan'))
         else:
             opponent_index = list(extra_info.keys())[0]  # Not super pretty
             # TODO: extra processing (turn into one hot encoding) will be necessary
             # If using self.extra_info_key = 'a'.
             opponent_policy = extra_info[opponent_index][self.extra_info_key]
             processed_opponent_policy = torch.FloatTensor(opponent_policy)
-        return processed_opponent_policy
+            processed_opponent_obs = self.state_preprocess_fn(extra_info[opponent_index]['s'])
+        return processed_opponent_policy, processed_opponent_obs
 
     def update_storage(self, storage: Storage,
                        o: torch.Tensor,
                        r: torch.Tensor,
                        done: bool,
                        opponent_policy: torch.Tensor,
+                       opponent_s: torch.Tensor,
                        mcts_policy: torch.Tensor):
-        storage.add({'normalized_child_visitations': mcts_policy, 's': o})
+        storage.add({'normalized_child_visitations': mcts_policy,
+                     's': o})
 
-        # TODO: check if I need to modify size (add batch dimension)
-        if self.use_agent_modelling: storage.add({'opponent_policy': opponent_policy})
+        if self.use_agent_modelling:
+            storage.add({'opponent_policy': opponent_policy,
+                         'opponent_s': opponent_s})
 
         if done:
             # Hendrik idea:
@@ -391,4 +405,5 @@ def build_ExpertIteration_Agent(task: 'Task',
             use_apprentice_in_expert=config['use_apprentice_in_expert'],
             use_agent_modelling=config['use_agent_modelling'],
             action_dim=task.action_dim,
+            observation_dim=task.observation_dim,
             num_opponents=(task.num_agents - 1))
