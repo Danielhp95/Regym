@@ -52,6 +52,7 @@ class ExpertIterationAlgorithm():
         if self.use_agent_modelling:
             assert self.num_opponents == 1, 'Opponent modelling only supported against 1 opponent. This should have broken in ExpertIterationAgent!'
             self.memory.add_key('opponent_policy')
+            self.memory.add_key('opponent_s')
 
         self.initial_memory_size = initial_memory_size
         self.memory_size_increase_frequency = memory_size_increase_frequency
@@ -76,6 +77,7 @@ class ExpertIterationAlgorithm():
                              'V': episode_trajectory.V[i]})
             if self.use_agent_modelling:
                 self.memory.add({'opponent_policy': episode_trajectory.opponent_policy[i]})
+                self.memory.add({'opponent_s': episode_trajectory.opponent_s[i]})
 
     def train(self, apprentice_model: nn.Module):
         ''' Highest level function '''
@@ -150,7 +152,8 @@ class ExpertIterationAlgorithm():
         dataset.remove_duplicates(target_key='s',
                                   avg_keys=avg_keys)
         self.curate_dataset(dataset, dataset.size,
-                            keys=['s', 'V', 'normalized_child_visitations', 'opponent_policy'])
+                            keys=['s', 'V', 'normalized_child_visitations',
+                                  'opponent_policy', 'opponent_s'])
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''
