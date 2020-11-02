@@ -1,6 +1,6 @@
+from typing import List, Tuple, Callable, Any, Dict, Optional
 from copy import deepcopy
 from enum import Enum
-from typing import List, Tuple, Callable, Any, Dict, Optional
 from dataclasses import dataclass, field
 
 import gym
@@ -47,17 +47,24 @@ class Task:
     '''
 
     # Properties set on __init__
-    name: str
-    env: gym.Env
-    env_type: EnvType
-    state_space_size: int
-    action_space_size: int
-    observation_dim: int
-    observation_type: str
-    action_dim: int
-    action_type: str
-    num_agents: int
-    hash_function: Callable[[Any], int]
+    name: str                            # Environment name
+    env: gym.Env                         # Underlying environment
+    env_type: EnvType                    # Whether single agent or multiagent
+    state_space_size: Optional[int]      # Total number of steps
+    action_space_size: int               # Total number of actions
+
+    observation_dim: Any                 # Dimension / shape of env observation
+    observation_size: int                # Flattened size of env observations
+    observation_type: str                # Whether continuous or discrete
+
+    action_dim: Any                      # Dimension / shape of env action space
+    action_size: int                     # Flattened size of action space
+    action_type: str                     # Whether continuous or discrete
+
+    num_agents: int                      # Num of agents to act in underlying env
+    hash_function: Callable[[Any], int]  # Function mapping Observation to a
+                                         # single integer. Required to use
+                                         # tabular methods.
 
     # Properties accessed post initializer
     extended_agents: Dict = field(default_factory=dict)
