@@ -105,7 +105,7 @@ def add_observations_to_extra_infos(extra_infos: Dict[int, Dict],
         a_i = current_players[env_i]
         assert 's' not in extra_infos[env_i][a_i], ('This key is reserved to '
                                                     'store observations (States)')
-        extra_infos[env_i][a_i]['s'] = observations[env_i][a_i]
+        extra_infos[env_i][a_i]['s'] = observations[a_i][env_i]
 
 
 def extract_current_predictions(current_players: List[int],
