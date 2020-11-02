@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -89,13 +89,8 @@ class ExpertIterationAlgorithm():
         self.update_storage(self.memory, self.memory.size,
                             keys=['s', 'V', 'normalized_child_visitations'])
 
-        # We are concatenating the entire datasat, this might be too memory expensive?
-        s, v    = torch.cat(self.memory.s), torch.cat(self.memory.V)
-        mcts_pi = torch.stack(self.memory.normalized_child_visitations)
-        if self.use_agent_modelling:
-            opponent_policy = torch.stack(self.memory.opponent_policy)  # Check this works!
-        else:
-            opponent_policy = None
+        s, v, mcts_pi, opponent_s, opponent_policy = self.preprocess_memory(
+            self.memory)
 
         # We look at number of 's' states, but we could have used anything else
         dataset_size = len(self.memory.s)
@@ -104,15 +99,28 @@ class ExpertIterationAlgorithm():
             v,
             mcts_pi,
             opponent_policy,
+            opponent_s,
             apprentice_model,
             indices=np.arange(dataset_size),
             batch_size=self.batch_size,
             num_epochs=self.num_epochs_per_iteration)
 
+    def preprocess_memory(self, memory: Storage) -> Tuple:
+        # We are concatenating the entire datasat, this might be too memory expensive?
+        s, v    = torch.cat(self.memory.s), torch.cat(self.memory.V)
+        mcts_pi = torch.stack(self.memory.normalized_child_visitations)
+        if self.use_agent_modelling:
+            opponent_s = torch.cat(self.memory.opponent_s)
+            opponent_policy = torch.stack(self.memory.opponent_policy)
+        else:
+            opponjnt_policy, opponent_s = None, None
+        return s, v, mcts_pi, opponent_s, opponent_policy
+
     def regress_against_dataset(self, s: torch.FloatTensor,
                                 v: torch.FloatTensor,
                                 mcts_pi: torch.FloatTensor,
                                 opponent_policy: Optional[torch.FloatTensor],
+                                opponent_s: Optional[torch.FloatTensor],
                                 apprentice_model: nn.Module,
                                 indices: List[int], batch_size: int,
                                 num_epochs: int):
@@ -129,8 +137,9 @@ class ExpertIterationAlgorithm():
 
                 if self.use_agent_modelling:
                     opponent_policy_batch = opponent_policy[batch_indices]
+                    opponent_s_batch = opponent_s[batch_indices]
                 else:
-                    opponent_policy_batch = None
+                    opponent_policy_batch, opponent_s_batch = None, None
 
                 loss = compute_loss(s[batch_indices],
                                     mcts_pi[batch_indices],

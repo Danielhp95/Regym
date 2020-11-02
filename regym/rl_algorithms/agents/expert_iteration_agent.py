@@ -163,7 +163,8 @@ class ExpertIterationAgent(Agent):
         if not bool(extra_info):  # if dictionary is empty
             # First argument to `torch.full` might create an issue (might break for non 1D actions)
             processed_opponent_policy = torch.full((self.action_dim,), float('nan'))
-            processed_opponent_obs = torch.full(self.observation_dim, float('nan'))
+            # Adding batch dimension
+            processed_opponent_obs = torch.full((1, *self.observation_dim), float('nan'))
         else:
             opponent_index = list(extra_info.keys())[0]  # Not super pretty
             # TODO: extra processing (turn into one hot encoding) will be necessary
