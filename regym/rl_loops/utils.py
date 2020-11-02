@@ -46,15 +46,18 @@ def update_parallel_sequential_trajectories(trajectories: List[Trajectory],
     '''
     res_obs, res_succ_obs = restructure_parallel_observations(obs, succ_obs,
                                                               num_players=len(obs))
-    extra_infos = extract_current_predictions(current_players, agent_vector)\
-        if store_extra_information else {env_i: {} for env_i in range(len(current_players))}
+    if store_extra_information:
+        extra_infos = compose_extra_infos(current_players, agent_vector, obs)
+    else:
+        extra_infos = {env_i: {} for env_i in range(len(current_players))}
 
     update_trajectories(trajectories, action_vector, res_obs, rewards,
                         res_succ_obs, dones, current_players, extra_infos)
 
 
-def restructure_parallel_observations(observations, succ_observations,
-                                      num_players):
+def restructure_parallel_observations(observations: List,
+                                      succ_observations: List,
+                                      num_players: int) -> List:
     '''
     Observations are structured thus:
         - obs[player_index][env_index]
@@ -72,8 +75,42 @@ def restructure_parallel_observations(observations, succ_observations,
     return res_obs, res_succ_obs
 
 
+def compose_extra_infos(current_players: List[int],
+                        agent_vector: List[Agent],
+                        observations: List) \
+                        -> Dict[int, Dict]:
+    ''' TODO '''
+    environments_per_agent = compute_environments_per_agent(current_players)
+    extra_infos = extract_current_predictions(
+        current_players, agent_vector, environments_per_agent)
+    add_observations_to_extra_infos(
+        extra_infos, current_players, observations)
+    return extra_infos
+
+
+def add_observations_to_extra_infos(extra_infos: Dict[int, Dict],
+                                    current_players: List[int],
+                                    observations: List):
+    '''
+    Adds observation (state) received by the agent that acted on that observation.
+
+    This is slightly unnecessary, because these observations are the same as
+    the ones stored inside of the episode trajectory. However, opponent
+    observations might need to be passed onto an agent that has flag
+    `requires_opponents_prediction` turned on (For instance, to model opponents
+    in sequential games, as explored in the paper
+    'On opponent modelling in Expert Iteration')
+    '''
+    for env_i in extra_infos.keys():
+        a_i = current_players[env_i]
+        assert 's' not in extra_infos[env_i][a_i], ('This key is reserved to '
+                                                    'store observations (States)')
+        extra_infos[env_i][a_i]['s'] = observations[env_i][a_i]
+
+
 def extract_current_predictions(current_players: List[int],
-                                agent_vector: List[Agent]) \
+                                agent_vector: List[Agent],
+                                environments_per_agent: Dict[int, List[int]]) \
                         -> Dict[int, Dict[str, Any]]:
     '''
     ASSUMES: The batch dimension in `agent.current_prediction` corresponds to
@@ -84,12 +121,6 @@ def extract_current_predictions(current_players: List[int],
           nets. So This doesn't meaningfully matter.
     '''
     # Required for doing the indexing
-    environments_per_agent = {
-        a_i: [env_id
-              for env_id, player_i in enumerate(current_players)
-              if a_i == player_i]
-        for a_i in set(current_players)
-    }
     return {env_i:
             {
                 a_i: parse_individual_entry_in_prediction(
@@ -98,6 +129,18 @@ def extract_current_predictions(current_players: List[int],
                 )
             }
             for env_i, a_i in enumerate(current_players)}
+
+
+def compute_environments_per_agent(current_players) -> Dict[int, List[int]]:
+    ''' Dicionary where keys are agents and values are
+        the environments where they have just acted '''
+    environments_per_agent = {
+        a_i: [env_id
+              for env_id, player_i in enumerate(current_players)
+              if a_i == player_i]
+        for a_i in set(current_players)
+    }
+    return environments_per_agent
 
 
 def parse_individual_entry_in_prediction(agent: Agent,
