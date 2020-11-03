@@ -9,7 +9,7 @@ from regym.networks.generic_losses import cross_entropy_loss
 from regym.networks.heads import PolicyInferenceActorCriticNet
 
 
-def test_can_learn_three_different_policies():
+def test_can_learn_two_different_policies():
     num_policies = 2
     num_actions = 3
     target_policy_1 = torch.FloatTensor([[1., 0., 0.]])
@@ -32,15 +32,15 @@ def test_can_learn_three_different_policies():
 
 def train_model(model, target_policy_1, target_policy_2):
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
-    training_steps = 5000
+    training_steps = 1500
     progress_bar = tqdm(range(training_steps))
     for i in progress_bar:
         input_tensor = torch.rand(size=(1, 3))
         prediction = model(input_tensor)
 
         from torch.nn.functional import kl_div
-        cross_entropy_loss_1 = -1. * kl_div(prediction['policy_0']['probs'], target_policy_1) #cross_entropy_loss(prediction['policy_0']['probs'], target_policy_1.unsqueeze(0))
-        cross_entropy_loss_2 = -1. * kl_div(prediction['policy_1']['probs'], target_policy_2) #cross_entropy_loss(prediction['policy_1']['probs'], target_policy_2.unsqueeze(0))
+        cross_entropy_loss_1 = kl_div(prediction['policy_0']['probs'].log(), target_policy_1) #cross_entropy_loss(prediction['policy_0']['probs'], target_policy_1.unsqueeze(0))
+        cross_entropy_loss_2 = kl_div(prediction['policy_1']['probs'].log(), target_policy_2) #cross_entropy_loss(prediction['policy_1']['probs'], target_policy_2.unsqueeze(0))
 
         total_loss = cross_entropy_loss_1 + cross_entropy_loss_2
         optimizer.zero_grad()
