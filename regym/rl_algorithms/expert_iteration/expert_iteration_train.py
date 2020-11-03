@@ -113,7 +113,7 @@ class ExpertIterationAlgorithm():
             opponent_s = torch.cat(self.memory.opponent_s)
             opponent_policy = torch.stack(self.memory.opponent_policy)
         else:
-            opponjnt_policy, opponent_s = None, None
+            opponent_policy, opponent_s = None, None
         return s, v, mcts_pi, opponent_s, opponent_policy
 
     def regress_against_dataset(self, s: torch.FloatTensor,
