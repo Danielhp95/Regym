@@ -84,8 +84,6 @@ class ExpertIterationAlgorithm():
         self.episodes_collected_since_last_train = 0
         self.generation += 1
 
-        # TODO: later make this function:
-        # - Remove duplicates
         self.update_storage(self.memory, self.memory.size,
                             keys=['s', 'V', 'normalized_child_visitations'])
 
