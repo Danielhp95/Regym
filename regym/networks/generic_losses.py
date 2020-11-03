@@ -6,6 +6,8 @@ import torch
 def cross_entropy_loss(model_prediction: torch.Tensor,
                        target: torch.Tensor) -> torch.Tensor:
     '''
+    Further read: https://en.wikipedia.org/wiki/Cross_entropy
+
     Computes cross entropy loss of :param: model_prediction
     against :param: target
 
@@ -14,5 +16,5 @@ def cross_entropy_loss(model_prediction: torch.Tensor,
     :param target: Tensor containing the target distribution.
     :returns: Cross entropy loss between target and model prediction
     '''
-    safe_target = target.clamp(min=1e-8)  # To prevent log(0) from exploding
-    return -1. * (model_prediction * safe_target.log()).sum(dim=1).mean()
+    safe_predictions = model_prediction.clamp(min=1e-8)  # To prevent log(0) from exploding
+    return -1. * (target * safe_predictions.log()).sum(dim=1).mean()

@@ -39,8 +39,8 @@ def train_model(model, target_policy_1, target_policy_2):
         prediction = model(input_tensor)
 
         from torch.nn.functional import kl_div
-        cross_entropy_loss_1 = kl_div(prediction['policy_0']['probs'].log(), target_policy_1) #cross_entropy_loss(prediction['policy_0']['probs'], target_policy_1.unsqueeze(0))
-        cross_entropy_loss_2 = kl_div(prediction['policy_1']['probs'].log(), target_policy_2) #cross_entropy_loss(prediction['policy_1']['probs'], target_policy_2.unsqueeze(0))
+        cross_entropy_loss_1 = cross_entropy_loss(model_prediction=prediction['policy_0']['probs'], target=target_policy_1.unsqueeze(0))
+        cross_entropy_loss_2 = cross_entropy_loss(model_prediction=prediction['policy_1']['probs'], target=target_policy_2.unsqueeze(0))
 
         total_loss = cross_entropy_loss_1 + cross_entropy_loss_2
         optimizer.zero_grad()

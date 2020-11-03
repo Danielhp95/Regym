@@ -36,10 +36,15 @@ def compute_loss(states: torch.FloatTensor,
     # returns policy loss (cross entropy against normalized_child_visitations):
 
     # learning to copy expert: Cross entropy
-    policy_imitation_loss = cross_entropy_loss(predictions['probs'], pi_mcts)
+    policy_imitation_loss = cross_entropy_loss(
+        model_prediction=predictions['probs'],
+        target=pi_mcts
+    )
 
     # For logging purposes
-    kl_divergence = torch.nn.functional.kl_div(predictions['probs'], pi_mcts.log(), reduction='batchmean')
+    kl_divergence = torch.nn.functional.kl_div(predictions['probs'].log(),
+                                               pi_mcts,
+                                               reduction='batchmean')
 
     # Learning game outcomes: Mean Square Error
     value_loss = nn.MSELoss()(values.view((-1, 1)), predictions['V'])
@@ -51,20 +56,16 @@ def compute_loss(states: torch.FloatTensor,
     if not use_agent_modelling:
         total_loss = exit_loss
     else:
-        opponent_modelling_loss = compute_opponent_modelling_loss(
+        (opponent_modelling_loss,
+         policy_inference_weight,
+         kl_divergence_opponent_modelling) = compute_opponent_modelling_loss(
             opponent_policy,
             opponent_s, apprentice_model
         )
 
-        # dynamically computed weight
-        policy_inference_weight = 1 / (torch.sqrt(opponent_modelling_loss))
         '''First focus on learning the opponent, then focus on baseline loss'''
-
         total_loss = exit_loss * policy_inference_weight + opponent_modelling_loss
 
-    # Sumary writer:
-    # Policy inference (opponent modelling) loss
-    # Policy inference weight
     if summary_writer is not None:
         summary_writer.add_scalar('Training/Policy_loss', policy_imitation_loss.cpu().item(), iteration_count)
         summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
@@ -74,23 +75,43 @@ def compute_loss(states: torch.FloatTensor,
         summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
         if use_agent_modelling:
             summary_writer.add_scalar('Training/Opponent_modelling_loss', opponent_modelling_loss.cpu().item(), iteration_count)
-            summary_writer.add_scalar('Training/Policy_inference_weight', opponent_modelling_loss.cpu().item(), iteration_count)
+            summary_writer.add_scalar('Training/Policy_inference_weight', policy_inference_weight.cpu().item(), iteration_count)
+            summary_writer.add_scalar('Training/Kullback-Leibler_divergence_opponent_modelling',
+                                      kl_divergence_opponent_modelling.cpu().item(), iteration_count)
     return total_loss
 
 
 def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
                                     opponent_s: torch.Tensor,
                                     apprentice_model: nn.Module) \
-                                    -> torch.Tensor:
+                                    -> Tuple:
     filtered_opponent_policies, filtered_opponent_s = filter_nan_tensors(
         opponent_policy,
         opponent_s)
-    opponent_predictions = apprentice_model(filtered_opponent_s)
+    if len(filtered_opponent_policies) == 0:  # All sampled elements were nan
+        opponent_modelling_loss = torch.Tensor([0.])
+        policy_inference_weight = torch.Tensor([1.])
+        kl_divergence_opponent_modelling = torch.Tensor([-1.])
+    else:
+        opponent_predictions = apprentice_model(filtered_opponent_s)
 
-    opponent_modelling_loss = cross_entropy_loss(
-        model_prediction=opponent_predictions['policy_0']['probs'],
-        target=filtered_opponent_policies)
-    return opponent_modelling_loss
+        opponent_modelling_loss = cross_entropy_loss(
+            model_prediction=opponent_predictions['policy_0']['probs'],
+            target=filtered_opponent_policies)
+
+        # dynamically computed weight
+        policy_inference_weight = 1 / (torch.sqrt(opponent_modelling_loss))
+
+        # Assert that forall x_i in X: P(x_i) == 0 <-> Q(x_i). If
+        # P(x_i) != 0 and Q(x_i) == 0.
+        # Good explanation as to why:
+        # https://stats.stackexchange.com/questions/97938/calculate-the-kullback-leibler-divergence-in-practice
+        kl_divergence = torch.nn.functional.kl_div(
+            opponent_predictions['policy_0']['probs'].log(),
+            filtered_opponent_policies,  # To prevent log(0)
+            reduction='batchmean'
+        )
+    return opponent_modelling_loss, policy_inference_weight, kl_divergence
 
 
 def filter_nan_tensors(opponent_policy, opponent_s: torch.Tensor) \
