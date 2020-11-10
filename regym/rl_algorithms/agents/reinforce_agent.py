@@ -80,7 +80,7 @@ def build_Reinforce_Agent(task: regym.environments.Task, config: Dict[str, objec
 
     :returns: Agent using Reinforce algorithm to act and learn in environments
     '''
-    algorithm = ReinforceAlgorithm(policy_model_input_dim=task.observation_dim, policy_model_output_dim=task.action_dim,
+    algorithm = ReinforceAlgorithm(policy_model_input_dim=task.observation_dim, policy_model_output_dim=task.action_size,
                                    learning_rate=config['learning_rate'], adam_eps=config['adam_eps'])
     return ReinforceAgent(name=agent_name, episodes_before_update=config['episodes_before_update'],
                           algorithm=algorithm)

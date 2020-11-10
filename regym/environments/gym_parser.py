@@ -65,15 +65,16 @@ def get_observation_dimensions_and_type(env: gym.Env) -> typing.Tuple[int, str]:
         elif isinstance(space, Box): return space.shape, int(np.prod(space.shape)), 'Continuous'
         elif isinstance(space, Tuple):
             # TODO: test
-            return (parse_dimension_space(space)[0],
+            return ([parse_dimension_space(s)[0] for s in space.spaces],
                     sum([parse_dimension_space(s)[1] for s in space.spaces]),
-                    parse_dimension_space(space.spaces[0])[2])
+                    parse_dimension_space(space.spaces[0])[2])  # Assumption, all subspaces are of the samee type
         # Below space refers to OneHotEncoding space from 'https://github.com/Danielhp95/gym-rock-paper-scissors'
         elif hasattr(space, 'size'): return space.size, space.size, 'Discrete'
         raise ValueError('Unknown observation space: {}'.format(space))
 
     # ASSUMPTION: Multi agent environment. Symmetrical observation space
-    if hasattr(env.observation_space, 'spaces'): return parse_dimension_space(env.observation_space.spaces[0])
+    if hasattr(env.observation_space, 'spaces'):
+        return parse_dimension_space(env.observation_space.spaces[0])
     else: return parse_dimension_space(env.observation_space) # Single agent environment
 
 
@@ -87,10 +88,11 @@ def get_action_dimensions_and_type(env) -> typing.Tuple[Any, int, str]:
     def parse_dimension_space(space):
         if isinstance(space, Discrete): return space.n, space.n, 'Discrete'
         elif isinstance(space, MultiDiscrete): return space.nvec, compute_multidiscrete_space_size(space.nvec), 'Discrete'
-        elif isinstance(space, Box): return space.shape[0], 'Continuous'  # Not sure if this is correct
+        elif isinstance(space, Box): return space.shape, space.shape[0], 'Continuous'  # Not sure if this is correct
         else: raise ValueError('Unknown action space: {}'.format(space))
 
-    if hasattr(env.action_space, 'spaces'): return parse_dimension_space(env.action_space.spaces[0]) # Multi agent environment
+    if hasattr(env.action_space, 'spaces'):
+        return parse_dimension_space(env.action_space.spaces[0]) # Multi agent environment
     else: return parse_dimension_space(env.action_space) # Single agent environment
 
 
