@@ -2,7 +2,7 @@ from typing import List
 import pytest
 import numpy as np
 
-from regym.rl_algorithms.agents import build_Deterministic_Agent
+from regym.rl_algorithms.agents import build_Deterministic_Agent, MixedStrategyAgent
 from regym.rl_algorithms import rockAgent, scissorsAgent
 from regym.environments import generate_task
 from regym.environments import EnvType
@@ -43,3 +43,15 @@ def play_matches_given_task_and_agent_vector(task, agent_vector: List):
     assert len(trajectories) == number_matches
     assert task.total_episodes_run == number_matches
     np.testing.assert_array_equal(expected_winrates, winrates)
+
+
+def test_play_matches_can_shuffle_agent_positions(RPS_task):
+    rockAgent_1 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent1')
+    rockAgent_2 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent2')
+    agent_vector = [rockAgent_1, rockAgent_2]
+    expected_winrates = [0.5, 0.5]
+    actual_winrates = play_multiple_matches(RPS_task, agent_vector,
+                                            n_matches=500,
+                                            shuffle_agent_positions=True)
+    np.testing.assert_allclose(expected_winrates, actual_winrates,
+                               atol=0.10)

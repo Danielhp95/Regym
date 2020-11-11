@@ -7,7 +7,7 @@ from regym.game_theory import (compute_winrate_matrix_metagame,
                                relative_population_performance,
                                evolution_relative_population_performance)
 from regym.rl_algorithms import build_Reinforce_Agent, build_Random_Agent
-from regym.rl_algorithms.agents import rockAgent, paperAgent, scissorsAgent
+from regym.rl_algorithms.agents import MixedStrategyAgent, rockAgent, paperAgent, scissorsAgent
 
 
 from test_fixtures import ppo_config_dict, RPSTask, pendulum_task
@@ -141,7 +141,7 @@ def test_can_compute_relative_population_performance(RPSTask):
 
     np.testing.assert_allclose(actual_relative_pop_performance, expected_relative_population_performance)
 
-    ## When reversing the populations, we should have a relative_population_performance of 0.5
+    # When reversing the populations, we should have a relative_population_performance of 0.5
 
     expected_relative_population_performance = 0.5
 
@@ -153,8 +153,12 @@ def test_can_compute_relative_population_performance(RPSTask):
 
 
 def test_can_compute_evolution_of_relative_population_performance(RPSTask):
-    population_1 = [rockAgent, paperAgent]
-    population_2 = [rockAgent, rockAgent]
+    rockAgent_1 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent1')
+    rockAgent_2 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent2')
+    rockAgent_3 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent3')
+
+    population_1 = [rockAgent_1, paperAgent]
+    population_2 = [rockAgent_2, rockAgent_3]
 
     expected_evolution_relative_population_performance = [0, 0.5]
 
