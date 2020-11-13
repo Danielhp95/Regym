@@ -4,7 +4,6 @@
 # declaration at the top                                              #
 #######################################################################
 from typing import List, Callable, Iterable, Tuple
-from functools import reduce
 
 import torch
 import torch.nn as nn
@@ -65,8 +64,9 @@ class Convolutional2DBody(nn.Module):
         self.feature_dim = output_height * output_width * channels[-1]
 
     def forward(self, x):
-        conv_map = reduce(lambda acc, layer: self.gating_function(layer(acc)),
-                          self.convolutions, x)
+        conv_map = x
+        for convolution in self.convolutions:
+            conv_map = self.gating_function(convolution(conv_map))
         # Without start_dim, we are flattening over the entire batch!
         flattened_conv_map = conv_map.flatten(start_dim=1)
         flat_embedding = self.gating_function(flattened_conv_map)
@@ -132,8 +132,9 @@ class ConvolutionalResidualBlock(nn.Module):
         self.feature_dim = output_height * output_width * channels[-1]
 
     def forward(self, x):
-        x2 = reduce(lambda acc, layer: self.gating_function(layer(acc)),
-                    self.convolutions, x)
+        x2 = x
+        for convolution in self.convolutions:
+            x2 = self.gating_function(convolution(x2))
         if self.use_1x1conv: x = self.residual_conv(x)
         return x + x2
 
@@ -149,7 +150,9 @@ class FCBody(nn.Module):
         self.feature_dim = dims[-1]
 
     def forward(self, x):
-        return reduce(lambda acc, layer: self.gate(layer(acc)), self.layers, x)
+        for layer in self.layers:
+            x = self.gate(layer(x))
+        return x
 
 
 class LSTMBody(nn.Module):
