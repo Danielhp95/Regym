@@ -1,4 +1,4 @@
-from typing import List, Iterable
+from typing import List
 from itertools import product
 import gym
 
@@ -10,10 +10,10 @@ from regym.util import play_multiple_matches
 from regym.game_theory import solve_zero_sum_game
 
 
-def compute_winrate_matrix_metagame(population: Iterable[Agent],
+def compute_winrate_matrix_metagame(population: List[Agent],
                                     episodes_per_matchup: int,
                                     task: Task,
-                                    num_workers: int = 1) -> np.ndarray:
+                                    num_envs: int = 1) -> np.ndarray:
     '''
     Generates a metagame for a multiagent :param: task given a :param: population
     of strategies. This metagame is a symmetric 2-player zero-sum normal form game.
@@ -41,13 +41,20 @@ def compute_winrate_matrix_metagame(population: Iterable[Agent],
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
     :param task: Multiagent Task for which the metagame is being computed
-    :param num_workers: Number of parallel threads to be spawned to carry out benchmarks in parallel
+    :param num_envs: Number of parallel enviroments to spawn during
+                     the computation of the underlying winrate matrix.
+                     If -1 is specified, it will internally be transformed to
+                     the cpu count.
     :returns: Empirical payoff matrix for player 1 representing the metagame for :param: task and
               :param: population
     '''
     check_input_validity(population, episodes_per_matchup, task)
 
-    upper_triangular_winrate_matrix = generate_upper_triangular_symmetric_metagame(population, task, episodes_per_matchup, num_workers)
+    upper_triangular_winrate_matrix = generate_upper_triangular_symmetric_metagame(
+        population,
+        task,
+        episodes_per_matchup,
+        num_envs)
 
     # Copy upper triangular into lower triangular  Generate complementary entries
     # a_i,j + a_j,i = 1 for all non diagonal entries
@@ -58,9 +65,10 @@ def compute_winrate_matrix_metagame(population: Iterable[Agent],
     return winrate_matrix
 
 
-def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
+def generate_evaluation_matrix_multi_population(populations: List[List[Agent]],
                                                 task: Task,
-                                                episodes_per_matchup: int) -> np.ndarray:
+                                                episodes_per_matchup: int,
+                                                num_envs: int = 1) -> np.ndarray:
     '''
     Generates an evaluation matrix (a metagame) for a multiagent :param: task
     given a set of :param: populations, each containing a (possibly uneven) number
@@ -82,6 +90,10 @@ def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
     :param episodes_per_matchup: Number of times each matchup will be repeated to compute
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
+    :param num_envs: Number of parallel enviroments to spawn during
+                     the computation of the underlying winrate matrix.
+                     If -1 is specified, it will internally be transformed to
+                     the cpu count.
     :returns: Emprirical winrate matrix (aka evaluation matrix) representing
               the winrates of populations[0] against population[1]. That is:
               each row i represents the winrates of agent i from popuations[0]
@@ -91,17 +103,75 @@ def generate_evaluation_matrix_multi_population(populations: Iterable[Agent],
         raise ValueError('Task is single-agent. Metagames can only be computed for multiagent tasks.')
     if len(populations) > 2:
         raise NotImplementedError('Currently only two popuations are supported')
+    if num_envs < 1 and num_envs != -1:
+        raise ValueError(f'Param `num_envs` has to be equal or greater than 1, unless -1 is specified, which is internally changed to the cpu count. Given {num_envs}')
 
+    if num_envs == 1:
+        winrate_matrix = multi_population_winrate_matrix_computation(populations, task, episodes_per_matchup)
+    else:
+        if task.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
+            winrate_matrix = parallel_multi_population_winrate_matrix_computation(
+                populations,
+                task,
+                episodes_per_matchup,
+                num_envs
+            )
+        else:  # EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
+            '''
+            HACK: Currently, shuffling agent positions is not supported
+            parallel environments, so we run half the episodes on one position, and half on the other
+            '''
+            winrate_matrix_1 = parallel_multi_population_winrate_matrix_computation(
+                [populations[0], populations[1]],
+                task,
+                episodes_per_matchup // 2,
+                num_envs)
+            winrate_matrix_2 = parallel_multi_population_winrate_matrix_computation(
+                [populations[1], populations[0]],
+                task,
+                episodes_per_matchup // 2,
+                num_envs)
+            winrate_matrix = (winrate_matrix_1 + winrate_matrix_2) / 2
+    return winrate_matrix
+
+
+# TODO: possibly refactor this and function below into single function.
+def multi_population_winrate_matrix_computation(populations, task, episodes_per_matchup):
+    '''
+    TODO
+    '''
     population_1, population_2 = populations
     winrate_matrix = np.zeros((len(population_1), len(population_2)))
-
     for i, j in product(range(len(population_1)), range(len(population_2))):
-        player_1_winrate = play_multiple_matches(task,
-                                                 agent_vector=[
-                                                     population_1[i],
-                                                     population_2[j]
-                                                     ],
-                                                 n_matches=episodes_per_matchup)[0]
+        player_1_winrate = play_multiple_matches(
+            task,
+            agent_vector=[
+                population_1[i],
+                population_2[j]
+            ],
+            n_matches=episodes_per_matchup
+        )[0]
+        winrate_matrix[i, j] = player_1_winrate
+    return winrate_matrix
+
+
+def parallel_multi_population_winrate_matrix_computation(populations, task, episodes_per_matchup, num_envs):
+    '''
+    TODO
+    '''
+    population_1, population_2 = populations
+    winrate_matrix = np.zeros((len(population_1), len(population_2)))
+    for i, j in product(range(len(population_1)), range(len(population_2))):
+        trajectories = task.run_episodes(
+            agent_vector=[
+                population_1[i],
+                population_2[j]
+            ],
+            num_episodes=episodes_per_matchup,
+            num_envs=num_envs,
+            training=False
+        )
+        player_1_winrate = len(list(filter(lambda t: t.winner == 0, trajectories))) / len(trajectories)
         winrate_matrix[i, j] = player_1_winrate
     return winrate_matrix
 
@@ -121,7 +191,7 @@ def relative_population_performance(population_1: List[Agent],
     against :param: population_2 (player 2) inside of :param: task.
 
     Proposition 5.1 from paper above. Relative population performance is
-    independent of choice of Nash Equilibrium. 
+    independent of choice of Nash Equilibrium.
     :param population_1 / _2: Populations from which relative population
                               performance will be computed
     :param task: Multiagent Task for which the metagame is being computed
@@ -140,7 +210,8 @@ def evolution_relative_population_performance(population_1: List[Agent],
                                               population_2: List[Agent],
                                               task: Task,
                                               episodes_per_matchup: int,
-                                              initial_index: int=0) -> np.ndarray:
+                                              num_envs: int = 1,
+                                              initial_index: int = 0) -> np.ndarray:
     '''
     Computes various relative population performances for :param: population_1
     and :param: population_2, where the first relative population performance
@@ -158,8 +229,12 @@ def evolution_relative_population_performance(population_1: List[Agent],
                                  metagame, at the expense of longer compute time.
     :param initial_index: Index for both populations at which the relative
                           population performance will be computed.
+    :param num_envs: Number of parallel enviroments to spawn during
+                     the computation of the underlying winrate matrix.
+                     If -1 is specified, it will internally be transformed to
+                     the cpu count.
     :returns: Vector containing the evolution of the population performance of
-              :param: population_1 relative to :param: population_2 starting 
+              :param: population_1 relative to :param: population_2 starting
               at population_1 index :param: initial_index.
     '''
 
@@ -171,13 +246,16 @@ def evolution_relative_population_performance(population_1: List[Agent],
         raise ValueError(f'Initial index must be a valid index for population vector: [0,{len(population_1)}]')
     if episodes_per_matchup <= 0:
         raise ValueError(f'Param `episodes_per_matchup` must be strictly positive')
+    if num_envs < 1 and num_envs != -1:
+        raise ValueError(f'Param `num_envs` has to be equal or greater than 1, unless -1 is specified, which is internally changed to the cpu count. Given {num_envs}')
 
     winrate_matrix = generate_evaluation_matrix_multi_population(populations=[
                                                                      population_1,
                                                                      population_2
                                                                      ],
                                                                  task=task,
-                                                                 episodes_per_matchup=episodes_per_matchup)
+                                                                 episodes_per_matchup=episodes_per_matchup,
+                                                                 num_envs=num_envs)
     # The antisymmetry refers to the operation performed to the winrates inside
     # of the matrix, NOT the matrix itself
     antisymmetric_form = winrate_matrix - 1/2
@@ -191,7 +269,7 @@ def evolution_relative_population_performance(population_1: List[Agent],
 def generate_upper_triangular_symmetric_metagame(population: List[Agent],
                                                  task: Task,
                                                  episodes_per_matchup: int,
-                                                 num_workers: int = 1) -> np.ndarray:
+                                                 num_envs: int = 1) -> np.ndarray:
     '''
     Generates a matrix which:
         - Upper triangular part contains the empirical winrates of pitting each agent in
@@ -204,7 +282,10 @@ def generate_upper_triangular_symmetric_metagame(population: List[Agent],
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
     :param task Multiagent Task for which the metagame is being computed
-    :param num_workers: Number of parallel threads to be spawned to carry out benchmarks in parallel
+    :param num_envs: Number of parallel enviroments to spawn during
+                     the computation of the underlying winrate matrix.
+                     If -1 is specified, it will internally be transformed to
+                     the cpu count.
     :returns: PARTIALLY filled in payoff matrix for metagame for :param: population in :param: task.
     '''
     winrate_matrix = np.zeros((len(population), len(population)))
@@ -219,7 +300,7 @@ def generate_upper_triangular_symmetric_metagame(population: List[Agent],
     return winrate_matrix
 
 
-def check_input_validity(population: Iterable[Agent], episodes_per_matchup: int, task: Task):
+def check_input_validity(population: List[Agent], episodes_per_matchup: int, task: Task):
     if population is None: raise ValueError('Population should be an array of policies')
     if len(population) == 0: raise ValueError('Population cannot be empty')
     if episodes_per_matchup <= 0: raise ValueError('Episodes_per_matchup must strictly positive')

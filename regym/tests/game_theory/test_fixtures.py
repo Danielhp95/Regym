@@ -29,5 +29,11 @@ def RPSTask():
 
 
 @pytest.fixture
+def Connect4Task():
+    import gym_connect4
+    return generate_task('Connect4-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
+
+
+@pytest.fixture
 def pendulum_task():
     return generate_task('Pendulum-v0')
