@@ -142,7 +142,7 @@ class PPOAgent(Agent):
 
 def create_model(task: regym.environments.Task,
                  config: Dict[str, object]) -> nn.Module:
-    input_dim = task.observation_dim
+    input_dim = task.observation_size
     if config['phi_arch'] != 'None':
         output_dim = 64  # TODO: beware of magic number
         if config['phi_arch'] == 'RNN':
