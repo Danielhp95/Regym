@@ -5,7 +5,7 @@ from regym.rl_algorithms.agents import Agent
 from regym.rl_loops.trajectory import Trajectory
 
 
-def update_trajectories(trajectories: List[List],
+def update_trajectories(trajectories: List[Trajectory],
                         action_vector: List[int], obs: List,
                         rewards: List[float], succ_obs: List,
                         dones: List[bool],
@@ -160,10 +160,10 @@ def parse_individual_entry_in_prediction(agent: Agent,
             for key, value in agent.current_prediction.items()}
 
 
-def update_finished_trajectories(ongoing_trajectories: List[List[Tuple]],
-                                 finished_trajectories: List[List[Tuple]],
+def update_finished_trajectories(ongoing_trajectories: List[Trajectory],
+                                 finished_trajectories: List[Trajectory],
                                  done_envs: List[int]) \
-        -> Tuple[List[List[Tuple]], List[List[Tuple]]]:
+        -> Tuple[List[Trajectory], List[Trajectory]]:
     '''Copies finished :param: ongoing_trajectories into
     :param: finished_trajectories as dictated by :param: done_envs'''
     for env_i in done_envs:
