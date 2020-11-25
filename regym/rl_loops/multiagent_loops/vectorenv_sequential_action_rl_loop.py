@@ -95,7 +95,7 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
         # Handle with episode termination
         done_envs = [i for i in range(len(dones)) if dones[i]]
         if len(done_envs) > 0:
-            finished_trajectories, ongoing_trajectories = \
+            finished_trajectories, ongoing_trajectories, current_players = \
                     handle_finished_episodes(training, agent_vector,
                             ongoing_trajectories, done_envs,
                             finished_trajectories, current_players)
@@ -179,7 +179,7 @@ def handle_finished_episodes(training: bool, agent_vector: List[Agent],
     ongoing_trajectories, finished_trajectories = update_finished_trajectories(
                     ongoing_trajectories, finished_trajectories, done_envs)
     current_players = reset_current_players(done_envs, current_players)
-    return finished_trajectories, ongoing_trajectories
+    return finished_trajectories, ongoing_trajectories, current_players
 
 
 def reset_current_players(done_envs: List[int],
@@ -219,46 +219,6 @@ def propagate_experiences(agent_vector: List[Agent], trajectories: List[Trajecto
     propagate_batched_experiences(agent_experiences,
                                   agent_vector,
                                   environment_per_agents)
-
-
-def collect_external_agent_info(agents_to_update: List[int],
-                                agent_to_update_per_env: Dict[int, int],
-                                agent_vector: List[Agent]) -> Dict[int, Dict]:
-    '''
-    Collects information for :param: agents_to_update from _other_ agents
-    in :param: agent_vector
-
-    - Relevant if, for instance, an agents requires observing other agent's
-    actions.
-
-    External agent info is structured thus:
-
-    (1)agent_to_feed_info: {
-        (2)env_id: {
-            (3)current_predictions: {
-                (4)opponent_1: {
-                    'a': 1
-                },
-                opponent_2: {
-                    'a': 2
-                }
-            }
-        }
-    }
-
-    :returns: Dictionary containing information for each agent in
-              :param: agents_to_update
-    '''
-    external_agent_infos = {}
-    for a_i, agent in zip(agents_to_update, agent_vector):
-        external_agent_infos[a_i] = {}
-        if agent.requires_opponents_prediction:
-            external_agent_infos[a_i]['current_predictions'] = {
-                opponent_i: opponent.current_prediction
-                for opponent_i, opponent in enumerate(agent_vector)
-                if opponent_i != a_i
-            }
-    return external_agent_infos
 
 
 def propagate_batched_experiences(agent_experiences: Dict[int, List[Tuple]],

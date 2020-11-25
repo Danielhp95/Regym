@@ -112,9 +112,10 @@ class ExpertIterationAgent(Agent):
         # Simplify & explain the idea behind
         # pred_index corresponds to the (tensor) index for self.current_prediction
         # corresponding to environment index (e_i)
+        super().handle_multiple_experiences(experiences, env_ids)
         for (o, a, r, succ_o, done, extra_info), (pred_index, e_i) in zip(experiences, enumerate(env_ids)):
             self.storages[e_i] = self.storages.get(e_i, self.init_storage(size=100))
-            expert_child_visitations = self.current_prediction['child_visitations'][pred_index]
+            expert_child_visitations = extra_info['self']['child_visitations']  # self.current_prediction['child_visitations'][pred_index]
             self._handle_experience(o, a, r, succ_o, done, extra_info,
                                     self.storages[e_i], expert_child_visitations)
             if done: del self.storages[e_i]
@@ -127,11 +128,9 @@ class ExpertIterationAgent(Agent):
         o, r = self.process_environment_signals(o, r)
         normalized_visits = torch.Tensor(self.normalize(expert_child_visitations))
 
-        # TODO: refactor this into a variable. which can be 'a' or 'probs',
-        # to gather 1 hot encodings or the actual distribution
         if self.use_agent_modelling:
             opponent_policy, opponen_obs = self.process_extra_info(extra_info)
-        else: opponent_policy = {}
+        else: opponent_policy, opponen_obs = {}, []
 
         self.update_storage(storage, o, r, done,
                             opponent_policy=opponent_policy,
@@ -158,15 +157,17 @@ class ExpertIterationAgent(Agent):
         # At most there is information about 1 agent
         # Because opponent modelling is only supported
         # For tasks with two agents
-        assert len(extra_info) <= 1
+        assert len(extra_info) <= 2, ('There can be at most information about 2 agents'
+                                      '\'Self\' and 1 other agent')
 
-        if not bool(extra_info):  # if dictionary is empty
+        if len(extra_info) == 1:  # If dictionary only contains info about this agent
             # First argument to `torch.full` might create an issue (might break for non 1D actions)
             processed_opponent_policy = torch.full((self.action_dim,), float('nan'))
             # Adding batch dimension
             processed_opponent_obs = torch.full((1, *self.observation_dim), float('nan'))
         else:
-            opponent_index = list(extra_info.keys())[0]  # Not super pretty
+            opponent_index = list(filter(lambda key: key != 'self',
+                                         extra_info.keys()))[0]  # Not super pretty
             # TODO: extra processing (turn into one hot encoding) will be necessary
             # If using self.extra_info_key = 'a'.
             opponent_policy = extra_info[opponent_index][self.extra_info_key]

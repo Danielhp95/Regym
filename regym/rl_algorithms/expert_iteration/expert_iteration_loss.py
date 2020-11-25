@@ -96,7 +96,7 @@ def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
         opponent_predictions = apprentice_model(filtered_opponent_s)
 
         opponent_modelling_loss = cross_entropy_loss(
-            model_prediction=opponent_predictions['policy_0']['probs'],
+            model_prediction=opponent_predictions['policy_0'],
             target=filtered_opponent_policies)
 
         # dynamically computed weight
@@ -107,7 +107,7 @@ def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
         # Good explanation as to why:
         # https://stats.stackexchange.com/questions/97938/calculate-the-kullback-leibler-divergence-in-practice
         kl_divergence = torch.nn.functional.kl_div(
-            opponent_predictions['policy_0']['probs'].log(),
+            opponent_predictions['policy_0'].log(),
             filtered_opponent_policies,  # To prevent log(0)
             reduction='batchmean'
         )

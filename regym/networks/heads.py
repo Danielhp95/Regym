@@ -323,14 +323,19 @@ class PolicyInferenceActorCriticNet(nn.Module, BaseNet):
         actor_critic_prediction = self.actor_critic_head(
                 actor_critic_head_input, legal_actions=legal_actions)
 
+        # TODO: think how to regain this.
+        # Current non-commented out approach only uses 
+        # policy_inference_predictions_dict = {
+        #         f'policy_{i}': prediction
+        #         for i, prediction
+        #         in zip(range(self.num_policies), policy_inference_predictions)}
         policy_inference_predictions_dict = {
-                f'policy_{i}': prediction
-                for i, prediction
-                in zip(range(self.num_policies), policy_inference_predictions)}
+                 f'policy_{i}': prediction['probs']
+                 for i, prediction
+                 in zip(range(self.num_policies), policy_inference_predictions)}
 
         # Merging 2 dicts together
         aggregated_predictions = {
                 **policy_inference_predictions_dict, **actor_critic_prediction}
 
-        # TODO: add actor_critic head
         return aggregated_predictions

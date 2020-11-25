@@ -89,7 +89,7 @@ def test_can_model_fixed_stochastic_policy(Connect4Task, expert_iteration_config
     _test_learn_against_fixed_distribution(
         Connect4Task,
         expert_iteration_config_dict,
-        prediction_process_fn=lambda p: p['policy_0']['probs']
+        prediction_process_fn=lambda p: p['policy_0']
     )
 
 
