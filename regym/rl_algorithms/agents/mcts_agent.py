@@ -221,7 +221,7 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
     if task.env_type == regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
         algorithm = sequential_mcts.MCTS
 
-    use_dirichlet = (config['selection_phase'] == 'puct') and config['use_dirichlet']
+    use_dirichlet = (config['selection_phase'] == 'puct') and config.get('use_dirichlet', False)
 
     agent = MCTSAgent(name=agent_name,
                       algorithm=algorithm,
@@ -233,7 +233,7 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                       task_num_agents=task.num_agents,
                       task_action_dim=task.action_dim,
                       use_dirichlet=use_dirichlet,
-                      dirichlet_alpha=config['dirichlet_alpha'])
+                      dirichlet_alpha=config.get('dirichlet_alpha', None))
     return agent
 
 
