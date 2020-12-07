@@ -50,6 +50,8 @@ class ExpertIterationAgent(Agent):
         :param num_opponents: Number of opponents that will be playing in an environment
         '''
         super().__init__(name=name, requires_environment_model=True)
+        self.requires_self_prediction = True
+
         self.algorithm: ExpertIterationAlgorithm = algorithm
         self.expert: Agent = expert
         self.apprentice: nn.Module = apprentice

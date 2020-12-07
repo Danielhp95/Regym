@@ -77,6 +77,14 @@ class Agent(ABC):
             - Make new friends
         '''
         self.requires_opponents_prediction: bool = False
+        '''
+        Flag denoting whether an agent needs access to past predictions.
+        Useful in multienv scenarios where an internal agent state might be
+        overriden with new predictions information required once the
+        `handle_experience` funciton is called.
+        Look into ExpertIterationAgent for an example.
+        '''
+        self.requires_self_prediction: bool = False
 
     @property
     def num_actors(self) -> int:

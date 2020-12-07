@@ -47,7 +47,9 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
     :returns: List of environment trajectories experienced during simulation.
     '''
 
-    store_extra_information = any([agent.requires_opponents_prediction for agent in agent_vector])
+    store_extra_information = any(
+        [agent.requires_opponents_prediction or agent.requires_self_prediction
+         for agent in agent_vector])
 
     # Initialize trajectories
     ongoing_trajectories = [Trajectory(env_type=regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION,
