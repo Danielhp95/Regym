@@ -222,11 +222,12 @@ def extract_extra_info_from_sequential_trajectory(agent_id: int,
     TODO: mention about stiching together current predicions from trajectory
     '''
     time_index_after_agent_action = -(trajectory.num_agents) + 1
-    relevant_timesteps = trajectory[time_index_after_agent_action:]
+    relevant_timesteps: List = trajectory[time_index_after_agent_action:]
 
 
     extra_info = {}
-    last_acting_timestep= trajectory.last_acting_timestep_for_agent(agent_id)
+    last_acting_timestep = trajectory.last_acting_timestep_for_agent(agent_id)
+
     # Some algorithms need to fetch info from last things they did
     extra_info['self'] = last_acting_timestep.extra_info[agent_id]
 
