@@ -17,12 +17,16 @@ def update_trajectories(trajectories: List[Trajectory],
     '''
     num_envs = len(trajectories)
     for i in range(num_envs):
+        if extra_infos and i in extra_infos:  # Might not be present
+            extra_info = extra_infos[i]
+        else: extra_info = None
+
         acting_agents = current_players[i] if (
             current_players is not None) else None
         trajectories[i].add_timestep(
             o=obs[i], a=action_vector[i], r=rewards[i], succ_o=succ_obs[i],
             done=dones[i], acting_agents=[acting_agents],
-            extra_info=extra_infos[i])
+            extra_info=extra_info)
 
 
 def update_parallel_sequential_trajectories(trajectories: List[Trajectory],

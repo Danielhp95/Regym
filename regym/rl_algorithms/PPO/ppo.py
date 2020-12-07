@@ -117,18 +117,29 @@ class PPOAlgorithm():
             storage.ret[i] = returns.detach()
 
     def retrieve_values_from_storages(self):
-        (all_states, all_actions, all_log_probs_old, all_returns,
-         all_advantages, all_rnn_states) = zip(*reduce(
-             lambda acc, s: acc + [self.retrieve_values_from_single_storage(s)],
-             self.storages, []))
+        all_states = []
+        all_actions = []
+        all_log_probs_old = []
+        all_returns = []
+        all_advantages = []
+        all_rnn_states = [] if self.recurrent else None
 
-        all_states = torch.cat(all_states, dim=0)
-        all_actions = torch.cat(all_actions, dim=0)
-        all_log_probs_old = torch.cat(all_log_probs_old, dim=0)
-        all_returns = torch.cat(all_returns, dim=0)
-        all_advantages = torch.cat(all_advantages, dim=0)
-        all_rnn_states = torch.cat(all_rnn_states, dim=0) if self.recurrent else None
+        for storage in self.storages:
+            (states, actions, log_probs_old, returns, advantages,
+             rnn_states) = self.retrieve_values_from_single_storage(storage)
+            all_states += states
+            all_actions += actions
+            all_log_probs_old += log_probs_old
+            all_returns += returns
+            all_advantages += advantages
+            if self.recurrent: all_rnn_states += rnn_states
 
+        all_states = torch.stack(all_states, dim=0)
+        all_actions = torch.stack(all_actions, dim=0)
+        all_log_probs_old = torch.stack(all_log_probs_old, dim=0)
+        all_returns = torch.stack(all_returns, dim=0)
+        all_advantages = torch.stack(all_advantages, dim=0)
+        if self.recurrent: all_rnn_states = torch.stack(all_rnn_states, dim=0)
         return (all_states, all_actions, all_log_probs_old, all_returns,
                all_advantages, all_rnn_states)
 
@@ -136,14 +147,15 @@ class PPOAlgorithm():
         if self.recurrent:
             cat = storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv', 'rnn_states'])
             rnn_states = cat[-1]
-            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0), cat[:-1])
+            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=1), cat[:-1])
         else:
-            states, actions, log_probs_old, returns, advantages= map(lambda x: torch.cat(x, dim=0),
+            states, actions, log_probs_old, returns, advantages = map(lambda x: torch.cat(x, dim=0),
                                                                      storage.cat(['s', 'a', 'log_pi_a', 'ret', 'adv']) )
             rnn_states = None
 
         # Turning actions into dim: self.horizon x 1
         # (Might break in environments where actions are not a single number)
+        states = states.view(len(storage.s), -1)
         actions = actions.view(-1, 1)
         log_probs_old = log_probs_old.view(-1, 1)
         returns = returns.view(-1, 1)

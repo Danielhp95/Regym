@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 import copy
 
 import torch
@@ -28,6 +28,8 @@ class PPOAgent(Agent):
         if len(self.rnn_keys):
             self.recurrent = True
             self._reset_rnn_states()
+
+        self.handled_experiences_since_last_update = 0
 
     @Agent.num_actors.setter
     def num_actors(self, n):
@@ -75,8 +77,11 @@ class PPOAgent(Agent):
                     self.rnn_states[k][0][idx] = self.rnn_states[k][0][idx].cuda()
                     self.rnn_states[k][1][idx] = self.rnn_states[k][1][idx].cuda()
 
-    def handle_experience(self, s, a, r, succ_s, done, extra_info: Dict, storage_idx=0):
+    def handle_experience(self, s, a, r, succ_s, done,
+                          extra_info: Optional[Dict]=None, storage_idx=0):
         super(PPOAgent, self).handle_experience(s, a, r, succ_s, done)
+        self.handled_experiences_since_last_update += 1
+
         storage = self.algorithm.storages[storage_idx]
 
         non_terminal = torch.ones(1)*(1 - int(done))
@@ -90,32 +95,30 @@ class PPOAgent(Agent):
 
         storage.add({'r': r, 'non_terminal': non_terminal, 's': state})
 
-        if (self.handled_experiences % self.algorithm.horizon) == 0:
-            next_state = self.state_preprocessing(succ_s)
-
-            if self.recurrent:
-                self._pre_process_rnn_states(done=done)
-                next_prediction = self.algorithm.model(next_state, rnn_states=self.rnn_states)
-            else:
-                next_prediction = self.algorithm.model(next_state)
-            next_prediction = self._post_process(next_prediction)
+        if (self.handled_experiences_since_last_update % self.algorithm.horizon) == 0:
+            next_prediction = self.compute_prediction(succ_s, legal_actions=None)
 
             for k in next_prediction.keys():
                 # Index 0 because there's a single prediction
                 storage.add({k: next_prediction[k][0]})
+
             self.algorithm.train()
-            self.handled_experiences = 0
+            self.handled_experiences_since_last_update = 0
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        for (o, a, r, succ_o, done, extra_info), e_i in zip(experiences, env_ids):
-            self.handle_experience(o, a, r, succ_o, done, extra_info, storage_idx=e_i)
+        for timestep, e_i in zip(experiences, env_ids):
+            self.handle_experience(
+                timestep.observation,
+                timestep.action,
+                timestep.reward,
+                timestep.succ_observation,
+                timestep.done,
+                timestep.extra_info,
+                storage_idx=e_i)
 
     def model_free_take_action(self, state, legal_actions: List[int] = None,
                                multi_action: bool = False):
-        preprocessed_state = self.state_preprocessing(state)
-
-        self.current_prediction = self.compute_prediction(preprocessed_state,
-                                                          legal_actions)
+        self.current_prediction = self.compute_prediction(state, legal_actions)
         action = self.current_prediction['a']
         if not multi_action:  # Action is a single integer
             action = np.int(action)
@@ -123,7 +126,10 @@ class PPOAgent(Agent):
             action = action.view(1, -1).squeeze(0).numpy()
         return action
 
-    def compute_prediction(self, preprocessed_state, legal_actions) -> Dict:
+    def compute_prediction(self, state, legal_actions) -> Dict:
+        preprocessed_state = self.state_preprocessing(state)
+        if self.algorithm.use_cuda: preprocessed_state = preprocessed_state.cuda()
+
         if self.recurrent:
             self._pre_process_rnn_states()
             current_prediction = self.algorithm.model(preprocessed_state,
@@ -131,6 +137,7 @@ class PPOAgent(Agent):
         else:
             current_prediction = self.algorithm.model(preprocessed_state,
                     legal_actions=legal_actions)
+        # Maybe we need to offload to cpu?
         return self._post_process(current_prediction)
 
     def clone(self, training=None):
