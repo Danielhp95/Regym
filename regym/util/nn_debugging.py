@@ -16,7 +16,7 @@ from torchviz import make_dot
 def plot_gradient_flow(named_parameters: Iterator[Tuple[(str, Parameter)]]):
     '''Plots the gradients flowing through different layers in the net during training.
     Can be used for checking for possible gradient vanishing / exploding problems.
-    
+
     Usage:
     >>> model: nn.Module
     >>> loss.backwards() # A loss tensor has been propagated through our model
@@ -68,3 +68,17 @@ def plot_backwards_graph(tensor: Tensor, model: torch.nn.Module, filename: str):
     '''
     graph = make_dot(tensor, params=dict(model.named_parameters()))
     graph.render(filename=filename, format='pdf')
+
+
+def are_neural_nets_equal(model_1: torch.nn.Module, model_2: torch.nn.Module) -> bool:
+    '''
+    Tests whether the weights of :param: model_1 are identical to those of
+    :param: model_2.
+
+    ASSUMPTION: Both models have the same architecture
+    Adapted from: https://discuss.pytorch.org/t/check-if-models-have-same-weights/4351/5
+    '''
+    for key_item_1, key_item_2 in zip(model_1.state_dict().items(), model_2.state_dict().items()):
+        if torch.equal(key_item_1[1], key_item_2[1]): pass
+        else: return False
+    return True
