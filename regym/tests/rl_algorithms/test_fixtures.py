@@ -131,6 +131,7 @@ def expert_iteration_config_dict():
     config = dict()
     # Higher level ExIt params
     config['use_agent_modelling'] = False
+    config['use_agent_modelling_in_mcts'] = False
     config['use_apprentice_in_expert'] = False
     config['games_per_iteration'] = 2
     # Dataset params

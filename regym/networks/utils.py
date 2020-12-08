@@ -27,11 +27,11 @@ class BaseNet:
         is_multi_action = (num_batches > 1) or ((num_batches >= 1) and isinstance(legal_actions[0], list))
         if not is_multi_action:  # legal_actions is a vector, each entry is a legal action
             illegal_action_mask = torch.tensor([float(i not in legal_actions)
-                                                for i in range(action_dim)])
+                                                for i in range(action_dim)]).to(logits.device)
         if is_multi_action:  # legal_actions is a matrix, where each row is a vector of legal actions
             illegal_action_mask = torch.tensor([[float(i not in legal_actions[j]) if legal_actions[j] else 0
                                                 for i in range(action_dim)]
-                                                for j in range(num_batches)])
+                                                for j in range(num_batches)]).to(logits.device)
         illegal_logit_penalties = illegal_action_mask * self.ILLEGAL_ACTIONS_LOGIT_PENALTY
         masked_logits = logits + illegal_logit_penalties
         return masked_logits

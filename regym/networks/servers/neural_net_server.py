@@ -84,34 +84,44 @@ class NeuralNetServerHandler:
         self.net_representation = str(net)
         self.max_requests = max_requests
 
+        # Number of times that the server's neural net has been updated
+        self.num_updates = 0
+        self.net = deepcopy(net)
+
+        # Required, otherwise forking method won't work
+        net.share_memory()
+
         self.server_connections, self.client_connections = [], []
         for _ in range(num_connections):
             server_connection, client_connection = multiprocessing.Pipe()
             self.server_connections.append(server_connection)
             self.client_connections.append(client_connection)
 
-        # Required, otherwise forking method won't work
-        net.share_memory()
-
-        self.server = multiprocessing.Process(
-                target=neural_net_server,
-                args=(deepcopy(net), self.server_connections,
-                      self.pre_processing_fn, self.device, max_requests),
-                name='neural_network_server',
-                daemon=True)  # We want the server to terminate
-                              # when the main script terminates
+        self.server = self.create_server_process()
         self.server.start()
+
+    def create_server_process(self) -> multiprocessing.Process:
+        return multiprocessing.Process(
+                   target=neural_net_server,
+                   kwargs={'net': deepcopy(self.net),
+                       'connections': self.server_connections,
+                       'pre_processing_fn': self.pre_processing_fn,
+                       'device': self.device,
+                       'max_requests': self.max_requests}
+                       ,
+                   name='neural_network_server',
+                   daemon=True)  # We want the server to terminate
+                                 # when the main script terminates
 
     def update_neural_net(self, net):
         '''
         Destroys the previous server and creates a new one with :param: net,
         effectively swapping the existing neural net with :param: net
         '''
+        self.num_updates += 1
+        self.net = net
         self.server.terminate()
-        self.server = multiprocessing.Process(
-                target=neural_net_server,
-                args=(deepcopy(net), self.server_connections,
-                      self.pre_processing_fn, self.device))
+        self.server = self.create_server_process()
         self.server.start()
 
     def close_server(self):
@@ -119,7 +129,7 @@ class NeuralNetServerHandler:
         self.server.terminate()
 
     def __repr__(self):
-        server_info = f"Connections: {self.num_connections}\tDevice: {self.device}\tprepocessing_fn: {self.pre_processing_fn}"
+        server_info = f"Connections: {self.num_connections}\tDevice: {self.device}\tprepocessing_fn: {self.pre_processing_fn}\tNum updates: {self.num_updates}"
         net_str = f"{textwrap.indent(self.net_representation, '    ')}"
         return f"NeuralNetServer:\n" + server_info + "\n" + net_str
 
@@ -163,7 +173,7 @@ def neural_net_server(net: torch.nn.Module,
         if connections_to_serve:
             processed_requests += len(observations)
             pre_processed_obs = pre_processing_fn(observations).to(device)
-            prediction = net(pre_processed_obs, legal_actions=legal_actions)
+            prediction = net(pre_processed_obs.to(device), legal_actions=legal_actions)
 
             responses = _generate_responses(len(connections_to_serve), prediction)
 
@@ -201,7 +211,7 @@ def _generate_responses(num_pipes_to_serve: int,
             # might be better to leave them in the original devicw for loss calculations
 
             # Detaching is necessary for torch.Tensor(s) to be sent over processes
-            responses[i][k] = v[i].detach()  # .cpu()
+            responses[i][k] = v[i].cpu().detach()
     return responses
 
 

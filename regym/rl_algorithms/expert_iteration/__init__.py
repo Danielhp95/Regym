@@ -1,2 +1,2 @@
-from .expert_iteration_train import ExpertIterationAlgorithm
+from .expert_iteration import ExpertIterationAlgorithm
 from .expert_iteration_loss import compute_loss

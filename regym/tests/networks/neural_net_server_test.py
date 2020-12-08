@@ -84,25 +84,36 @@ def test_can_update_the_neural_net_in_the_server():
 @pytest.mark.skipif(not torch.cuda.is_available(),
                     reason="Requires a gpu and cuda to be available")
 def test_server_is_faster_on_gpu():
+    torch.multiprocessing.set_start_method('spawn', force=True)
     import cProfile
+    import pstats
     pr = cProfile.Profile()
+
+    pr.enable()
+    gpu_time = _test_server_speed(device='cuda:0')
+    pr.disable()
+    sortby = 'cumulative'
+    ps = pstats.Stats(pr).sort_stats(sortby)
+    print(ps.print_stats())
+
     pr.enable()
     cpu_time = _test_server_speed(device='cpu')
     pr.disable()
     sortby = 'cumulative'
     ps = pstats.Stats(pr).sort_stats(sortby)
     print(ps.print_stats())
+
+    print('CPU time:', cpu_time, 'GPU time:', gpu_time, 'Speedup:', cpu_time / gpu_time)
+    assert gpu_time < cpu_time
     #if filename != '': ps.dump_stats(filename)
     #gpu_time = _test_server_speed(device='cpu')
-    #assert gpu_time < cpu_time
 
 
-def _test_server_speed(device, init_dim=32, num_connections=10,
-                       num_requests=10):
-    net = generate_timing_neural_net(dims=[init_dim,32,32,32])
+def _test_server_speed(device, init_dim=32, num_connections=20,
+                       num_requests=500):
+    net = TimingDummyNet(dims=[init_dim,32,32,32,32,32,32])
     server_handler = NeuralNetServerHandler(num_connections=num_connections,
-                                            net=net, device=device,
-                                            max_requests=num_requests * num_connections)
+                                            net=net, device=device)
     total_time = 0
     for _ in range(num_requests):
         for connection_i in range(num_connections):
@@ -125,16 +136,15 @@ def generate_dummy_neural_net(weight):
     return DummyNet(weight)
 
 
-def generate_timing_neural_net(dims: List[int]):
-    class TimingDummyNet(torch.nn.Module):
-        def __init__(self, dims: List[int]):
-            super().__init__()
-            self.layers = torch.nn.Sequential(
-                *[torch.nn.Linear(in_features=h_in, out_features=h_out, bias=True)
-                 for h_in, h_out in zip(dims, dims[1:])])
-        def forward(self, x, legal_actions=None):
-            start = time.time()
-            self.layers(x)
-            total_time = time.time() - start
-            return {'time': torch.Tensor([total_time] * x.shape[0])}
-    return TimingDummyNet(dims)
+
+class TimingDummyNet(torch.nn.Module):
+    def __init__(self, dims: List[int]):
+        super().__init__()
+        self.layers = torch.nn.Sequential(
+            *[torch.nn.Linear(in_features=h_in, out_features=h_out, bias=True)
+             for h_in, h_out in zip(dims, dims[1:])])
+    def forward(self, x, legal_actions=None):
+        start = time.time()
+        self.layers(x)
+        total_time = time.time() - start
+        return {'time': torch.Tensor([total_time] * x.shape[0])}

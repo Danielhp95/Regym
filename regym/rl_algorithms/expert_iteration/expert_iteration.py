@@ -22,7 +22,8 @@ class ExpertIterationAlgorithm():
                  memory_size_increase_frequency: int,
                  end_memory_size: int,
                  use_agent_modelling: bool,
-                 num_opponents: int):
+                 num_opponents: int,
+                 use_cuda: bool):
         '''
         :param games_per_iteration: Number of game trajectories to be collected before training
         :param num_epochs_per_iteration: Number of times (epochs) that the
@@ -37,11 +38,13 @@ class ExpertIterationAlgorithm():
         :param end_memory_size: Maximum memory size
         :param use_agent_modelling: Flag to control whether to add a loss of
                                     from modelling opponent actions during training
+        :param use_cuda: Wether to load tensors to an available cuda device for loss computation
         '''
         self.generation = 0
         self.games_per_iteration = games_per_iteration
         self.episodes_collected_since_last_train = 0
         self.num_batches_sampled = 0
+        self.use_cuda = use_cuda
 
         # Init dataset
         self.memory = Storage(size=initial_memory_size)
@@ -139,11 +142,11 @@ class ExpertIterationAlgorithm():
                 else:
                     opponent_policy_batch, opponent_s_batch = None, None
 
-                loss = compute_loss(s[batch_indices],
-                                    mcts_pi[batch_indices],
-                                    v[batch_indices],
-                                    opponent_policy=opponent_policy_batch,
-                                    opponent_s=opponent_s_batch,
+                loss = compute_loss(s[batch_indices].to('cuda' if self.use_cuda else 'cpu'),
+                                    mcts_pi[batch_indices].to('cuda' if self.use_cuda else 'cpu'),
+                                    v[batch_indices].to('cuda' if self.use_cuda else 'cpu'),
+                                    opponent_policy=opponent_policy_batch.to('cuda' if self.use_cuda else 'cpu'),
+                                    opponent_s=opponent_s_batch.to('cuda' if self.use_cuda else 'cpu'),
                                     use_agent_modelling=self.use_agent_modelling,
                                     apprentice_model=apprentice_model,
                                     iteration_count=self.num_batches_sampled)

@@ -25,9 +25,11 @@ class ExpertIterationAgent(Agent):
                  expert: MCTSAgent, apprentice: nn.Module,
                  use_apprentice_in_expert: bool,
                  use_agent_modelling: bool,
+                 use_agent_modelling_in_mcts: bool,
                  action_dim: int,
                  observation_dim: Tuple[int],
-                 num_opponents: int):
+                 num_opponents: int,
+                 use_cuda: bool):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
                           trajectories computed by this agent, in turn
@@ -45,11 +47,14 @@ class ExpertIterationAgent(Agent):
                                          is equivalent to DAGGER
         :param use_agent_modelling: Wether to model other agent's actions as
                                     an axuliary task. As in DPIQN paper
+        :param use_agent_modelling_in_mcts: TODO
         :param action_dim: Shape of actions, use to generate placeholder values
         :param observation_dim: Shape of observations, use to generate placeholder values
         :param num_opponents: Number of opponents that will be playing in an environment
+        :param use_cuda: Whether to load neural net to a cuda device for action predictions
         '''
         super().__init__(name=name, requires_environment_model=True)
+        self.use_cuda = use_cuda
         self.requires_self_prediction = True
 
         self.algorithm: ExpertIterationAlgorithm = algorithm
@@ -147,7 +152,10 @@ class ExpertIterationAgent(Agent):
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
             if self.server_handler:  # This will be set if self.use_apprentice_in_expert
-                self.server_handler.update_neural_net(self.apprentice)
+                self.server_handler.update_neural_net(
+                    self.apprentice,
+                    device=('cuda' if self.use_cuda else 'cpu')
+                )
 
     def process_environment_signals(self, o, r: float):
         processed_s = self.state_preprocess_fn(o)
@@ -399,7 +407,9 @@ def build_ExpertIteration_Agent(task: 'Task',
             initial_memory_size=config['initial_memory_size'],
             end_memory_size=config['end_memory_size'],
             use_agent_modelling=config['use_agent_modelling'],
-            num_opponents=(task.num_agents - 1))  # We don't model ourselves
+            num_opponents=(task.num_agents - 1), # We don't model ourselves
+            use_cuda=config.get('use_cuda', False)
+    )
 
     return ExpertIterationAgent(
             name=agent_name,
@@ -408,6 +418,9 @@ def build_ExpertIteration_Agent(task: 'Task',
             apprentice=apprentice,
             use_apprentice_in_expert=config['use_apprentice_in_expert'],
             use_agent_modelling=config['use_agent_modelling'],
+            use_agent_modelling_in_mcts=config['use_agent_modelling_in_mcts'],
             action_dim=task.action_dim,
             observation_dim=task.observation_dim,
-            num_opponents=(task.num_agents - 1))
+            num_opponents=(task.num_agents - 1),
+            use_cuda=config.get('use_cuda', False)
+    )
