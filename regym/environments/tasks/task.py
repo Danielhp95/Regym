@@ -1,9 +1,10 @@
-from typing import List, Tuple, Callable, Any, Dict, Optional
+from typing import List, Tuple, Callable, Any, Dict, Optional, Union
 from copy import deepcopy
 from enum import Enum
 from dataclasses import dataclass, field
 
 import gym
+from torch.utils.tensorboard import SummaryWriter
 
 import regym
 from .regym_worker import RegymAsyncVectorEnv
@@ -69,6 +70,7 @@ class Task:
     # Properties accessed post initializer
     extended_agents: Dict = field(default_factory=dict)
     total_episodes_run: int = 0
+    total_timesteps_run: int = 0
 
     def run_episode(self, agent_vector: List['Agent'], training: bool,
                     render_mode: Optional[str] = None) -> 'Trajectory':
@@ -106,11 +108,15 @@ class Task:
         if self.env_type == regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             ts = regym.rl_loops.multiagent_loops.sequential_action_rl_loop.run_episode(self.env, extended_agent_vector, training, render_mode)
         self.total_episodes_run += 1
+        self.total_timesteps_run += len(ts)
         return ts
 
     def run_episodes(self, agent_vector: List['Agent'],
                      num_episodes: int, num_envs: int,
-                     training: bool, show_progress: bool = False) \
+                     training: bool,
+                     initial_episode: int = -1,
+                     show_progress: bool = False,
+                     summary_writer: Optional[Union[SummaryWriter, str]] = None) \
                      -> List['Trajectory']:
         '''
         Runs :param: num_episodes inside of the Task's underlying environment
@@ -139,29 +145,61 @@ class Task:
         :param training:     Whether to propagate experiences to agents.
                              Note that agents must also have their own
                              `Agent.training` flag set.
+        :param initial_episode: Episode ID used, used internally for
+                                :param: show_progress and :param: summary_writter.
+                                The default -1 indicates that self.total_episodes_run
+                                will be used.
         :param show_progress: Whether to output a progress bar to stdout
+        :param summary_writer: Summary writer to which log various metrics
         :returns: List of trajectories experienced by agents in
                   :param: agent_vector
         '''
         self._check_required_number_of_agents_are_present(len(agent_vector))
         extended_agent_vector = self._extend_agent_vector(agent_vector)
 
+        if summary_writer:
+            if isinstance(summary_writer, str):
+                summary_writer = SummaryWriter(summary_writer)
+
+        if initial_episode == -1: initial_episode = self.total_episodes_run
+
         for agent in agent_vector: agent.num_actors = num_envs
 
         self.start_agent_servers(agent_vector, num_envs)
 
         vector_env = RegymAsyncVectorEnv(self.name, num_envs)
-        if self.env_type == EnvType.SINGLE_AGENT:
-            ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
-                    vector_env, extended_agent_vector[0], training, num_episodes)
-        elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
-            ts = regym.rl_loops.multiagent_loops.vectorenv_sequential_action_rl_loop.async_run_episode(
-                    vector_env, extended_agent_vector, training, num_episodes, show_progress)
-        elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
-            raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
+        trajectories = self.parallel_generate_trajectories(
+            vector_env,
+            extended_agent_vector,
+            num_episodes,
+            training,
+            show_progress,
+            summary_writer,
+            initial_episode=initial_episode
+        )
+
         self.total_episodes_run += num_episodes
+        self.total_timesteps_run += sum(map(lambda t: len(t), trajectories))
 
         self.end_agent_servers(agent_vector)
+        return trajectories
+
+    def parallel_generate_trajectories(self, vector_env: RegymAsyncVectorEnv,
+                                       agent_vector: List['Agent'],
+                                       num_episodes: int,
+                                       training: bool,
+                                       show_progress: bool,
+                                       summary_writer: Optional[SummaryWriter],
+                                       initial_episode: int) -> List['Trajectory']:
+        if self.env_type == EnvType.SINGLE_AGENT:
+            ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
+                    vector_env, agent_vector[0], training, num_episodes)
+        elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
+            ts = regym.rl_loops.multiagent_loops.vectorenv_sequential_action_rl_loop.async_run_episode(
+                    vector_env, agent_vector, training, num_episodes, show_progress,
+                    summary_writer, initial_episode)
+        elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
+            raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
         return ts
 
     def extend_task(self, agents: Dict[int, 'Agent'], force: bool = False):
@@ -271,5 +309,6 @@ action_dim: {self.action_dim}
 action_type: {self.action_type}
 hash_function: {self.hash_function}
 total_episodes_run: {self.total_episodes_run}
+total_timesteps_run: {self.total_timesteps_run}
 '''
         return s

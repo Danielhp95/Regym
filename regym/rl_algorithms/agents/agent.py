@@ -2,6 +2,7 @@ from typing import List, Dict, Union, Any
 from abc import ABC, abstractmethod
 
 import gym
+import torch
 
 from regym.networks.servers import neural_net_server
 
@@ -93,6 +94,20 @@ class Agent(ABC):
         (i.e on how many environments it is acting)
         '''
         return self._num_actors
+
+    @property
+    def summary_writer(self) -> torch.utils.tensorboard.SummaryWriter:
+        '''
+        torch.util.tensorboard.SummaryWritter. Super useful for logging
+        anything from performance (like loss computation) or timing (time that
+        it takes per training call)
+        '''
+        return self._summary_writer
+
+
+    @summary_writer.setter
+    def summary_writer(self, summary_writer: torch.utils.tensorboard.SummaryWriter):
+        self._summary_writer = summary_writer
 
     @num_actors.setter
     def num_actors(self, n: int):
@@ -216,7 +231,9 @@ class Agent(ABC):
         Server can be started again via `Agent.start_server()`
         '''
         to_pickle_dict = self.__dict__
-        if 'server_handler' in to_pickle_dict:
+        keys_to_not_pickle = ['server_handler', '_summary_writer']
+        if any(map(lambda key: key in to_pickle_dict, keys_to_not_pickle)):
             to_pickle_dict = self.__dict__.copy()
-            del to_pickle_dict['server_handler']
+            for key in filter(lambda key: key in to_pickle_dict, keys_to_not_pickle):
+                del to_pickle_dict[key]
         return to_pickle_dict

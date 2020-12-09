@@ -92,6 +92,11 @@ class ExpertIterationAgent(Agent):
         self._num_actors = n
         self.expert.num_actors = n
 
+    @Agent.summary_writer.setter
+    def summary_writer(self, summary_writer):
+        self._summary_writer = summary_writer
+        self.algorithm.summary_writer = summary_writer
+
     def embed_apprentice_in_expert(self):
         # Non-parallel environments
         self.expert.policy_fn = self.policy_fn
@@ -152,10 +157,7 @@ class ExpertIterationAgent(Agent):
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
             if self.server_handler:  # This will be set if self.use_apprentice_in_expert
-                self.server_handler.update_neural_net(
-                    self.apprentice,
-                    device=('cuda' if self.use_cuda else 'cpu')
-                )
+                self.server_handler.update_neural_net(self.apprentice)
 
     def process_environment_signals(self, o, r: float):
         processed_s = self.state_preprocess_fn(o)

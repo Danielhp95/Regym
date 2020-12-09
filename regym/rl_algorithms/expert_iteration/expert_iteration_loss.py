@@ -7,7 +7,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from regym.networks.generic_losses import cross_entropy_loss
 
-summary_writer: SummaryWriter = None
 
 def compute_loss(states: torch.FloatTensor,
                  pi_mcts: torch.FloatTensor,
@@ -16,7 +15,8 @@ def compute_loss(states: torch.FloatTensor,
                  opponent_s: Optional[torch.FloatTensor],
                  use_agent_modelling: bool,
                  apprentice_model: nn.Module,
-                 iteration_count: int) -> torch.Tensor:
+                 iteration_count: int,
+                 summary_writer: SummaryWriter) -> torch.Tensor:
     '''
     :param states: Dimension: batch_size x state_size: States visited by the agent.
     :param pi_mcts: Dimension: batch_size x number_actions,
@@ -65,20 +65,41 @@ def compute_loss(states: torch.FloatTensor,
 
         '''First focus on learning the opponent, then focus on baseline loss'''
         total_loss = exit_loss * policy_inference_weight + opponent_modelling_loss
+        log_opponent_modelling_loss_progress(summary_writer,
+                                             opponent_modelling_loss,
+                                             policy_inference_weight,
+                                             kl_divergence_opponent_modelling)
 
-    if summary_writer is not None:
-        summary_writer.add_scalar('Training/Policy_loss', policy_imitation_loss.cpu().item(), iteration_count)
-        summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
-        summary_writer.add_scalar('Training/Expert_Iteration_loss', exit_loss.cpu().item(), iteration_count)
-        summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)
-        summary_writer.add_scalar('Training/Kullback-Leibler_divergence', kl_divergence.cpu().item(), iteration_count)
-        summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
-        if use_agent_modelling:
-            summary_writer.add_scalar('Training/Opponent_modelling_loss', opponent_modelling_loss.cpu().item(), iteration_count)
-            summary_writer.add_scalar('Training/Policy_inference_weight', policy_inference_weight.cpu().item(), iteration_count)
-            summary_writer.add_scalar('Training/Kullback-Leibler_divergence_opponent_modelling',
-                                      kl_divergence_opponent_modelling.cpu().item(), iteration_count)
+    if summary_writer:
+        log_exit_loss_progress(summary_writer, policy_imitation_loss, iteration_count, value_loss,
+                          exit_loss, total_loss, kl_divergence, predictions)
     return total_loss
+
+
+def log_exit_loss_progress(summary_writer,
+                           policy_imitation_loss,
+                           iteration_count,
+                           value_loss,
+                           exit_loss,
+                           total_loss,
+                           kl_divergence,
+                           predictions):
+    summary_writer.add_scalar('Training/Policy_loss', policy_imitation_loss.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Expert_Iteration_loss', exit_loss.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Kullback-Leibler_divergence', kl_divergence.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
+
+
+def log_opponent_modelling_loss_progress(summary_writer,
+                                         opponent_modelling_loss,
+                                         policy_inference_weight,
+                                         kl_divergence_opponent_modelling):
+    summary_writer.add_scalar('Training/Opponent_modelling_loss', opponent_modelling_loss.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Policy_inference_weight', policy_inference_weight.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Kullback-Leibler_divergence_opponent_modelling',
+                              kl_divergence_opponent_modelling.cpu().item(), iteration_count)
 
 
 def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
@@ -91,7 +112,7 @@ def compute_opponent_modelling_loss(opponent_policy: torch.Tensor,
     if len(filtered_opponent_policies) == 0:  # All sampled elements were nan
         opponent_modelling_loss = torch.Tensor([0.])
         policy_inference_weight = torch.Tensor([1.])
-        kl_divergence_opponent_modelling = torch.Tensor([-1.])
+        kl_divergence = torch.Tensor([-1.])
     else:
         opponent_predictions = apprentice_model(filtered_opponent_s)
 

@@ -1,4 +1,5 @@
 from typing import List, Optional, Tuple
+from time import time
 
 import numpy as np
 
@@ -68,6 +69,9 @@ class ExpertIterationAlgorithm():
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
                                           lr=self.learning_rate)
 
+        # To be set by an ExpertIterationAgent
+        self.summary_writer: torch.util.tensorboard.SummaryWritter = None
+
     def should_train(self):
         return self.episodes_collected_since_last_train >= self.games_per_iteration
 
@@ -84,6 +88,7 @@ class ExpertIterationAlgorithm():
 
     def train(self, apprentice_model: nn.Module):
         ''' Highest level function '''
+        start_time = time()
         self.episodes_collected_since_last_train = 0
         self.generation += 1
 
@@ -105,6 +110,11 @@ class ExpertIterationAlgorithm():
             indices=np.arange(dataset_size),
             batch_size=self.batch_size,
             num_epochs=self.num_epochs_per_iteration)
+        if self.summary_writer:
+            self.summary_writer.add_scalar('Timing/Generation_update', time() - start_time,
+                                           self.generation)
+            self.summary_writer.add_scalar('Training/Memory_size', dataset_size,
+                                           self.generation)
 
     def preprocess_memory(self, memory: Storage) -> Tuple:
         # We are concatenating the entire datasat, this might be too memory expensive?
@@ -137,19 +147,20 @@ class ExpertIterationAlgorithm():
                 self.num_batches_sampled += 1
 
                 if self.use_agent_modelling:
-                    opponent_policy_batch = opponent_policy[batch_indices]
-                    opponent_s_batch = opponent_s[batch_indices]
+                    opponent_policy_batch = opponent_policy[batch_indices].to('cuda' if self.use_cuda else 'cpu')
+                    opponent_s_batch = opponent_s[batch_indices].to('cuda' if self.use_cuda else 'cpu')
                 else:
                     opponent_policy_batch, opponent_s_batch = None, None
 
                 loss = compute_loss(s[batch_indices].to('cuda' if self.use_cuda else 'cpu'),
                                     mcts_pi[batch_indices].to('cuda' if self.use_cuda else 'cpu'),
                                     v[batch_indices].to('cuda' if self.use_cuda else 'cpu'),
-                                    opponent_policy=opponent_policy_batch.to('cuda' if self.use_cuda else 'cpu'),
-                                    opponent_s=opponent_s_batch.to('cuda' if self.use_cuda else 'cpu'),
+                                    opponent_policy=opponent_policy_batch,
+                                    opponent_s=opponent_s_batch,
                                     use_agent_modelling=self.use_agent_modelling,
                                     apprentice_model=apprentice_model,
-                                    iteration_count=self.num_batches_sampled)
+                                    iteration_count=self.num_batches_sampled,
+                                    summary_writer=self.summary_writer)
 
                 # Name a more iconic trio
                 self.optimizer.zero_grad()
@@ -185,9 +196,20 @@ class ExpertIterationAlgorithm():
             for k in keys: del getattr(dataset, k)[:oversize]
         assert len(dataset.s) <= max_memory
 
+    def __getstate__(self):
+        '''
+        Function invoked when pickling.
+
+        torch.utils.SummaryWriters are not pickable.
+        '''
+        to_pickle_dict = self.__dict__
+        if 'summary_writer' in to_pickle_dict:
+            to_pickle_dict = self.__dict__.copy()
+            del to_pickle_dict['summary_writer']
+        return to_pickle_dict
+
     def __repr__(self):
         gen_stats = f'Generation: {self.generation}\nGames per generation: {self.games_per_iteration}\nEpisodes since last generation: {self.episodes_collected_since_last_train}\n'
         train_stats = f'Batches sampled: {self.num_batches_sampled}\nBatch size: {self.batch_size}\nLearning rate: {self.learning_rate}\nEpochs per generation: {self.episodes_collected_since_last_train}\n'
         memory_stats = f'Initial memory size: {self.initial_memory_size}\nMemory increase frequency: {self.memory_size_increase_frequency}\nMax memory size: {self.end_memory_size}\n'
         return gen_stats + train_stats + memory_stats + str(self.memory)
-
