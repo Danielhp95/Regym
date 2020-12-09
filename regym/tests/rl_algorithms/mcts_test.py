@@ -4,7 +4,6 @@ import numpy as np
 from test_fixtures import mcts_config_dict, Connect4Task, RandomWalkTask
 
 from regym.rl_algorithms.agents import build_MCTS_Agent, build_Random_Agent
-from regym.util.play_matches import extract_winner
 
 
 
@@ -36,9 +35,9 @@ def win_task_in_both_positions(task, mcts_config_dict):
     random = build_Random_Agent(task, {}, agent_name='Random-test')
     t1 = task.run_episode([mcts, random], training=False)
 
-    assert extract_winner(t1) == 0  # First player (index 0) has a much higher budget
+    assert t1.winner == 0  # First player (index 0) has a much higher budget
     t2 = task.run_episode([random, mcts], training=False)
-    assert extract_winner(t2) == 1  # Second_player (index 1) has a much higher budget
+    assert t2.winner == 1  # Second_player (index 1) has a much higher budget
 
 
 def test_can_coordinate_in_simulatenous_random_walk(RandomWalkTask, mcts_config_dict):
@@ -52,8 +51,8 @@ def test_can_coordinate_in_simulatenous_random_walk(RandomWalkTask, mcts_config_
 
     trajectory = RandomWalkTask.run_episode([mcts1, mcts2], training=False)
 
-    actual_end_state_p1 = trajectory[-1][-2][0]
-    actual_end_state_p2 = trajectory[-1][-2][1]
+    actual_end_state_p1 = trajectory[-1].succ_observation[0]
+    actual_end_state_p2 = trajectory[-1].succ_observation[1]
 
     np.testing.assert_array_equal(expected_end_state, actual_end_state_p1)
     np.testing.assert_array_equal(expected_end_state, actual_end_state_p2)
