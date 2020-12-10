@@ -20,6 +20,7 @@ def test_expert_iteration_can_take_actions_discrete_obvservation_discrete_action
 
 def test_can_defeat_random_play_in_connect4_both_positions_single_env(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['mcts_budget'] = 100
+    expert_iteration_config_dict['mcts_rollout_budget'] = 20
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='MCTS1-test')
 
     random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
@@ -138,9 +139,6 @@ def test_can_use_apprentice_in_expert_in_expansion_and_rollout_phase(Connect4Tas
 
 
 def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):
-    summary_writer = SummaryWriter('expert_iteration_test')
-    regym.rl_algorithms.expert_iteration.expert_iteration_loss.summary_writer = summary_writer
-
     # Train worthy params
     expert_iteration_config_dict['use_apprentice_in_expert'] = False
     expert_iteration_config_dict['games_per_iteration'] = 10
@@ -158,6 +156,7 @@ def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, exp
     expert_iteration_config_dict['residual_connections'] = [(1, 2), (2, 3), (3, 4)]
 
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-test')
+    ex_it.algorithm.summary_writer = SummaryWriter('expert_iteration_test')
 
     random_agent = build_Random_Agent(Connect4Task, mcts_config_dict, agent_name=f"Random")
 
@@ -192,8 +191,6 @@ def create_memory(size: int,
 
 
 def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):
-    summary_writer = SummaryWriter('expert_iteration_test')
-    regym.rl_algorithms.expert_iteration.expert_iteration_loss.summary_writer = summary_writer
     import torch
 
     # Train worthy params
@@ -212,6 +209,7 @@ def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iterati
     # expert_iteration_config_dict['residual_connections'] = [(2, 3), (3, 4)]
 
     ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name=f"ExIt-test:{expert_iteration_config_dict['mcts_budget']}")
+    ex_it.algorithm.summary_writer = SummaryWriter('expert_iteration_test')
 
     mcts_config_dict['budget'] = 1
     mcts_agent = build_MCTS_Agent(Connect4Task, mcts_config_dict, agent_name=f"MCTS:{mcts_config_dict['budget']}")

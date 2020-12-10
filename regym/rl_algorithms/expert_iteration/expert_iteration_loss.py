@@ -68,34 +68,47 @@ def compute_loss(states: torch.FloatTensor,
         log_opponent_modelling_loss_progress(summary_writer,
                                              opponent_modelling_loss,
                                              policy_inference_weight,
-                                             kl_divergence_opponent_modelling)
+                                             kl_divergence_opponent_modelling,
+                                             iteration_count)
 
     if summary_writer:
-        log_exit_loss_progress(summary_writer, policy_imitation_loss, iteration_count, value_loss,
-                          exit_loss, total_loss, kl_divergence, predictions)
+        log_exit_loss_progress(summary_writer,
+                               policy_imitation_loss,
+                               value_loss,
+                               exit_loss,
+                               total_loss,
+                               kl_divergence,
+                               values,
+                               predictions,
+                               iteration_count)
     return total_loss
 
 
 def log_exit_loss_progress(summary_writer,
                            policy_imitation_loss,
-                           iteration_count,
                            value_loss,
                            exit_loss,
                            total_loss,
                            kl_divergence,
-                           predictions):
+                           values,
+                           predictions,
+                           iteration_count):
     summary_writer.add_scalar('Training/Policy_loss', policy_imitation_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Expert_Iteration_loss', exit_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Kullback-Leibler_divergence', kl_divergence.cpu().item(), iteration_count)
+
+    summary_writer.add_scalar('Training/Mean_value_estimations', predictions['V'].mean().cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Mean_value_targets', values.mean().cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
 
 
 def log_opponent_modelling_loss_progress(summary_writer,
                                          opponent_modelling_loss,
                                          policy_inference_weight,
-                                         kl_divergence_opponent_modelling):
+                                         kl_divergence_opponent_modelling,
+                                         iteration_count):
     summary_writer.add_scalar('Training/Opponent_modelling_loss', opponent_modelling_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Policy_inference_weight', policy_inference_weight.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Kullback-Leibler_divergence_opponent_modelling',
