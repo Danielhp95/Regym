@@ -99,7 +99,9 @@ def choose_action(agent: 'Agent', env: RegymAsyncVectorEnv, observation,
 def update_agent(agent: 'Agent', ongoing_trajectories: List[Trajectory]):
     ''' Propagates latest experiences from :param: ongoing_trajectories
     '''
-    experiences = [t[-1] for t in ongoing_trajectories]
+    experiences = [(t[-1].observation, t[-1].action, t[-1].reward,
+                    t[-1].succ_observation, t[-1].done, t[-1].extra_info)
+                   for t in ongoing_trajectories]
     agent.handle_multiple_experiences(experiences,
                                       list(range(len(ongoing_trajectories))))
 

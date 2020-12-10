@@ -135,6 +135,7 @@ def test_agents_in_sequential_environments_handle_experiences_with_extra_info_si
     # Update agent 0
     propagate_experience(agent_vector, sample_trajectory)
 
+    done = True
     sample_trajectory.add_timestep(
         o, a, [1, -1], succ_o, done, acting_agents=[0],
         extra_info={0: predictions[0]})
@@ -158,4 +159,3 @@ def compare_trajectory_extra_info_against_expected(trajectory, expected_predicti
         assert actual_prediction['a'] == expected_predictions[a_i]['a']
         np.testing.assert_array_equal(
             actual_prediction['probs'], expected_predictions[a_i]['probs'])
-
