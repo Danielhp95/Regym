@@ -60,6 +60,7 @@ class ExpertIterationAgent(Agent):
         self.algorithm: ExpertIterationAlgorithm = algorithm
         self.expert: Agent = expert
         self.apprentice: nn.Module = apprentice
+        if self.use_cuda: self.apprentice = self.apprentice.cuda()
 
         #### Algorithmic variations ####
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
