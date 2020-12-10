@@ -188,7 +188,9 @@ def agents_to_update_finished_trajectory_sequential_env(trajectory_length: int,
     return agent_indices
 
 
-def extract_latest_experience_sequential_trajectory(agent_id: int, trajectory: Trajectory) -> Tuple:
+def extract_latest_experience_sequential_trajectory(agent_id: int,
+                                                    trajectory: Trajectory,
+                                                    extract_extra_info: bool = False) -> Tuple:
     '''
     ASSUMPTION:
         - every non-terminal observation corresponds to
@@ -206,12 +208,16 @@ def extract_latest_experience_sequential_trajectory(agent_id: int, trajectory: T
 
     o, succ_o = t1.observation[agent_id], t2.succ_observation[agent_id]
     a = t1.action
-    r = t1.reward[agent_id]  # Perhaps there's a better way of computting agent's reward?
-                             # Such as summing up all intermediate rewards for :agent_id:
-                             # between t1.t and t2.t?
+
+    # Perhaps there's a better way of computting agent's reward?
+    # Such as summing up all intermediate rewards for :agent_id:
+    # between t1.t and t2.t?
+    r = sum(map(lambda t: t.reward[agent_id], trajectory[t1.t:(t2.t + 1)]))
     done = t2.done
 
-    extra_info = extract_extra_info_from_sequential_trajectory(agent_id, trajectory)
+    if extract_extra_info:
+        extra_info = extract_extra_info_from_sequential_trajectory(agent_id, trajectory)
+    else: extra_info = {}
     return (o, a, r, succ_o, done, extra_info)
 
 

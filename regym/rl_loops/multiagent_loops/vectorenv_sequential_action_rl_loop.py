@@ -1,8 +1,10 @@
 from functools import reduce
-from typing import List, Tuple, Any, Dict
+from typing import List, Tuple, Any, Dict, Optional
 from copy import deepcopy
+from time import time
 
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import gym
 
@@ -16,9 +18,13 @@ from regym.rl_loops.utils import extract_latest_experience_sequential_trajectory
 from regym.rl_loops.trajectory import Trajectory
 
 
-def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
-                      training: bool, num_episodes: int,
-                      show_progress: bool = False) \
+def async_run_episode(env: RegymAsyncVectorEnv,
+                      agent_vector: List[Agent],
+                      training: bool,
+                      num_episodes: int,
+                      show_progress: bool = False,
+                      summary_writer: Optional[SummaryWriter] = None,
+                      initial_episode: int = 0) \
                       -> List[Trajectory]:
     '''
     Runs :param: num_episodes of asynchronous environment :param: env
@@ -44,46 +50,56 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
                      in :param: agent_vector
     :param num_episodes: Number of target episodes to run environment for
     :param show_progress: Whether to output a progress bar to stdout
+    :param summary_writer: Summary writer to which log various metrics
+    :param initial_episode: Initial episode
     :returns: List of environment trajectories experienced during simulation.
     '''
-
-    store_extra_information = any(
-        [agent.requires_opponents_prediction or agent.requires_self_prediction
-         for agent in agent_vector])
-
     # Initialize trajectories
     ongoing_trajectories = [Trajectory(env_type=regym.environments.EnvType.MULTIAGENT_SEQUENTIAL_ACTION,
                                        num_agents=len(agent_vector))
                             for _ in range(env.num_envs)]
     finished_trajectories: List[Trajectory] = []
 
-    # Reset environment
-    current_players: List[int] = [0] * env.num_envs
-    legal_actions: List[List] = [None] * env.num_envs # Revise
-    num_agents = len(agent_vector)
-    obs = env.reset()
+    (store_extra_information,
+     current_players,
+     legal_actions,
+     num_agents,
+     obs) = create_environment_variables(env, agent_vector)
+
 
     if show_progress:
-        agent_names = ', '.join([a.name for a in agent_vector])
-        description = f'Simulating env {env.name} ({env.num_envs} processes). Agents [{agent_names}]. Training {training}'
-        progress_bar = tqdm(total=num_episodes, desc=description)
+        progress_bar = create_progress_bar(env, agent_vector, training, num_episodes, initial_episode)
+    if summary_writer:
+        # TODO: not sure these actually do what they claim
+        logged_trajectories = 0
+        action_time, handling_experience_time, env_step_time = 0., 0., 0.
+        start_time = time()
 
     while len(finished_trajectories) < num_episodes:
         # Take action
+        if summary_writer: action_time_start = time()
         action_vector = multienv_choose_action(
                 agent_vector, env, obs, current_players, legal_actions)
+        if summary_writer: action_time += time() - action_time_start
 
         # Environment step
+        if summary_writer: env_step_time_start = time()
         succ_obs, rewards, dones, infos = env.step(action_vector)
+        if summary_writer: env_step_time += time() - env_step_time_start
 
         # Update trajectories:
+        if summary_writer:
+            handling_experience_time_start = time()
         update_parallel_sequential_trajectories(ongoing_trajectories,
                             agent_vector, action_vector,
                             obs, rewards, succ_obs, dones,
                             current_players, store_extra_information)
+        if summary_writer:
+            handling_experience_time += time() - handling_experience_time_start
 
         # Update agents
-        if training: propagate_experiences(agent_vector, ongoing_trajectories)
+        if training:
+            propagate_experiences(agent_vector, ongoing_trajectories, store_extra_information)
 
         # Update observation
         obs = succ_obs
@@ -97,14 +113,75 @@ def async_run_episode(env: RegymAsyncVectorEnv, agent_vector: List[Agent],
         # Handle with episode termination
         done_envs = [i for i in range(len(dones)) if dones[i]]
         if len(done_envs) > 0:
+            # TODO: Figure out a way of nicely refactoring this
+            if summary_writer: handling_experience_time_start = time()
             finished_trajectories, ongoing_trajectories, current_players = \
-                    handle_finished_episodes(training, agent_vector,
-                            ongoing_trajectories, done_envs,
-                            finished_trajectories, current_players)
+                    handle_finished_episodes(
+                        training,
+                        agent_vector,
+                        ongoing_trajectories,
+                        done_envs,
+                        finished_trajectories,
+                        current_players,
+                        store_extra_information
+                    )
+            if summary_writer: handling_experience_time += time() - handling_experience_time_start
             if show_progress: progress_bar.update(len(done_envs))
+            if summary_writer:
+                logged_trajectories = log_end_of_episodes(
+                    summary_writer,
+                    finished_trajectories,
+                    logged_trajectories,
+                    initial_episode,
+                    start_time,
+                    action_time,
+                    handling_experience_time,
+                    env_step_time,
+                )
+                if summary_writer:
+                    action_time, handling_experience_time, env_step_time = 0., 0., 0.
 
     if show_progress: progress_bar.close()
     return finished_trajectories
+
+
+def log_end_of_episodes(summary_writer: SummaryWriter,
+                        finished_trajectories: List[Trajectory],
+                        logged_trajectories: int,
+                        initial_episode: int,
+                        start_time: float,
+                        action_time: float,
+                        handling_experience_time: float,
+                        env_step_time: float):
+    '''
+    Writes to :param: summary_writer logs about :param: finished_trajectories
+
+    :param logged_trajectories: More than 1 trajectory can be finished
+                                concurrently, but we want one datapoint
+                                to log for each one, so we have to keep
+                                track of how many we've logged.
+    '''
+    finished_trajectories_lengths = list(map(lambda t: len(t), finished_trajectories))
+    for i in range(logged_trajectories, len(finished_trajectories)):
+        summary_writer.add_scalar('PerEpisode/Episode_length', finished_trajectories_lengths[i],
+                                  initial_episode + (i+1))
+        summary_writer.add_scalar('PerEpisode/Mean_episode_length', np.mean(finished_trajectories_lengths[:(i+1)]),
+                                  initial_episode + (i+1))
+        summary_writer.add_scalar('PerEpisode/Std_episode_length', np.std(finished_trajectories_lengths[:(i+1)]),
+                                  initial_episode + (i+1))
+
+    # Not sure if calculation is correct
+    avg_time_per_episode = (time() - start_time) / len(finished_trajectories)
+
+    summary_writer.add_scalar('Timing/Mean_time_per_episode', avg_time_per_episode,
+                              initial_episode + (i+1))
+    summary_writer.add_scalar('Timing/Take_action_time_taken', action_time,
+                              initial_episode + (i+1))
+    summary_writer.add_scalar('Timing/Handling_experience_time_taken', handling_experience_time,
+                              initial_episode + (i+1))
+    summary_writer.add_scalar('Timing/Env_step_time_taken', env_step_time,
+                              initial_episode + (i+1))
+    return len(finished_trajectories)
 
 
 def multienv_choose_action(agent_vector: List[Agent],
@@ -171,11 +248,12 @@ def handle_finished_episodes(training: bool, agent_vector: List[Agent],
                              ongoing_trajectories: List[Trajectory],
                              done_envs: List[int],
                              finished_trajectories: List[Trajectory],
-                             current_players: List[int]) \
+                             current_players: List[int],
+                             store_extra_information: bool) \
                              -> Tuple[List[Trajectory], List[Trajectory]]:
     if training:
         propagate_last_experiences(agent_vector, ongoing_trajectories,
-                                   done_envs)
+                                   done_envs, store_extra_information)
     # Reset players and trajectories
     # Why are we returning ongoing trajectories twice?
     ongoing_trajectories, finished_trajectories = update_finished_trajectories(
@@ -191,7 +269,9 @@ def reset_current_players(done_envs: List[int],
     return current_players
 
 
-def propagate_experiences(agent_vector: List[Agent], trajectories: List[Trajectory]):
+def propagate_experiences(agent_vector: List[Agent],
+                          trajectories: List[Trajectory],
+                          store_extra_information: bool = False):
     '''
     Batch propagates experiences from :param: trajectories to each
     corresponding agent in :param: agent_vector.
@@ -216,7 +296,8 @@ def propagate_experiences(agent_vector: List[Agent], trajectories: List[Trajecto
             agents_to_update,
             agent_to_update_per_env,
             trajectories,
-            agent_vector)
+            agent_vector,
+            store_extra_information)
 
     propagate_batched_experiences(agent_experiences,
                                   agent_vector,
@@ -226,6 +307,10 @@ def propagate_experiences(agent_vector: List[Agent], trajectories: List[Trajecto
 def propagate_batched_experiences(agent_experiences: Dict[int, List[Tuple]],
                                   agent_vector: List[Agent],
                                   environment_per_agents: Dict[int, List[int]]):
+    '''
+    Propagates :param: agent_experiences to the corresponding agents in
+    :param: agent_vector, as dictated by :param: environment_per_agents
+    '''
     for a_i, experiences in agent_experiences.items():
         if agent_vector[a_i].training:
             agent_vector[a_i].handle_multiple_experiences(
@@ -233,7 +318,9 @@ def propagate_batched_experiences(agent_experiences: Dict[int, List[Tuple]],
 
 
 def propagate_last_experiences(agent_vector: List[Agent],
-                               trajectories: List[Trajectory], done_envs: List[int]):
+                               trajectories: List[Trajectory],
+                               done_envs: List[int],
+                               store_extra_information: bool):
     ''' TODO '''
     agents_to_update_per_env = compute_agents_to_update_per_env(
             trajectories, done_envs, agent_vector)
@@ -250,7 +337,7 @@ def propagate_last_experiences(agent_vector: List[Agent],
     for a_i, envs in environment_per_agents.items():
         for e_i in envs:
             (o, a, r, succ_o, d, extra_info) = extract_latest_experience_sequential_trajectory(
-                    a_i, trajectories[e_i])
+                    a_i, trajectories[e_i], store_extra_information)
             assert d, f'Episode should in environment {e_i} should be finished'
             agent_experiences[a_i] += [(o, a, r, succ_o, True, extra_info)]
 
@@ -271,7 +358,8 @@ def compute_agents_to_update_per_env(trajectories: List[Trajectory], done_envs, 
 def collect_agent_experiences_from_trajectories(agents_to_update: List[int],
                                                 agent_to_update_per_env: Dict[int, int],
                                                 trajectories: List[List],
-                                                agent_vector: List[Agent]) \
+                                                agent_vector: List[Agent],
+                                                store_extra_information: bool) \
                                                 -> Dict[int, Any]:
     '''
     Collects the latests experience from :param: trajectories, for each
@@ -288,7 +376,7 @@ def collect_agent_experiences_from_trajectories(agents_to_update: List[int],
 
     for env_i, target_agent in agent_to_update_per_env.items():
         experience = extract_latest_experience_sequential_trajectory(
-            target_agent, trajectories[env_i])
+            target_agent, trajectories[env_i], store_extra_information)
         agent_experiences[target_agent] += [experience]
     return agent_experiences
 
@@ -318,3 +406,22 @@ def extract_signals_for_acting_agents(agent_vector: List[Agent], obs,
         agent_signals[cp]['legal_actions'] += [legal_actions[e_i]]
         agent_signals[cp]['env_ids'] += [e_i]
     return agent_signals
+
+
+def create_progress_bar(env, agent_vector, training, num_episodes, initial_episode):
+    agent_names = ', '.join([a.name for a in agent_vector])
+    description = f'Simulating env {env.name} ({env.num_envs} processes). Agents [{agent_names}]. Training {training}'
+    progress_bar = tqdm(total=num_episodes, desc=description, initial=initial_episode)
+    return progress_bar
+
+
+def create_environment_variables(env, agent_vector) -> Tuple:
+    store_extra_information = any(
+        [agent.requires_opponents_prediction or agent.requires_self_prediction
+         for agent in agent_vector])
+
+    current_players: List[int] = [0] * env.num_envs
+    legal_actions: List[List] = [None] * env.num_envs # Revise
+    num_agents = len(agent_vector)
+    obs = env.reset()
+    return store_extra_information, current_players, legal_actions, num_agents, obs
