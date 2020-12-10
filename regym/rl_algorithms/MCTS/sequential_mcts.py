@@ -128,9 +128,9 @@ def rollout_phase(state: gym.Env, node: SequentialNode, observations: List,
     '''
     for i in range(rollout_budget):
         moves = state.get_moves()
-        if moves == []: break
+        if moves == []:
+            break
         observations, _, _, _ = state.step(choice(state.get_moves()))
-    # We will need to put this in tensor
     if state.get_moves() == [] or not evaluation_fn:
         value = state.get_result(node.player)
     else:

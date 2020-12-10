@@ -82,13 +82,10 @@ class MCTSAgent(Agent):
             return self.single_action_model_based_take_action(env, observation,
                                                               player_index)
 
+
     def multi_action_model_based_take_action(self, envs: Dict[int, gym.Env],
                                              observations: Dict[int, Any],
                                              player_index: int) -> List[int]:
-        action_vector = []
-        # NOTE: ordering of parameters depends on the underlying
-        # function in self.algorithm
-        # TODO: refactor
         with ProcessPoolExecutor(max_workers=min(len(envs), cpu_count())) as ex:
 
             policy_fns, evaluation_fns = \
@@ -104,18 +101,24 @@ class MCTSAgent(Agent):
                        for (env_i, env), policy_fn, evaluation_fn
                        in zip(envs.items(), policy_fns, evaluation_fns)]
 
-            visitation_vector = []
-            for f in futures:
-                i, (action, visitations) = f.result()
-                action_vector += [action]
-                visitation_vector += [visitations]
-
-            child_visitations = [[visitation[move_id] if move_id in visitation else 0.
-                                 for move_id in range(self.action_dim)]
-                                 for visitation in visitation_vector]
+            (child_visitations,
+             action_vector) = self.extract_child_visitations_and_action_vectors(
+                futures)
             self.current_prediction['child_visitations'] = torch.FloatTensor(child_visitations)
             self.current_prediction['action'] = torch.tensor(action_vector)
         return action_vector
+
+    def extract_child_visitations_and_action_vectors(self, futures):
+        visitation_vector, action_vector = [], []
+        for f in futures:
+            i, (action, visitations) = f.result()
+            action_vector += [action]
+            visitation_vector += [visitations]
+
+        child_visitations = [[visitation[move_id] if move_id in visitation else 0.
+                             for move_id in range(self.action_dim)]
+                             for visitation in visitation_vector]
+        return child_visitations, action_vector
 
     def multi_action_select_policy_and_evaluation_fns(self, num_envs) \
             -> Tuple[List[Callable], List[Callable]]:
