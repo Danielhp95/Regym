@@ -55,7 +55,9 @@ class Agent(ABC):
         '''
         self.name: str = name
         self.training: bool = True
+
         self.handled_experiences: int = 0
+        self.finished_episodes: int = 0
 
         self.requires_environment_model: bool = requires_environment_model
         self.multi_action_requires_server: bool = multi_action_requires_server
@@ -185,6 +187,7 @@ class Agent(ABC):
                                      current_prediction (described in Agent.__init__)
         '''
         self.handled_experiences += 1
+        if done: self.finished_episodes += 1
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
         '''
@@ -204,6 +207,8 @@ class Agent(ABC):
                             come from.
         '''
         self.handled_experiences += len(experiences)
+        for (_, _, _, _, done, _) in experiences:
+            if done: self.finished_episodes += 1
 
     @abstractmethod
     def clone(self):
