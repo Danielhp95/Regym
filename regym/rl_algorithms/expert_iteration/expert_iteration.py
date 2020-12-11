@@ -205,7 +205,7 @@ class ExpertIterationAlgorithm():
         to_pickle_dict = self.__dict__
         if 'summary_writer' in to_pickle_dict:
             to_pickle_dict = self.__dict__.copy()
-            del to_pickle_dict['summary_writer']
+            to_pickle_dict['summary_writer'] = None
         return to_pickle_dict
 
     def __repr__(self):

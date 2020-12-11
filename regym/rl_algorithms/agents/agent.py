@@ -240,5 +240,5 @@ class Agent(ABC):
         if any(map(lambda key: key in to_pickle_dict, keys_to_not_pickle)):
             to_pickle_dict = self.__dict__.copy()
             for key in filter(lambda key: key in to_pickle_dict, keys_to_not_pickle):
-                del to_pickle_dict[key]
+                to_pickle_dict[key] = None
         return to_pickle_dict
