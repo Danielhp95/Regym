@@ -122,3 +122,19 @@ class Trajectory:
 
     def __repr__(self):
         return f'Trajectory, {self.env_type}, num agents: {self.num_agents}. Length: {len(self._timesteps)}'
+
+
+def compute_winrates(trajectories: List[Trajectory]) -> List[float]:
+    '''
+    Computes the winrates of all agents from :param: trajectories
+    by extracting the winner of each trajectory in :param: trajectories
+
+    ASSUMPTION: all trajectories feature the same number of agents
+    :param trajectories: List of trajectories from which to extract winrates
+    :returns: List containing winrate for each agent that acted in
+              :param: trajectories. Entry 'i' corresponds to the winrate
+              of the 'ith' agent.
+    '''
+    num_agents = trajectories[0].num_agents
+    winners = list(map(lambda t: t.winner, trajectories))
+    return [winners.count(a_i) / len(winners) for a_i in range(num_agents)]
