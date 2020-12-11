@@ -65,11 +65,12 @@ def compute_loss(states: torch.FloatTensor,
 
         '''First focus on learning the opponent, then focus on baseline loss'''
         total_loss = exit_loss * policy_inference_weight + opponent_modelling_loss
-        log_opponent_modelling_loss_progress(summary_writer,
-                                             opponent_modelling_loss,
-                                             policy_inference_weight,
-                                             kl_divergence_opponent_modelling,
-                                             iteration_count)
+        if summary_writer:
+            log_opponent_modelling_loss_progress(summary_writer,
+                                                 opponent_modelling_loss,
+                                                 policy_inference_weight,
+                                                 kl_divergence_opponent_modelling,
+                                                 iteration_count)
 
     if summary_writer:
         log_exit_loss_progress(summary_writer,
