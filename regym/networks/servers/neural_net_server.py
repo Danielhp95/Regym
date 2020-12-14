@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Tuple, Any
+from typing import Callable, Dict, List, Tuple, Any, Optional
 import os
 from copy import deepcopy
 import math
@@ -63,7 +63,8 @@ class NeuralNetServerHandler:
                  net: torch.nn.Module,
                  pre_processing_fn: Callable = batch_vector_observation,
                  device: str = 'cpu',
-                 max_requests: float = math.inf):
+                 max_requests: float = math.inf,
+                 name: Optional[str] = None):
 
 
         '''
@@ -100,6 +101,11 @@ class NeuralNetServerHandler:
         self.server = self.create_server_process()
         self.server.start()
 
+        if name:
+            self.name = name
+        else:
+            self.name = str(net.__class__)
+
     def create_server_process(self) -> multiprocessing.Process:
         return multiprocessing.Process(
                    target=neural_net_server,
@@ -129,9 +135,13 @@ class NeuralNetServerHandler:
         self.server.terminate()
 
     def __repr__(self):
-        server_info = f"Connections: {self.num_connections}\tDevice: {self.device}\tprepocessing_fn: {self.pre_processing_fn}\tNum updates: {self.num_updates}"
+        server_info = (f"NeuralNetServer name: {self.name}\n"
+                       f"Connections: {self.num_connections}\n"
+                       f"Device: {self.device}\n"
+                       f"prepocessing_fn: {self.pre_processing_fn}\n"
+                       f"\tNum updates: {self.num_updates}")
         net_str = f"{textwrap.indent(self.net_representation, '    ')}"
-        return f"NeuralNetServer:\n" + server_info + "\n" + net_str
+        return server_info + "\n" + net_str
 
 
 def neural_net_server(net: torch.nn.Module,
@@ -207,9 +217,6 @@ def _generate_responses(num_pipes_to_serve: int,
     responses = [{} for _ in range(num_pipes_to_serve)]
     for k, v in prediction.items():
         for i in range(num_pipes_to_serve):
-            # TODO: figure out if we really need to put predictions on cpu
-            # might be better to leave them in the original devicw for loss calculations
-
             # Detaching is necessary for torch.Tensor(s) to be sent over processes
             responses[i][k] = v[i].cpu().detach()
     return responses
@@ -217,7 +224,7 @@ def _generate_responses(num_pipes_to_serve: int,
 
 def _send_responses(pipes_to_serve: List[multiprocessing.Pipe],
                     responses: List[Dict[str, torch.Tensor]]):
-    ''' Sends :param: responses to correspondig :param: pipes_to_serve '''
+    '''Sends :param: responses to correspondig :param: pipes_to_serve'''
     for i in range(len(pipes_to_serve)): pipes_to_serve[i].send(responses[i])
 
 
