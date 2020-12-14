@@ -1,5 +1,5 @@
 from typing import List, Tuple, Callable, Any, Dict, Optional, Union
-from copy import deepcopy
+from copy import deepcopy, copy
 from enum import Enum
 from dataclasses import dataclass, field
 
@@ -161,6 +161,8 @@ class Task:
             if isinstance(summary_writer, str):
                 summary_writer = SummaryWriter(summary_writer)
 
+        self.let_agents_access_each_other(agent_vector)
+
         if initial_episode == -1: initial_episode = self.total_episodes_run
 
         for agent in agent_vector: agent.num_actors = num_envs
@@ -183,6 +185,22 @@ class Task:
 
         self.end_agent_servers(agent_vector)
         return trajectories
+
+
+    def let_agents_access_each_other(self, agent_vector: List['Agent']):
+        '''
+        Allows all agents in :param: agent_vector that need to access
+        other agents, to access them. This is useful for instance in
+        ExpertIterationAgent, where we can have a neural_net_server
+        hosting a neural_nets from other agents
+
+        :param agent_vector: Agents that are about to play in :param: self
+        '''
+        for i, agent in enumerate(agent_vector):
+            if not agent.requires_acess_to_other_agents: continue
+            other_agents = copy(agent_vector); other_agents.pop(i)
+            agent.access_other_agents(other_agents, self)
+
 
     def parallel_generate_trajectories(self, vector_env: RegymAsyncVectorEnv,
                                        agent_vector: List['Agent'],
