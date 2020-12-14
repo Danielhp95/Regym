@@ -88,6 +88,15 @@ class Agent(ABC):
         Look into ExpertIterationAgent for an example.
         '''
         self.requires_self_prediction: bool = False
+        '''
+        Flag denoting whether an agent needs access
+        to the other agents in an environment prior to
+        episodes being run
+
+        TODO: agents that have this flag should be given
+        access to other agents as soon as they do a model update
+        '''
+        self.requires_acess_to_other_agents: bool = False
 
     @property
     def num_actors(self) -> int:
@@ -209,6 +218,17 @@ class Agent(ABC):
         self.handled_experiences += len(experiences)
         for (_, _, _, _, done, _) in experiences:
             if done: self.finished_episodes += 1
+
+    def access_other_agents(self, other_agents_vector: List['Agent'], task: 'Task'):
+        '''
+        Function that grants this agent access to all :param: other_agents_vector,
+        which act on :param: task.
+
+        Will only be invoked if self.requires_acess_to_other_agents is set
+
+        :param other_agents_vector: List of all agents in the environment excluding `self`
+        '''
+        raise NotImplementedError('Should be implemented in subclass')
 
     @abstractmethod
     def clone(self):
