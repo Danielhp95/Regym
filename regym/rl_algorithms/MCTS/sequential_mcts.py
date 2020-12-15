@@ -8,9 +8,10 @@ from .util import extract_best_actions, add_dirichlet_noise
 from .sequential_node import SequentialNode
 
 
-def get_actions_and_priors(state: gym.Env, observation,
-                           policy_fn: Callable[[Any, List[int]], List[float]])\
-                           -> Tuple[List[int], Dict[int, float]]:
+def get_actions_and_priors(state: gym.Env,
+                           observation,
+                           policy_fn: Callable[[Any, List[int]], List[float]],
+                           player_index: int) -> Tuple[List[int], Dict[int, float]]:
     '''
     Extracts:
     - Available legal actions at :param: state
@@ -23,7 +24,7 @@ def get_actions_and_priors(state: gym.Env, observation,
     :returns: Available actions at :param: state and priors over them
     '''
     actions = state.get_moves()
-    priors = policy_fn(observation, actions)
+    priors = policy_fn(observation, actions, requested_player_index=player_index)
     P_a = {a_i: priors[a_i] for a_i in actions}
     return actions, P_a
 
@@ -59,7 +60,7 @@ def selection_phase(node: SequentialNode, state: gym.Env,
 
 
 def expansion_phase_expand_all(node: SequentialNode, a_i: int, state: gym.Env,
-                               policy_fn, player: int) -> Tuple[SequentialNode, Any]:
+                               policy_fn, player_index: int) -> Tuple[SequentialNode, Any]:
     '''
     Expands a child node from :param: node with corresponding
     action :param: a_i, which is used to `step` the environment model
@@ -73,9 +74,10 @@ def expansion_phase_expand_all(node: SequentialNode, a_i: int, state: gym.Env,
               in the environment after action :param: a_i was taken
     '''
     observations, _, _, _ = state.step(a_i)
-    actions, priors = get_actions_and_priors(state, observations[player],
-                                             policy_fn)
-    node.add_child(a=a_i, P_a=priors, actions=actions, player=player)
+    actions, priors = get_actions_and_priors(state, observations[player_index],
+                                             policy_fn,
+                                             player_index)
+    node.add_child(a=a_i, P_a=priors, actions=actions, player=player_index)
     # NOTE: observations are currently ignored
     return node.children[a_i], observations
 
@@ -204,7 +206,7 @@ def MCTS(rootstate: gym.Env, observation,
               and visitations of each child in the root node
     '''
 
-    actions, priors = get_actions_and_priors(rootstate, observation, policy_fn)
+    actions, priors = get_actions_and_priors(rootstate, observation, policy_fn, player_index)
     if use_dirichlet:
         priors = add_dirichlet_noise(alpha=dirichlet_alpha, p=priors)
     rootnode = SequentialNode(parent=None, player=player_index, a='R',
@@ -216,7 +218,7 @@ def MCTS(rootstate: gym.Env, observation,
         node, a_i = selection_phase(node, state, selection_strat, exploration_factor)
         if not node.is_terminal:
             node, obs = expansion_phase_expand_all(node, a_i, state, policy_fn,
-                                                   player=((node.player + 1) % num_agents))
+                                                   player_index=((node.player + 1) % num_agents))
             value = rollout_phase(state, node, obs,
                                   rollout_budget, evaluation_fn)
         # Multiply by -1 because 'node.parent' tries to minimize 'node' reward

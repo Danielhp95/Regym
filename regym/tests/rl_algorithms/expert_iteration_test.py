@@ -1,5 +1,6 @@
 from typing import Callable
 
+import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
@@ -9,6 +10,7 @@ from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix
 from regym.tests.test_utils.parallel_play_against_fixed_opponent import parallel_learn_against_fix_opponent
 from regym.rl_algorithms import rockAgent, build_Random_Agent, build_MCTS_Agent, build_Deterministic_Agent
 from regym.rl_algorithms import build_ExpertIteration_Agent
+from regym.rl_algorithms.agents import ExpertIterationAgent
 from regym.rl_algorithms.replay_buffers import Storage
 
 
@@ -191,8 +193,6 @@ def create_memory(size: int,
 
 
 def test_train_vanilla_exit_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):
-    import torch
-
     # Train worthy params
     expert_iteration_config_dict['use_apprentice_in_expert'] = True
     expert_iteration_config_dict['games_per_iteration'] = 100

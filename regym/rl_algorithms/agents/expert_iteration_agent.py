@@ -1,8 +1,11 @@
 from typing import List, Dict, Any, Callable, Union, Tuple
+from multiprocessing.connection import Connection
+from functools import partial
 import multiprocessing
 import textwrap
 
 import gym
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -16,6 +19,7 @@ from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 from regym.rl_algorithms.expert_iteration import ExpertIterationAlgorithm
 
 from regym.networks.servers.neural_net_server import NeuralNetServerHandler
+from regym.networks.servers import request_prediction_from_server
 
 
 class ExpertIterationAgent(Agent):
@@ -47,7 +51,12 @@ class ExpertIterationAgent(Agent):
                                          is equivalent to DAGGER
         :param use_agent_modelling: Wether to model other agent's actions as
                                     an axuliary task. As in DPIQN paper
-        :param use_agent_modelling_in_mcts: TODO
+        :param use_agent_modelling_in_mcts: Whether to use opponent modelling inside of MCTS.
+                                            During training: creates a NeuralNetServerHandler
+                                            containing the policy for the other agent.
+                                            Requires the other agent's model.
+                                            During inference: uses opponent modelling head
+                                            of self.apprentice.
         :param action_dim: Shape of actions, use to generate placeholder values
         :param observation_dim: Shape of observations, use to generate placeholder values
         :param num_opponents: Number of opponents that will be playing in an environment
@@ -63,6 +72,14 @@ class ExpertIterationAgent(Agent):
         if self.use_cuda: self.apprentice = self.apprentice.cuda()
 
         #### Algorithmic variations ####
+        self.use_agent_modelling_in_mcts = use_agent_modelling_in_mcts
+        if self.use_agent_modelling_in_mcts:
+            # We will need to set up a server for other agent's models
+            # Inside MCTS, we make the evaluation_fn point to the right
+            # server (with the other agent's models) on opponent's nodes.
+            self.requires_acess_to_other_agents = True
+            self.expert.requires_acess_to_other_agents = True
+
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
         if use_apprentice_in_expert:
             self.multi_action_requires_server = True
@@ -98,20 +115,36 @@ class ExpertIterationAgent(Agent):
         self._summary_writer = summary_writer
         self.algorithm.summary_writer = summary_writer
 
+    def access_other_agents(self, other_agents_vector: List[Agent], task: 'Task'):
+        '''
+        TODO:
+        '''
+        assert self.use_agent_modelling_in_mcts
+        self.expert.access_other_agents(other_agents_vector, task)
+
     def embed_apprentice_in_expert(self):
         # Non-parallel environments
         self.expert.policy_fn = self.policy_fn
         self.expert.evaluation_fn = self.evaluation_fn
+
         # Parallel environments
-        self.expert.server_based_policy_fn = self.__class__.server_based_policy_fn
-        self.expert.server_based_evaluation_fn = self.__class__.server_based_evaluation_fn
+        if self.use_agent_modelling_in_mcts:
+            self.expert.server_based_policy_fn = \
+                self.__class__.opponent_aware_server_based_policy_fn
+        else:
+            self.expert.server_based_policy_fn = partial(
+                request_prediction_from_server,
+                key='probs')
+        self.expert.server_based_evaluation_fn = partial(
+            request_prediction_from_server,
+            key='V')
 
     def init_storage(self, size: int):
         storage = Storage(size=size)
-        storage.add_key('normalized_child_visitations')  # MCTS policy
+        storage.add_key('normalized_child_visitations')  # \pi_{MCTS} policy
         if self.use_agent_modelling:
-            storage.add_key('opponent_policy')
-            storage.add_key('opponent_s')
+            storage.add_key('opponent_s')       # s
+            storage.add_key('opponent_policy')  # \pi_{opponent}(.|s)
         return storage
 
     def handle_experience(self, o, a, r: float, succ_s, done=False,
@@ -157,8 +190,10 @@ class ExpertIterationAgent(Agent):
         storage.reset()
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
-            if self.server_handler:  # This will be set if self.use_apprentice_in_expert
-                self.server_handler.update_neural_net(self.apprentice)
+            if self.use_apprentice_in_expert:
+                # We need to update the neural net in server used by MCTS
+                assert self.expert.server_handler, 'There should be a server'
+                self.expert.server_handler.update_neural_net(self.apprentice)
 
     def process_environment_signals(self, o, r: float):
         processed_s = self.state_preprocess_fn(o)
@@ -197,11 +232,9 @@ class ExpertIterationAgent(Agent):
                        mcts_policy: torch.Tensor):
         storage.add({'normalized_child_visitations': mcts_policy,
                      's': o})
-
         if self.use_agent_modelling:
             storage.add({'opponent_policy': opponent_policy,
                          'opponent_s': opponent_s})
-
         if done:
             # Hendrik idea:
             # Using MCTS value for current search might be better?
@@ -225,12 +258,14 @@ class ExpertIterationAgent(Agent):
                                      legal_actions=legal_actions)
         return prediction['a']
 
-    def start_server(self, num_connections):
+    def start_server(self, num_connections: int):
         ''' Explain that this is needed because different MCTS experts need to send requests '''
         if num_connections == -1: num_connections = multiprocessing.cpu_count()
-        self.server_handler = NeuralNetServerHandler(
+        self.expert.server_handler = NeuralNetServerHandler(
             num_connections=num_connections, net=self.apprentice)
-        self.expert.server_handler = self.server_handler
+
+    def close_server(self):
+        self.expert.close_server()
 
     @torch.no_grad()
     def policy_fn(self, observation, legal_actions):
@@ -253,20 +288,46 @@ class ExpertIterationAgent(Agent):
 
     #####
     # These two methods are a dirty hack!
+    # TODO: refactor these 3 functions into 1 function
     @staticmethod
-    def server_based_policy_fn(observation, legal_actions, connection):
-        connection.send((observation, legal_actions))
-        prediction = connection.recv()
-        return prediction['probs'].squeeze(0).numpy()
+    def opponent_aware_server_based_policy_fn(observation,
+                                              legal_actions: List[int],
+                                              self_player_index: int,
+                                              requested_player_index: int,
+                                              connection: Connection,
+                                              opponent_connection: Connection) -> np.ndarray:
+        key = 'probs'
+        target_connection = connection if requested_player_index == self_player_index else opponent_connection
+        return request_prediction_from_server(
+            observation, legal_actions, target_connection, key)
 
+    def multi_action_select_server_policy_and_evaluation_fns(self, num_envs) \
+            -> Tuple[List[Callable], List[Callable]]:
+        ''' TODO: explain logic behind server connections'''
+        # NOTE: is it bad that we are sharing connections between
+        # evaluation_fns and policy_fns? I guess not.
 
-    @staticmethod
-    def server_based_evaluation_fn(observation, legal_actions, connection):
-        connection.send((observation, legal_actions))
-        prediction = connection.recv()
-        return prediction['V'].squeeze(0).numpy()
-    #
-    #####
+        if self.use_agent_modelling_in_mcts:
+            assert self.expert.opponent_server_handler, 'There should be a server!'
+            policy_fns = [partial(
+                self.opponent_aware_server_based_policy_fn,
+                connection=self.expert.server_handler.client_connections[i],
+                opponent_connection=self.expert.opponent_server_handler.client_connections[i],
+                key='probs')
+                for i in range(num_envs)]
+        else:
+            policy_fns = [partial(
+                self.request_prediction_from_server,
+                connection=self.expert.server_handler.client_connections[i],
+                key='probs')
+                for i in range(num_envs)]
+
+        evaluation_fns = [partial(
+            self.request_prediction_from_server,
+            connection=self.expert.server_handler.client_connections[i],
+            key='V')  # Requests state value function prediction
+            for i in range(num_envs)]
+        return policy_fns, evaluation_fns
 
 
 def choose_feature_extractor(task, config: Dict):
@@ -339,11 +400,11 @@ def build_expert(task, config: Dict, expert_name: str) -> MCTSAgent:
 def check_parameter_validity(task: 'Task', config: Dict[str, Any]):
     ''' Checks whether :param: config is compatible with :param: task '''
     if config.get('use_agent_modelling', False) and task.num_agents != 2:
-        raise ValueError('ExpertIterationAgent with agent modelling '
-                         'is only supported with tasks with 2 agents '
-                         '(one agent is this ExpertIterationAgent and the other '
-                         f'will be the opponent). Given task {task.name} '
-                         f'features {task.num_agents} agents.')
+        raise NotImplementedError('ExpertIterationAgent with agent modelling '
+                                  'is only supported with tasks with 2 agents '
+                                  '(one agent is this ExpertIterationAgent and the other '
+                                  f'will be the opponent). Given task {task.name} '
+                                  f'features {task.num_agents} agents.')
 
 
 def build_ExpertIteration_Agent(task: 'Task',

@@ -1,1 +1,2 @@
 from .neural_net_server import neural_net_server, NeuralNetServerHandler
+from .utils import request_prediction_from_server

@@ -16,6 +16,7 @@ from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.MCTS.selection_strategies import old_UCB1, UCB1, PUCT
 from regym.rl_algorithms.MCTS import sequential_mcts
 from regym.rl_algorithms.MCTS import simultaneous_mcts
+from regym.networks.servers.neural_net_server import NeuralNetServerHandler
 
 
 class MCTSAgent(Agent):
@@ -50,7 +51,7 @@ class MCTSAgent(Agent):
         # Function used to obtain a distribution over actions legal actions
         # given 2 parameters: observation, legal_actions.
         # In any given node. Used in PUCT selection_strat and ExpertIterationAgent
-        self.policy_fn: Callable[[Any, List[int]], List[float]] = self.random_selection_policy
+        self.policy_fn: Callable[[Any, List[int], int, int], List[float]] = self.random_selection_policy
         self.server_based_policy_fn: Callable[[Any, List[int], Connection], List[float]] = None
 
         # Function to compute a value to backpropagate through the MCTS tree
@@ -65,7 +66,32 @@ class MCTSAgent(Agent):
 
         self.current_prediction: Union[Dict, Dict[int, Dict]] = {}
 
-    def random_selection_policy(self, obs, legal_actions: List[int]):
+        # This will be set by ExpertIterationAgent, if it requires
+        # access to true opponent policies during training
+        # Future work can set this handler in the (not yet implemented)
+        # MCTSAgent.access_other_agents(...) function
+        self.opponent_server_handler: NeuralNetServerHandler = None
+
+
+    def access_other_agents(self, other_agents_vector: List[Agent], task: 'Task'):
+        if len(other_agents_vector) != 1:
+            raise NotImplementedError('Using opponent modelling inside MCTS '
+                                      'is only supported with tasks with 2 '
+                                      f'agents. Current task has {len(other_agents_vector) + 1}')
+        other_agent = other_agents_vector[0]
+        ''' Make this nice '''
+        #if not hasattr(other_agent, 'algorithm.model'):
+        #    raise ValueError('Expected to find nn.Module at '
+        #                     f'{other_agent.__class__}.algorithm.model')
+        other_agent_model = other_agent.neural_net
+        self.opponent_server_handler = NeuralNetServerHandler(
+            num_connections=task.num_agents,
+            net=other_agent_model)
+
+    def random_selection_policy(self, obs,
+                                legal_actions: List[int],
+                                self_player_index: int,
+                                requested_player_index: int):
         if legal_actions == []: return []
         num_legal_actions = len(legal_actions)
         action_probability = 1 / num_legal_actions
@@ -73,7 +99,8 @@ class MCTSAgent(Agent):
                 for a_i in range(self.action_dim)]
 
     def model_based_take_action(self, env: Union[gym.Env, Dict[int, gym.Env]],
-                                observation, player_index: int, multi_action: bool = False):
+                                observation, player_index: int,
+                                multi_action: bool = False):
         self.current_prediction = {}
         if multi_action:
             return self.multi_action_model_based_take_action(env, observation,
@@ -86,10 +113,14 @@ class MCTSAgent(Agent):
     def multi_action_model_based_take_action(self, envs: Dict[int, gym.Env],
                                              observations: Dict[int, Any],
                                              player_index: int) -> List[int]:
+        # Starting a new ProcessPoolExecutor on every
+        # multi_action_model_based_take_action is ugly. But it is not
+        # where the bottleneck lies (polling on neural_net_server is).
         with ProcessPoolExecutor(max_workers=min(len(envs), cpu_count())) as ex:
 
             policy_fns, evaluation_fns = \
-                    self.multi_action_select_policy_and_evaluation_fns(len(envs))
+                    self.multi_action_select_policy_and_evaluation_fns(
+                        len(envs), player_index)
 
             futures = [ex.submit(async_search, env_i, self.algorithm,
                                  env, observations[env_i],
@@ -120,16 +151,17 @@ class MCTSAgent(Agent):
                              for visitation in visitation_vector]
         return child_visitations, action_vector
 
-    def multi_action_select_policy_and_evaluation_fns(self, num_envs) \
+    def multi_action_select_policy_and_evaluation_fns(self,
+                                                      num_envs: int,
+                                                      player_index: int) \
             -> Tuple[List[Callable], List[Callable]]:
         ''' TODO: explain logic behind server connections'''
         if self.server_handler:
             # NOTE: is it bad that we are sharing connections between
             # evaluation_fns and policy_fns? I guess not.
-            policy_fns = [partial(
-                self.server_based_policy_fn,
-                connection=self.server_handler.client_connections[i])
-                for i in range(num_envs)]
+            policy_fns = self.generate_server_based_policy_fns(
+                num_envs, player_index)
+
             evaluation_fns = [partial(
                 self.server_based_evaluation_fn,
                 connection=self.server_handler.client_connections[i])
@@ -138,6 +170,46 @@ class MCTSAgent(Agent):
             policy_fns = [self.policy_fn for _ in range(num_envs)]
             evaluation_fns = [self.evaluation_fn for _ in range(num_envs)]
         return policy_fns, evaluation_fns
+
+    def generate_server_based_policy_fns(self,
+                                         num_envs: int,
+                                         player_index: int) \
+            -> List[Callable[[Any, List[int], int, int], List[float]]]:
+        '''
+        Creates a list of policy functions, each one partially applied with
+        a different thread-safe connection to be used on a different process.
+        These policy function connect to a separate process to be request
+        a neural_net prediction.
+
+        Policy functions have the following paremeterization:
+            - Observation
+            - Legal actions vector
+            - Player index (in the environments' agent vector) That
+              began the search
+            - Requested player index. Index of player for whom the policy
+              evalution is being requested.
+
+
+        :returns: List of functions, one for each process, to be used inside
+                  MCTS search. These can be used to (1) Compute PUCT action
+                  priors and (2) As a rollout policy.
+        '''
+        if self.requires_acess_to_other_agents:
+            # We are accessing the real policies by other agents to compute
+            # action priors to be used in PUCT formula during selection phase
+            assert self.opponent_server_handler, 'There should be a server!'
+            policy_fns = [partial(
+                self.server_based_policy_fn,
+                connection=self.server_handler.client_connections[i],
+                self_player_index=player_index,
+                opponent_connection=self.opponent_server_handler.client_connections[i])
+                for i in range(num_envs)]
+        else:
+            policy_fns = [partial(
+                self.server_based_policy_fn,
+                connection=self.server_handler.client_connections[i])
+                for i in range(num_envs)]
+        return policy_fns
 
     def single_action_model_based_take_action(self, env: gym.Env, observation,
                                               player_index: int) -> int:
@@ -178,6 +250,10 @@ class MCTSAgent(Agent):
                            use_dirichlet=self.use_dirichlet,
                            dirichlet_alpha=self.dirichlet_alpha)
         return cloned
+
+    def close_server(self):
+        if self.server_handler: self.server_handler.close_server()
+        if self.opponent_server_handler: self.opponent_server_handler.close_server()
 
     def __repr__(self):
         s = f'MCTSAgent: {self.name}.\nBudget: {self.budget}\nRollout budget: {self.rollout_budget}\nSelection phase: {self.selection_phase_id}\nExploration cnst: {self.exploration_constant}\nUse Direchlet noise: {self.use_dirichlet}\nDirchlet alpha: {self.dirichlet_alpha}'
