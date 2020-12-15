@@ -7,7 +7,8 @@ import numpy as np
 def request_prediction_from_server(observation,
                                    legal_actions: List[int],
                                    connection: Connection,
-                                   key: str) -> np.ndarray:
+                                   key: str,
+                                   *args, **kwargs) -> np.ndarray:
     r'''
     Requests :param: key from a prediction from a NeuralNetServerHandler
     via :param: connection. Giving as input :param: observation
