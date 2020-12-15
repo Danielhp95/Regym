@@ -73,7 +73,10 @@ class MCTSAgent(Agent):
         self.opponent_server_handler: NeuralNetServerHandler = None
 
 
-    def access_other_agents(self, other_agents_vector: List[Agent], task: 'Task'):
+    def access_other_agents(self,
+                            other_agents_vector: List[Agent],
+                            task: 'Task',
+                            num_envs: int):
         if len(other_agents_vector) != 1:
             raise NotImplementedError('Using opponent modelling inside MCTS '
                                       'is only supported with tasks with 2 '
@@ -85,7 +88,7 @@ class MCTSAgent(Agent):
         #                     f'{other_agent.__class__}.algorithm.model')
         other_agent_model = other_agent.neural_net
         self.opponent_server_handler = NeuralNetServerHandler(
-            num_connections=task.num_agents,
+            num_connections=num_envs,
             net=other_agent_model)
 
     def random_selection_policy(self,

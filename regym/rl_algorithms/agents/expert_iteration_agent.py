@@ -115,12 +115,12 @@ class ExpertIterationAgent(Agent):
         self._summary_writer = summary_writer
         self.algorithm.summary_writer = summary_writer
 
-    def access_other_agents(self, other_agents_vector: List[Agent], task: 'Task'):
+    def access_other_agents(self, other_agents_vector: List[Agent], task: 'Task', num_envs):
         '''
         TODO:
         '''
         assert self.use_agent_modelling_in_mcts
-        self.expert.access_other_agents(other_agents_vector, task)
+        self.expert.access_other_agents(other_agents_vector, task, num_envs)
 
     def embed_apprentice_in_expert(self):
         # Non-parallel environments

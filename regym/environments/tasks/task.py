@@ -1,6 +1,7 @@
 from typing import List, Tuple, Callable, Any, Dict, Optional, Union
 from copy import deepcopy, copy
 from enum import Enum
+from multiprocessing import cpu_count
 from dataclasses import dataclass, field
 
 import gym
@@ -111,8 +112,10 @@ class Task:
         self.total_timesteps_run += len(ts)
         return ts
 
-    def run_episodes(self, agent_vector: List['Agent'],
-                     num_episodes: int, num_envs: int,
+    def run_episodes(self,
+                     agent_vector: List['Agent'],
+                     num_episodes: int,
+                     num_envs: int,
                      training: bool,
                      initial_episode: int = -1,
                      show_progress: bool = False,
@@ -161,7 +164,10 @@ class Task:
             if isinstance(summary_writer, str):
                 summary_writer = SummaryWriter(summary_writer)
 
-        self.let_agents_access_each_other(agent_vector)
+        self.let_agents_access_each_other(
+            agent_vector,
+            num_envs if num_envs != -1 else cpu_count()
+        )
 
         if initial_episode == -1: initial_episode = self.total_episodes_run
 
@@ -187,7 +193,7 @@ class Task:
         return trajectories
 
 
-    def let_agents_access_each_other(self, agent_vector: List['Agent']):
+    def let_agents_access_each_other(self, agent_vector: List['Agent'], num_envs: int):
         '''
         Allows all agents in :param: agent_vector that need to access
         other agents, to access them. This is useful for instance in
@@ -199,7 +205,7 @@ class Task:
         for i, agent in enumerate(agent_vector):
             if not agent.requires_acess_to_other_agents: continue
             other_agents = copy(agent_vector); other_agents.pop(i)
-            agent.access_other_agents(other_agents, self)
+            agent.access_other_agents(other_agents, self, num_envs)
 
 
     def parallel_generate_trajectories(self, vector_env: RegymAsyncVectorEnv,

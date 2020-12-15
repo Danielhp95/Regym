@@ -219,7 +219,10 @@ class Agent(ABC):
         for (_, _, _, _, done, _) in experiences:
             if done: self.finished_episodes += 1
 
-    def access_other_agents(self, other_agents_vector: List['Agent'], task: 'Task'):
+    def access_other_agents(self,
+                            other_agents_vector: List['Agent'],
+                            task: 'Task',
+                            num_envs: int):
         '''
         Function that grants this agent access to all :param: other_agents_vector,
         which act on :param: task.
@@ -227,6 +230,11 @@ class Agent(ABC):
         Will only be invoked if self.requires_acess_to_other_agents is set
 
         :param other_agents_vector: List of all agents in the environment excluding `self`
+        :param task: Task on which :param: self and :param: other_agents_vector
+                     will act.
+        :param num_envs: Number of parallel environments that will be spawned
+                         by parallel task. Useful, for instance, to know how
+                         many connections to generate on a NeuralNetServerHandler
         '''
         raise NotImplementedError('Should be implemented in subclass')
 

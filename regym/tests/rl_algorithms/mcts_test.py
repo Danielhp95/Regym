@@ -78,7 +78,7 @@ def test_can_query_true_opponent_model(Connect4Task, mcts_config_dict):
         'Test-NNAgent')
 
     # Allow MCTSAgent to create a server
-    mcts_agent.access_other_agents([dummy_nn_agent], Connect4Task)
+    mcts_agent.access_other_agents([dummy_nn_agent], Connect4Task, num_envs=1)
     assert mcts_agent.opponent_server_handler, 'Should be present and contain a neural_net_server handler'
 
     # Request opponent predictions from server
