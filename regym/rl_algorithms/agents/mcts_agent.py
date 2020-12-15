@@ -88,10 +88,11 @@ class MCTSAgent(Agent):
             num_connections=task.num_agents,
             net=other_agent_model)
 
-    def random_selection_policy(self, obs,
+    def random_selection_policy(self,
+                                obs,
                                 legal_actions: List[int],
-                                self_player_index: int,
-                                requested_player_index: int):
+                                self_player_index: int = None,
+                                requested_player_index: int = None):
         if legal_actions == []: return []
         num_legal_actions = len(legal_actions)
         action_probability = 1 / num_legal_actions

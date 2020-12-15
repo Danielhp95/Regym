@@ -268,7 +268,7 @@ class ExpertIterationAgent(Agent):
         self.expert.close_server()
 
     @torch.no_grad()
-    def policy_fn(self, observation, legal_actions):
+    def policy_fn(self, observation, legal_actions, self_player_index: int = None, requested_player_index: int = None):
         processed_obs = self.state_preprocess_fn(observation)
         return self.apprentice(processed_obs, legal_actions=legal_actions)['probs'].squeeze(0).numpy()
 
