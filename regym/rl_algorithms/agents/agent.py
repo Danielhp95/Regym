@@ -98,6 +98,12 @@ class Agent(ABC):
         '''
         self.requires_acess_to_other_agents: bool = False
 
+        # Keys from self.__dict__ that will be ignored when pickling
+        # an agent. Each agent subclass can incorporate new keys.
+        # Read into object.__getstate__ for more info!
+        self.keys_to_not_pickle = ['server_handler', '_summary_writer']
+
+
     @property
     def num_actors(self) -> int:
         '''
@@ -264,9 +270,8 @@ class Agent(ABC):
         Server can be started again via `Agent.start_server()`
         '''
         to_pickle_dict = self.__dict__
-        keys_to_not_pickle = ['server_handler', '_summary_writer']
-        if any(map(lambda key: key in to_pickle_dict, keys_to_not_pickle)):
+        if any(map(lambda key: key in to_pickle_dict, self.keys_to_not_pickle)):
             to_pickle_dict = self.__dict__.copy()
-            for key in filter(lambda key: key in to_pickle_dict, keys_to_not_pickle):
+            for key in filter(lambda key: key in to_pickle_dict, self.keys_to_not_pickle):
                 to_pickle_dict[key] = None
         return to_pickle_dict

@@ -169,13 +169,21 @@ class ExpertIterationAlgorithm():
 
     def update_storage(self, dataset, max_memory, keys):
         self.update_storage_size(dataset)
-        avg_keys = ['normalized_child_visitations', 'V'] + (['opponent_policy'] if self.use_agent_modelling else [])
+        keys_to_average_over = ['normalized_child_visitations', 'V']
+
+        opponent_modelling_keys = ['opponent_policy', 'opponent_s']
+
         # Will there be an issue if we try to average over 'opponent_policy' when there are NaNs?
-        dataset.remove_duplicates(target_key='s',
-                                  avg_keys=avg_keys)
-        self.curate_dataset(dataset, dataset.size,
-                            keys=['s', 'V', 'normalized_child_visitations',
-                                  'opponent_policy', 'opponent_s'])
+        dataset.remove_duplicates(
+            target_key='s',
+            avg_keys=keys_to_average_over + (opponent_modelling_keys if self.use_agent_modelling else [])
+        )
+
+        self.curate_dataset(
+            dataset,
+            dataset.size,
+            keys=['s', 'V', 'normalized_child_visitations'] + (opponent_modelling_keys if self.use_agent_modelling else [])
+        )
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''

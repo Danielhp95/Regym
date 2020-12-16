@@ -72,6 +72,10 @@ class MCTSAgent(Agent):
         # MCTSAgent.access_other_agents(...) function
         self.opponent_server_handler: NeuralNetServerHandler = None
 
+        # In case we have a server hosting opponent models, we don't want
+        # to save it!
+        self.keys_to_not_pickle += ['opponent_server_handler']
+
 
     def access_other_agents(self,
                             other_agents_vector: List[Agent],
