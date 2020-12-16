@@ -138,8 +138,7 @@ def async_run_episode(env: RegymAsyncVectorEnv,
                     handling_experience_time,
                     env_step_time,
                 )
-                if summary_writer:
-                    action_time, handling_experience_time, env_step_time = 0., 0., 0.
+                action_time, handling_experience_time, env_step_time = 0., 0., 0.
 
     if show_progress: progress_bar.close()
     return finished_trajectories
