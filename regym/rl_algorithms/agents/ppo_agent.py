@@ -91,6 +91,10 @@ class PPOAgent(Agent):
         # This is not pretty, and is the remnants of
         # porting single actor PPO to multiactor
         for k in self.current_prediction.keys():
+            # This breaks because we are trying to iterate over
+            # rnn_states, which are a dictionary of:
+            # key:   (str) part of network that uses recurrency
+            # value: tuple: (hidden states, cell_states)
             storage.add({k: self.current_prediction[k][storage_idx]})
 
         storage.add({'r': r, 'non_terminal': non_terminal, 's': state})

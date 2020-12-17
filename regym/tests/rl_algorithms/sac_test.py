@@ -2,7 +2,7 @@ from regym.rl_algorithms.agents import build_SAC_Agent
 from regym.rl_algorithms import rockAgent
 
 from test_fixtures import RPSTask, CartPoleTask, sac_config_dict
-from play_against_fixed_opponent import learn_against_fix_opponent
+from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix_opponent
 
 
 def test_sac_can_take_actions(RPSTask, sac_config_dict):

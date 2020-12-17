@@ -84,14 +84,20 @@ class SoftActorCriticAgent(Agent):
 
 
 def create_critic(task, config):
-    body = FCBody(task.observation_dim, hidden_units=(32, 16))  # TODO: remove magic number
+    if len(task.observation_dim) == 1:
+        observation_dim = task.observation_dim[0]
+    else: observation_dim = task.observation_dim
+    body = FCBody(observation_dim, hidden_units=(32, 16))  # TODO: remove magic number
     model = CategoricalDuelingDQNet(body=body,
                                     action_dim=task.action_dim)
     return model
 
 
 def create_actor(task, config):
-    body = FCBody(task.observation_dim, hidden_units=(32, 16))  # TODO: remove magic number
+    if len(task.observation_dim) == 1:
+        observation_dim = task.observation_dim[0]
+    else: observation_dim = task.observation_dim
+    body = FCBody(observation_dim, hidden_units=(32, 16))  # TODO: remove magic number
     head = CategoricalHead(body=body,
                            input_dim=body.feature_dim,
                            output_dim=task.action_dim)
