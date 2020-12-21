@@ -25,18 +25,25 @@ def test_multidiscrete_action_flattening():
 
 
 def test_RPS_get_observation_dimensions(RPS_env):
-    expected_observation_dim = 30
+    expected_observation_dim = [10, 10, 10]
+    expected_observation_size = 30
     expected_observation_type = 'Discrete'
-    observation_dims, observation_type = gym_parser.get_observation_dimensions_and_type(RPS_env)
+    observation_dims, observation_size, observation_type = \
+        gym_parser.get_observation_dimensions_and_type(RPS_env)
     assert expected_observation_dim == observation_dims
+    assert expected_observation_size == observation_size
     assert expected_observation_type == observation_type
 
 
 def test_RPS_get_action_dimensions(RPS_env):
     expected_action_dim = 3
+    expected_action_size = 3
     expected_action_type = 'Discrete'
-    action_dims, action_type = gym_parser.get_action_dimensions_and_type(RPS_env)
+    a = gym_parser.get_action_dimensions_and_type(RPS_env)
+    action_dims, action_dims_size, action_type = \
+        gym_parser.get_action_dimensions_and_type(RPS_env)
     assert expected_action_dim == action_dims
+    assert expected_action_size == action_dims_size
     assert expected_action_type == action_type
 
 

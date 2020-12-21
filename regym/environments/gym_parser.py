@@ -53,7 +53,7 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
 
 # TODO: box environments are considered continuous.
 # Update so that if (space.dtype == an int type), then the space is considered discrete
-def get_observation_dimensions_and_type(env: gym.Env) -> typing.Tuple[int, str]:
+def get_observation_dimensions_and_type(env: gym.Env) -> typing.Tuple[int, int, str]:
     '''
     For :param: env, it extracts:
         (1) observation dimension (shape)
