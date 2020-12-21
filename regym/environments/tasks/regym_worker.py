@@ -17,7 +17,8 @@ from gym.vector import AsyncVectorEnv
 
 class RegymAsyncVectorEnv(AsyncVectorEnv):
 
-    def __init__(self, env_name: str, num_envs: int):
+    def __init__(self, env_name: str, num_envs: int,
+                 wrappers: List[gym.Wrapper] = []):
         '''
         Extension of OpenAI Gym's AsyncVectorEnv which also supports
         retrieving a copy of each of the underlying environments inside of the
@@ -31,7 +32,7 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         self.name = env_name
         if num_envs == -1: num_envs = cpu_count()
         worker = _regym_worker_shared_memory
-        env_fns = [self._make_env_fn(env_name) for _ in range(num_envs)]
+        env_fns = [self._make_env_fn(env_name, wrappers) for _ in range(num_envs)]
         super().__init__(env_fns,
                          observation_space=None, action_space=None, # Default params
                          shared_memory=True, copy=True,  # Default parameters
@@ -49,7 +50,7 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         self._raise_if_errors(successes)
         return envs
 
-    def _make_env_fn(self, env_name: str) -> Callable[[], gym.Env]:
+    def _make_env_fn(self, env_name: str, wrappers: List[gym.Wrapper]) -> Callable[[], gym.Env]:
         '''
         Creates a function that takes no arguments and generates an instance of
         :param: env_name.
@@ -66,7 +67,10 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         def _make_env_from_name():
             # Necessary hack. Import other env names if necessary.
             import gym_connect4
-            return gym.make(env_name)
+            from functools import reduce
+            env = gym.make(env_name)
+            wrapped_env = reduce(lambda env, wrapper: wrapper(env), wrappers, env)
+            return wrapped_env
         return _make_env_from_name
 
 

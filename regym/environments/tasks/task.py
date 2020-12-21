@@ -1,4 +1,5 @@
 from typing import List, Tuple, Callable, Any, Dict, Optional, Union
+from functools import reduce
 from copy import deepcopy, copy
 from enum import Enum
 from multiprocessing import cpu_count
@@ -318,21 +319,19 @@ class Task:
         return cloned
 
     def __repr__(self):
-        s = \
-f'''
-Task: {self.name}
-env: {self.env}
-env_type: {self.env_type}
-num_agents: {self.num_agents}
-Extended_agents: {self.extended_agents}
-observation_dim: {self.observation_dim}
-observation_type: {self.observation_type}
-state_space_size: {self.state_space_size}
-action_space_size: {self.action_space_size}
-action_dim: {self.action_dim}
-action_type: {self.action_type}
-hash_function: {self.hash_function}
-total_episodes_run: {self.total_episodes_run}
-total_timesteps_run: {self.total_timesteps_run}
-'''
+        s = (f'Task: {self.name}\n'
+             f'env: {self.env}\n'
+             f'env_type: {self.env_type}\n'
+             f'num_agents: {self.num_agents}\n'
+             f'Extended_agents: {self.extended_agents}\n'
+             f'observation_dim: {self.observation_dim}\n'
+             f'observation_type: {self.observation_type}\n'
+             f'state_space_size: {self.state_space_size}\n'
+             f'action_space_size: {self.action_space_size}\n'
+             f'action_dim: {self.action_dim}\n'
+             f'action_type: {self.action_type}\n'
+             f'hash_function: {self.hash_function}\n'
+             f'total_episodes_run: {self.total_episodes_run}\n'
+             f'total_timesteps_run: {self.total_timesteps_run}\n'
+             )
         return s

@@ -157,6 +157,7 @@ def expert_iteration_config_dict():
     config['paddings'] = [1, 1, 1, 1, 1]  # To play Connect 4
     config['strides'] = [1, 1, 1, 1, 1]  # To play Connect 4
     config['residual_connections'] = []
+    config['post_feature_extractor_arch'] = 'MLP'
     config['critic_gate_fn'] = 'tanh'
     return config
 
