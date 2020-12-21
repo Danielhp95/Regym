@@ -5,6 +5,7 @@ import tqdm
 
 import regym
 from regym.tests.test_utils.play_against_fixed_opponent import learn_against_fix_opponent
+from regym.tests.test_utils.parallel_play_against_fixed_opponent import parallel_learn_against_fix_opponent
 from regym.networks.preprocessing import batch_vector_observation, flatten_and_turn_into_single_element_batch
 from regym.environments import generate_task, EnvType
 from regym.rl_algorithms.agents import Agent, build_Deterministic_Agent
@@ -42,8 +43,6 @@ def test_ppo_can_solve_multi_env_cartpole(CartPoleTask, ppo_config_dict):
     assert total_test_trajectory_len / len(test_trajectories) >= solved_threshold
 
 
-from regym.util import profile
-@profile(filename='singleactor_task_profile.pstats')
 def singleactor_task_test(task, agent, train_episodes: int, test_episodes: int):
     agent.training = True
     agent.algorithm.horizon = 2046
@@ -120,6 +119,7 @@ def test_learns_to_beat_rock_in_RPS_rnn(RPSTask, ppo_rnn_config_dict):
     i.e from random, learns to play only (or mostly) paper
     '''
     agent = build_PPO_Agent(RPSTask, ppo_rnn_config_dict, 'RNN_PPO')
+    agent.state_preprocessing = flatten_and_turn_into_single_element_batch
     assert agent.training
     learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
                                agent_position=0, # Doesn't matter in RPS
@@ -155,11 +155,11 @@ def act_in_task_env(task, agent):
         observation, rewards, done, info = env.step(a)
 
 
-#def test_mlp_architecture_learns_to_beat_kuhn_poker(KuhnTask, ppo_config_dict):
-#    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_config_dict, 'PPO-MLP')
-#    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
-#
-#
+def test_mlp_architecture_learns_to_beat_kuhn_poker(KuhnTask, ppo_config_dict):
+    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_config_dict, 'PPO-MLP')
+    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
+
+
 #def test_rnn_architecture_learns_to_beat_kuhn_poker_rnn(KuhnTask, ppo_rnn_config_dict):
 #    build_agent_func = lambda: build_PPO_Agent(KuhnTask, ppo_rnn_config_dict, 'PPO-RNN')
 #    play_kuhn_poker_all_positions_all_fixed_agents(build_agent_func)
@@ -190,14 +190,18 @@ def play_against_fixed_agent(agent, fixed_agent_action, agent_position,
     i.e from random, learns to play only (or mostly) paper
     '''
     kuhn_task = generate_task('KuhnPoker-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
-    fixed_opponent = build_Deterministic_Agent(kuhn_task, {'action': fixed_agent_action})
+    fixed_opponent = build_Deterministic_Agent(kuhn_task, {'action': fixed_agent_action},
+                                               f'Fixed action: {fixed_agent_action}')
     assert agent.training
-    learn_against_fix_opponent(agent, fixed_opponent=rockAgent,
-                               agent_position=0, # Doesn't matter in RPS
-                               task=RPSTask,
-                               training_episodes=250,
-                               benchmark_every_n_episodes=0,
-                               test_episodes=50,
-                               reward_tolerance=1.,
-                               maximum_average_reward=10.0,
-                               evaluation_method='cumulative')
+    parallel_learn_against_fix_opponent(
+        agent,
+        fixed_opponent,
+        task=kuhn_task,
+        agent_position=agent_position,
+        training_episodes=total_episodes,
+        test_episodes=100,
+        reward_tolerance=max_reward*0.1,  # 10% off maximum
+        benchmark_every_n_episodes=3000,  # has to be larger than total_episodes
+        maximum_average_reward=max_reward,
+        evaluation_method='last',
+    )
