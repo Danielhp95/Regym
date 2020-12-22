@@ -215,6 +215,7 @@ class MCTSAgent(Agent):
         else:
             policy_fns = [partial(
                 self.server_based_policy_fn,
+                self_player_index=player_index,
                 connection=self.server_handler.client_connections[i])
                 for i in range(num_envs)]
         return policy_fns

@@ -70,6 +70,17 @@ def test_can_collect_opponent_action_distributions_multi_env(Connect4Task, exper
     assert len(ex_it.algorithm.memory.opponent_policy) == len(ex_it.algorithm.memory.opponent_s)
 
 
+def test_can_query_learnt_opponent_models_at_train_time(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['use_apprentice_in_expert'] = True
+    expert_iteration_config_dict['use_learnt_opponent_models_in_mcts'] = True
+
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict,
+                                        agent_name='ExIt-opponent_modelling-test')
+    assert ex_it.use_apprentice_in_expert
+    assert ex_it.use_learnt_opponent_models_in_mcts
+    # TODO: figure out a programatic way of testing this.
+
+
 def test_apprentice_can_model_expert(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['use_agent_modelling'] = False
 

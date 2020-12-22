@@ -29,7 +29,8 @@ class ExpertIterationAgent(Agent):
                  expert: MCTSAgent, apprentice: nn.Module,
                  use_apprentice_in_expert: bool,
                  use_agent_modelling: bool,
-                 use_agent_modelling_in_mcts: bool,
+                 use_true_agent_models_in_mcts: bool,
+                 use_learnt_opponent_models_in_mcts: bool,
                  action_dim: int,
                  observation_dim: Tuple[int],
                  num_opponents: int,
@@ -50,13 +51,17 @@ class ExpertIterationAgent(Agent):
                                          apprentice. If False, this algorithm
                                          is equivalent to DAGGER
         :param use_agent_modelling: Wether to model other agent's actions as
-                                    an axuliary task. As in DPIQN paper
-        :param use_agent_modelling_in_mcts: Whether to use opponent modelling inside of MCTS.
+                                    an auxiliary task. As in DPIQN paper
+        :param use_true_agent_models_in_mcts: Whether to use opponent modelling inside of MCTS.
                                             During training: creates a NeuralNetServerHandler
                                             containing the policy for the other agent.
                                             Requires the other agent's model.
                                             During inference: uses opponent modelling head
                                             of self.apprentice.
+        :param use_learnt_opponent_models_in_mcts: Wether to learnt opponent models, by querying
+                                           the head of apprentice (nn.Module) which is
+                                           trained to model opponent actions
+                                           (key from prediction dictionary 'policy_0')
         :param action_dim: Shape of actions, use to generate placeholder values
         :param observation_dim: Shape of observations, use to generate placeholder values
         :param num_opponents: Number of opponents that will be playing in an environment
@@ -72,18 +77,14 @@ class ExpertIterationAgent(Agent):
         if self.use_cuda: self.apprentice = self.apprentice.cuda()
 
         #### Algorithmic variations ####
-        self.use_agent_modelling_in_mcts = use_agent_modelling_in_mcts
-        if self.use_agent_modelling_in_mcts:
+        self.use_true_agent_models_in_mcts = use_true_agent_models_in_mcts
+        self.use_learnt_opponent_models_in_mcts = use_learnt_opponent_models_in_mcts
+        if self.use_true_agent_models_in_mcts and (not self.use_learnt_opponent_models_in_mcts):
             # We will need to set up a server for other agent's models
             # Inside MCTS, we make the evaluation_fn point to the right
             # server (with the other agent's models) on opponent's nodes.
             self.requires_acess_to_other_agents = True
             self.expert.requires_acess_to_other_agents = True
-
-        self.use_apprentice_in_expert: bool = use_apprentice_in_expert  # If FALSE, this algorithm is equivalent to DAgger
-        if use_apprentice_in_expert:
-            self.multi_action_requires_server = True
-            self.embed_apprentice_in_expert()
 
         self.use_agent_modelling: bool = use_agent_modelling
         self.num_opponents: int = num_opponents
@@ -93,6 +94,12 @@ class ExpertIterationAgent(Agent):
             self.requires_opponents_prediction = True
             # Key used to extract opponent policy from extra_info in handle_experienco
             self.extra_info_key = 'probs'  # Allow for 'a' (opponent action) to be used at some point
+
+        # If FALSE, this algorithm is equivalent to DAgger
+        self.use_apprentice_in_expert: bool = use_apprentice_in_expert
+        if self.use_apprentice_in_expert:
+            self.multi_action_requires_server = True
+            self.embed_apprentice_in_expert()
         ####
 
         # Replay buffer style storage
@@ -119,18 +126,24 @@ class ExpertIterationAgent(Agent):
         '''
         TODO:
         '''
-        assert self.use_agent_modelling_in_mcts
+        assert self.use_true_agent_models_in_mcts
         self.expert.access_other_agents(other_agents_vector, task, num_envs)
 
     def embed_apprentice_in_expert(self):
         # Non-parallel environments
+        # TODO: code different variations of brexit for non-parallel envs
         self.expert.policy_fn = self.policy_fn
         self.expert.evaluation_fn = self.evaluation_fn
 
         # Parallel environments
-        if self.use_agent_modelling_in_mcts:
+        if self.use_true_agent_models_in_mcts:
+            # Query true opponent model from opponent NeuralNetServerHandler
             self.expert.server_based_policy_fn = \
                 self.__class__.opponent_aware_server_based_policy_fn
+        elif self.use_learnt_opponent_models_in_mcts:
+            # Query learnt opponent model from NeuralNetServerHandler
+            self.expert.server_based_policy_fn = \
+                self.__class__.learnt_opponent_model_aware_server_based_policy_fn
         else:
             self.expert.server_based_policy_fn = partial(
                 request_prediction_from_server,
@@ -281,14 +294,17 @@ class ExpertIterationAgent(Agent):
         raise NotImplementedError('Cloning ExpertIterationAgent not supported')
 
     def __repr__(self):
-        agent_stats = f'Agent modelling: {self.use_agent_modelling}\nUse apprentice in expert: {self.use_apprentice_in_expert}\n'
+        agent_stats = (f'Agent modelling: {self.use_agent_modelling}\n'
+                       f'Use apprentice in expert: {self.use_apprentice_in_expert}\n'
+                       f'Use agent mdelling in mcts: {self.use_true_agent_models_in_mcts}\n'
+                       f'Use learnt opponent models in mcts: {self.use_learnt_opponent_models_in_mcts}\n'
+                      )
         expert = f"Expert:\n{textwrap.indent(str(self.expert), '    ')}\n"
         algorithm = f"Algorithm:\n{textwrap.indent(str(self.algorithm), '    ')}"
         return agent_stats + expert + algorithm
 
     #####
-    # These two methods are a dirty hack!
-    # TODO: refactor these 3 functions into 1 function
+    # This is a dirty HACK but oh well...
     @staticmethod
     def opponent_aware_server_based_policy_fn(observation,
                                               legal_actions: List[int],
@@ -301,33 +317,17 @@ class ExpertIterationAgent(Agent):
         return request_prediction_from_server(
             observation, legal_actions, target_connection, key)
 
-    def multi_action_select_server_policy_and_evaluation_fns(self, num_envs) \
-            -> Tuple[List[Callable], List[Callable]]:
-        ''' TODO: explain logic behind server connections'''
-        # NOTE: is it bad that we are sharing connections between
-        # evaluation_fns and policy_fns? I guess not.
-
-        if self.use_agent_modelling_in_mcts:
-            assert self.expert.opponent_server_handler, 'There should be a server!'
-            policy_fns = [partial(
-                self.opponent_aware_server_based_policy_fn,
-                connection=self.expert.server_handler.client_connections[i],
-                opponent_connection=self.expert.opponent_server_handler.client_connections[i],
-                key='probs')
-                for i in range(num_envs)]
-        else:
-            policy_fns = [partial(
-                self.request_prediction_from_server,
-                connection=self.expert.server_handler.client_connections[i],
-                key='probs')
-                for i in range(num_envs)]
-
-        evaluation_fns = [partial(
-            self.request_prediction_from_server,
-            connection=self.expert.server_handler.client_connections[i],
-            key='V')  # Requests state value function prediction
-            for i in range(num_envs)]
-        return policy_fns, evaluation_fns
+    @staticmethod
+    def learnt_opponent_model_aware_server_based_policy_fn(observation,
+                                                           legal_actions: List[int],
+                                                           self_player_index: int,
+                                                           requested_player_index: int,
+                                                           connection: Connection) -> np.ndarray:
+        key = 'probs' if requested_player_index == self_player_index else 'policy_0'
+        return request_prediction_from_server(
+            observation, legal_actions, target_connection, key)
+    #
+    ####
 
 
 def choose_feature_extractor(task, config: Dict):
@@ -405,12 +405,22 @@ def check_parameter_validity(task: 'Task', config: Dict[str, Any]):
                                   '(one agent is this ExpertIterationAgent and the other '
                                   f'will be the opponent). Given task {task.name} '
                                   f'features {task.num_agents} agents.')
-
+    if (config.get('use_learnt_opponent_models_in_mcts', False) and
+        config.get('use_true_agent_models_in_mcts', False)):
+        raise ValueError("Both flags 'use_true_agent_models_in_mcts' and "
+                         "'use_learnt_opponent_models_in_mcts' were set, which "
+                         "is conflicting. One represents "
+                         "using true opponent models inside of MCTS, the other "
+                         "using learnt opponent models. Read build_ExpertIteration_Agent "
+                         "documentation for further info."
+                         )
 
 def build_ExpertIteration_Agent(task: 'Task',
                                 config: Dict[str, Any],
-                                agent_name: str) -> ExpertIterationAgent:
+                                agent_name: str = 'ExIt') -> ExpertIterationAgent:
     '''
+    TODO: Check all params to make sure they are up to date
+
     :param task: Environment specific configuration
     :param agent_name: String identifier for the agent
     :param config: Dict contain hyperparameters for the ExpertIterationAgent:
@@ -425,6 +435,10 @@ def build_ExpertIteration_Agent(task: 'Task',
                                       strategy in MCTS, otherwise UCB1 will be used
         - 'use_agent_modelling': (Bool) Wether to model other agent's actions
                                  as an axuliary task. As in DPIQN paper
+        - 'use_true_agent_models_in_mcts': (Bool) Wether to use true agent models
+                                           to compute priors for MCTS nodes.
+        - 'use_learnt_opponent_models_in_mcts': (Bool) Wether to use learnt agent models
+                                                to compute priors for MCTS nodes.
 
         MCTS params:
         - 'mcts_budget': (Int) Number of iterations of the MCTS loop that will be carried
@@ -482,7 +496,8 @@ def build_ExpertIteration_Agent(task: 'Task',
             apprentice=apprentice,
             use_apprentice_in_expert=config['use_apprentice_in_expert'],
             use_agent_modelling=config['use_agent_modelling'],
-            use_agent_modelling_in_mcts=config['use_agent_modelling_in_mcts'],
+            use_true_agent_models_in_mcts=config['use_true_agent_models_in_mcts'],
+            use_learnt_opponent_models_in_mcts=config['use_learnt_opponent_models_in_mcts'],
             action_dim=task.action_dim,
             observation_dim=task.observation_dim,
             num_opponents=(task.num_agents - 1),
