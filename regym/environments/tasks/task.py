@@ -69,6 +69,8 @@ class Task:
                                          # single integer. Required to use
                                          # tabular methods.
 
+    wrappers: List[gym.Wrapper] = field(default_factory=list)
+
     # Properties accessed post initializer
     extended_agents: Dict = field(default_factory=dict)
     total_episodes_run: int = 0
@@ -176,7 +178,7 @@ class Task:
 
         self.start_agent_servers(agent_vector, num_envs)
 
-        vector_env = RegymAsyncVectorEnv(self.name, num_envs)
+        vector_env = RegymAsyncVectorEnv(self.name, num_envs, self.wrappers)
         trajectories = self.parallel_generate_trajectories(
             vector_env,
             extended_agent_vector,
@@ -322,6 +324,7 @@ class Task:
         s = (f'Task: {self.name}\n'
              f'env: {self.env}\n'
              f'env_type: {self.env_type}\n'
+             f'Env wrappers: {self.wrappers}\n'
              f'num_agents: {self.num_agents}\n'
              f'Extended_agents: {self.extended_agents}\n'
              f'observation_dim: {self.observation_dim}\n'

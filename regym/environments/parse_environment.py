@@ -1,4 +1,5 @@
-from typing import Optional, Dict, List, Union
+import typing
+from typing import Optional, Dict, List
 from functools import reduce
 
 import gym
@@ -11,11 +12,11 @@ from .env_type import EnvType
 
 def generate_task(env_name: str,
                   env_type: EnvType = EnvType.SINGLE_AGENT,
-                  wrappers: Union[gym.Wrapper, List[gym.Wrapper]] = [],
-                  **kwargs: Optional[Dict]) -> Task:
+                  wrappers: List[gym.Wrapper] = [],
+                  **env_kwargs: Optional[Dict]) -> Task:
     '''
     Returns a regym.environments.Task by creating an environment derived from :param: env_name
-    optionally parameterized by :param: kwargs. The resulting Task extracts relevant information
+    optionally parameterized by :param: env_kwargs. The resulting Task extracts relevant information
     used for build regym.rl_algorithms.agents able to act in said Task.
     If :param: env_name matches a registered OpenAI Gym environment it will create it from there
     If :param: env_name points to a (platform specific) UnityEnvironment executable, it will generate a Unity environment
@@ -26,7 +27,7 @@ def generate_task(env_name: str,
                      and how are the environment processes these actions
                      (i.e all actions simultaneously, or sequentially)
     :param env_wrappers: Wrapper or list of gym Wrappers to modify the environment.
-    :param kwargs: Keyword arguments to be passed as parameters to the underlying environment.
+    :param env_kwargs: Keyword arguments to be passed as parameters to the underlying environment.
                    These will be applied first, and wrappers later
     :returns: Task created from :param: env_name
     '''
@@ -35,10 +36,10 @@ def generate_task(env_name: str,
     is_unity_environment = check_for_unity_executable(env_name)
     if is_gym_environment and is_unity_environment: raise ValueError(f'{env_name} exists as both a Gym and an Unity environment. Rename Unity environment to remove duplicate problem.')
     if is_gym_environment:
-        initial_env = gym.make(env_name, **kwargs)
+        initial_env = gym.make(env_name, **env_kwargs)
         wrapped_environment = reduce(lambda env, wrapper: wrapper(env), wrappers, initial_env)
-        return parse_gym_environment(wrapped_environment, env_type)
-    if is_unity_environment: return parse_unity_environment(env_name, env_type, kwargs)
+        return parse_gym_environment(wrapped_environment, env_type, wrappers)
+    if is_unity_environment: return parse_unity_environment(env_name, env_type, env_kwargs)
     else: raise ValueError(f'Environment \'{env_name}\' was not recognized as either a Gym nor a Unity environment')
 
 

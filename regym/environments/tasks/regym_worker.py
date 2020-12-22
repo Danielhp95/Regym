@@ -30,6 +30,8 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
         :param num_envs: Number of parallel environments to run.
         '''
         self.name = env_name
+        self.wrappers = wrappers
+
         if num_envs == -1: num_envs = cpu_count()
         worker = _regym_worker_shared_memory
         env_fns = [self._make_env_fn(env_name, wrappers) for _ in range(num_envs)]
@@ -72,6 +74,9 @@ class RegymAsyncVectorEnv(AsyncVectorEnv):
             wrapped_env = reduce(lambda env, wrapper: wrapper(env), wrappers, env)
             return wrapped_env
         return _make_env_from_name
+
+    def __repr__(self):
+        return f'RegymAsyncVectorEnv(Num envs: {self.num_envs}. Env name: {self.name}. Wrappers: {self.wrappers})'
 
 
 def _regym_worker_shared_memory(index: int, env_fn: Callable[[], gym.Env],

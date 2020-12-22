@@ -1,5 +1,5 @@
 import typing
-from typing import Any
+from typing import Any, List
 import itertools
 
 import numpy as np
@@ -11,7 +11,8 @@ from .tasks import Task
 from .env_type import EnvType
 
 
-def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
+def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT,
+                          wrappers: List[gym.Wrapper] = []) -> Task:
     '''
     Generates a regym.environments.Task by extracting information from the
     already built :param: env.
@@ -48,7 +49,9 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
                 action_size=action_size,
                 action_type=action_type,
                 num_agents=num_agents,
-                hash_function=hash_function)
+                hash_function=hash_function,
+                wrappers=wrappers
+                )
 
 
 # TODO: box environments are considered continuous.
