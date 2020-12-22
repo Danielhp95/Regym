@@ -26,3 +26,25 @@ def batch_vector_observation(x: List[Union[np.ndarray, List]],
     return torch.stack([
         torch.from_numpy(x_i.astype(type)) if isinstance(x_i, np.ndarray) else torch.tensor(x_i)
         for x_i in x]).type(torch.FloatTensor)
+
+
+def flatten_last_dim_and_batch_vector_observation(x: List[Union[np.ndarray, List]],
+                                                  type: str = 'float64') \
+                                                  -> torch.Tensor:
+    r'''
+    First, it batches a vector observation as in `batch_vector_observation` fn above
+    Second, it flattens the first (non batch) dimension of tensor into the
+    second (non batch) dimension such that if :param: x is of shape
+    (n, m, p), the resulting tensor will be of shape (n \times m, p).
+
+    :param x: Input to be processed into a tensor
+    :param type: np.dtype that will be used to internally cast :param x:.
+                 NOTE: output tensor will be of type torch.FloatTensor.
+    :returns: FloatTensor processed as explained above.
+    '''
+    batched_tensor = batch_vector_observation(x, type=type)
+    # Dimensions: [batch dim, dim 1, dim 2]
+    if len(batched_tensor.shape) < 3:
+        raise ValueError('Input tensor must have at least 2 dimensions '
+                         'besides batch dimension')
+    return batched_tensor.flatten(start_dim=1, end_dim=2)
