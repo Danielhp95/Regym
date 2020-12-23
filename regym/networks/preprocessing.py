@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Callable
 
 import numpy as np
 import torch
@@ -48,3 +48,22 @@ def flatten_last_dim_and_batch_vector_observation(x: List[Union[np.ndarray, List
         raise ValueError('Input tensor must have at least 2 dimensions '
                          'besides batch dimension')
     return batched_tensor.flatten(start_dim=1, end_dim=2)
+
+
+def parse_preprocessing_fn(fn_name: str) -> Callable:
+    '''
+    Parses :param: fn_name to see if there is a preprocessing function
+    with the same name. Useful when one wants to define a preprocessing
+    function in a config file
+    '''
+    if fn_name == 'turn_into_single_element_batch':
+        return turn_into_single_element_batch
+    if fn_name == 'flatten_and_turn_into_batch':
+        return flatten_and_turn_into_batch
+    if fn_name == 'batch_vector_observation':
+        return batch_vector_observation
+    if fn_name == 'flatten_last_dim_and_batch_vector_observation':
+        return flatten_last_dim_and_batch_vector_observation
+    else:
+        raise ValueError('Couldd not parse preprocessing function '
+                         f'from name {fn_name}')

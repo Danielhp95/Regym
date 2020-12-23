@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Callable, Union, Tuple
+from typing import List, Dict, Any, Callable, Union, Tuple, Optional
 from multiprocessing.connection import Connection
 from functools import partial
 import multiprocessing
@@ -12,7 +12,9 @@ import torch.nn as nn
 from regym.rl_algorithms.replay_buffers import Storage
 
 from regym.networks import Convolutional2DBody, FCBody, CategoricalActorCriticNet, SequentialBody, PolicyInferenceActorCriticNet
-from regym.networks.preprocessing import turn_into_single_element_batch
+from regym.networks.preprocessing import (turn_into_single_element_batch,
+                                          batch_vector_observation,
+                                          parse_preprocessing_fn)
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 
@@ -34,6 +36,8 @@ class ExpertIterationAgent(Agent):
                  action_dim: int,
                  observation_dim: Tuple[int],
                  num_opponents: int,
+                 state_preprocess_fn: Optional[Callable],
+                 server_state_preprocess_fn: Optional[Callable],
                  use_cuda: bool):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
@@ -65,6 +69,10 @@ class ExpertIterationAgent(Agent):
         :param action_dim: Shape of actions, use to generate placeholder values
         :param observation_dim: Shape of observations, use to generate placeholder values
         :param num_opponents: Number of opponents that will be playing in an environment
+        :param state_preprocess_fn: Function to pre-process observations before they
+                                    are fed into the apprentice (an nn.Module)
+        :param server_state_preprocess_fn: Same as :param: state_preprocess_fn, but this fn
+                                           will be given to underlying NeuralNetServer
         :param use_cuda: Whether to load neural net to a cuda device for action predictions
         '''
         super().__init__(name=name, requires_environment_model=True)
@@ -110,7 +118,15 @@ class ExpertIterationAgent(Agent):
         # Mapping from env_id to trajectory storage
         self.storages: Dict[int, Storage] = {}
 
-        self.state_preprocess_fn: Callable = turn_into_single_element_batch
+        # Set state preprocessing functions
+        if state_preprocess_fn:
+            self.state_preprocess_fn: Callable = state_preprocess_fn
+        else:
+            self.state_preprocess_fn: Callable = turn_into_single_element_batch
+        if server_state_preprocess_fn:
+            self.server_state_preprocess_fn: Callable = server_state_preprocess_fn
+        else:
+            self.server_state_preprocess_fn: Callable = batch_vector_observation
 
     @Agent.num_actors.setter
     def num_actors(self, n):
@@ -275,7 +291,10 @@ class ExpertIterationAgent(Agent):
         ''' Explain that this is needed because different MCTS experts need to send requests '''
         if num_connections == -1: num_connections = multiprocessing.cpu_count()
         self.expert.server_handler = NeuralNetServerHandler(
-            num_connections=num_connections, net=self.apprentice)
+            num_connections=num_connections,
+            net=self.apprentice,
+            pre_processing_fn=self.server_state_preprocess_fn
+        )
 
     def close_server(self):
         self.expert.close_server()
@@ -298,6 +317,7 @@ class ExpertIterationAgent(Agent):
                        f'Use apprentice in expert: {self.use_apprentice_in_expert}\n'
                        f'Use agent mdelling in mcts: {self.use_true_agent_models_in_mcts}\n'
                        f'Use learnt opponent models in mcts: {self.use_learnt_opponent_models_in_mcts}\n'
+                       f'State processing fn: {self.state_preprocess_fn}\n'
                       )
         expert = f"Expert:\n{textwrap.indent(str(self.expert), '    ')}\n"
         algorithm = f"Algorithm:\n{textwrap.indent(str(self.algorithm), '    ')}"
@@ -415,6 +435,19 @@ def check_parameter_validity(task: 'Task', config: Dict[str, Any]):
                          "documentation for further info."
                          )
 
+
+def generate_preprocessing_functions(config) -> Tuple[Callable, Callable]:
+    if 'state_preprocessing_fn' in config:
+        state_preprocess_fn = parse_preprocessing_fn(
+            config['state_preprocessing_fn'])
+    else: state_preprocess_fn = None
+    if 'server_state_preprocessing_fn' in config:
+        server_state_preprocess_fn = parse_preprocessing_fn(
+            config['server_state_preprocessing_fn'])
+    else: server_state_preprocess_fn = None
+    return state_preprocess_fn, server_state_preprocess_fn
+
+
 def build_ExpertIteration_Agent(task: 'Task',
                                 config: Dict[str, Any],
                                 agent_name: str = 'ExIt') -> ExpertIterationAgent:
@@ -475,6 +508,9 @@ def build_ExpertIteration_Agent(task: 'Task',
     apprentice = build_apprentice_model(task, config)
     expert = build_expert(task, config, expert_name=f'Expert:{agent_name}')
 
+    (state_preprocess_fn, server_state_preprocess_fn) = \
+        generate_preprocessing_functions(config)
+
     algorithm = ExpertIterationAlgorithm(
             model_to_train=apprentice,
             batch_size=config['batch_size'],
@@ -501,5 +537,7 @@ def build_ExpertIteration_Agent(task: 'Task',
             action_dim=task.action_dim,
             observation_dim=task.observation_dim,
             num_opponents=(task.num_agents - 1),
+            state_preprocess_fn=state_preprocess_fn,
+            server_state_preprocess_fn=server_state_preprocess_fn,
             use_cuda=config.get('use_cuda', False)
     )
