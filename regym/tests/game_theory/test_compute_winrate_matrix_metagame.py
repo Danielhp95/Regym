@@ -169,38 +169,40 @@ def test_can_compute_evolution_of_relative_population_performance(RPSTask):
                                actual_evolution_rel_pop_perf, atol=0.05)
 
 
-def test_compute_evolution_of_relative_population_performance_is_faster_in_parallel(Connect4Task):
-    import torch
-    from time import time
-    from regym.networks.preprocessing import batch_vector_observation
-    from copy import deepcopy
-
-    agent_1 = torch.load('./1024_iterations.pt')
-    agent_2 = torch.load('./11264_iterations.pt')
-
-    population_1 = [agent_1, deepcopy(agent_1), deepcopy(agent_1)]
-    population_2 = [agent_2, deepcopy(agent_2), deepcopy(agent_2)]
-
-    start_time_1 = time()
-    evolution_relative_population_performance(
-        population_1=population_1, population_2=population_2,
-        task=Connect4Task, episodes_per_matchup=500,
-        num_envs=1)
-    end_time_1 = time() - start_time_1
-
-    print('Sequential matches time', end_time_1)
-
-    for agent in population_1:
-        agent.state_preprocessing = batch_vector_observation
-    for agent in population_2:
-        agent.state_preprocessing = batch_vector_observation
-
-    start_time_2 = time()
-    evolution_relative_population_performance(
-        population_1=population_1, population_2=population_2,
-        task=Connect4Task, episodes_per_matchup=40,
-        num_envs=-1)
-    end_time_2 = time() - start_time_2
-
-    print('Concurrent matches time', end_time_2)
-    print('Speedup factor', end_time_1 / end_time_2)
+# This test loads old agents, which are lacking in Agent specific attributes (like keys_to_not_pickle)
+# and thus break and cannot be used in this test.
+#def test_compute_evolution_of_relative_population_performance_is_faster_in_parallel(Connect4Task):
+#    import torch
+#    from time import time
+#    from regym.networks.preprocessing import batch_vector_observation
+#    from copy import deepcopy
+#
+#    agent_1 = torch.load('./1024_iterations.pt')
+#    agent_2 = torch.load('./11264_iterations.pt')
+#
+#    population_1 = [agent_1, deepcopy(agent_1), deepcopy(agent_1)]
+#    population_2 = [agent_2, deepcopy(agent_2), deepcopy(agent_2)]
+#
+#    start_time_1 = time()
+#    evolution_relative_population_performance(
+#        population_1=population_1, population_2=population_2,
+#        task=Connect4Task, episodes_per_matchup=500,
+#        num_envs=1)
+#    end_time_1 = time() - start_time_1
+#
+#    print('Sequential matches time', end_time_1)
+#
+#    for agent in population_1:
+#        agent.state_preprocessing = batch_vector_observation
+#    for agent in population_2:
+#        agent.state_preprocessing = batch_vector_observation
+#
+#    start_time_2 = time()
+#    evolution_relative_population_performance(
+#        population_1=population_1, population_2=population_2,
+#        task=Connect4Task, episodes_per_matchup=40,
+#        num_envs=-1)
+#    end_time_2 = time() - start_time_2
+#
+#    print('Concurrent matches time', end_time_2)
+#    print('Speedup factor', end_time_1 / end_time_2)
