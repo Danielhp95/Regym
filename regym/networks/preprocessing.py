@@ -50,6 +50,19 @@ def flatten_last_dim_and_batch_vector_observation(x: List[Union[np.ndarray, List
     return batched_tensor.flatten(start_dim=1, end_dim=2)
 
 
+def keep_last_stack_and_batch_vector_observation(x: List[Union[np.ndarray, List]]) \
+                                                                 -> torch.Tensor:
+    '''
+    Useful to use agents on environments with framestack when these agents were trained
+    without framestack
+    '''
+    batched_tensor = batch_vector_observation(x)
+    num_stacks = batched_tensor.shape[1]
+    tensor_with_only_one_stack = batched_tensor[:, -1]
+    # Dim 0 -> batch dimension. Dim 1 -> stack dimension. Dim 2.. -> obs dimension
+    return tensor_with_only_one_stack.squeeze(dim=1)
+
+
 def parse_preprocessing_fn(fn_name: str) -> Callable:
     '''
     Parses :param: fn_name to see if there is a preprocessing function
@@ -64,6 +77,8 @@ def parse_preprocessing_fn(fn_name: str) -> Callable:
         return batch_vector_observation
     if fn_name == 'flatten_last_dim_and_batch_vector_observation':
         return flatten_last_dim_and_batch_vector_observation
+    if fn_name == 'keep_last_stack_and_batch_vector_observation':
+        return keep_last_stack_and_batch_vector_observation
     else:
         raise ValueError('Couldd not parse preprocessing function '
                          f'from name {fn_name}')
