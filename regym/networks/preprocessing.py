@@ -1,4 +1,4 @@
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Any
 
 import numpy as np
 import torch
@@ -8,6 +8,10 @@ def turn_into_single_element_batch(x: np.ndarray, use_cuda=False) -> torch.Tenso
     tensor = torch.Tensor(x).unsqueeze(0).type(torch.FloatTensor)
     if use_cuda: tensor = tensor.cuda()
     return tensor
+
+
+def turn_into_single_element_batch_and_flatten_last_dim(x) -> torch.Tensor:
+    return torch.FloatTensor(x).unsqueeze(0).flatten(start_dim=1, end_dim=2)
 
 
 def flatten_and_turn_into_single_element_batch(x: np.ndarray,
@@ -63,7 +67,7 @@ def keep_last_stack_and_batch_vector_observation(x: List[Union[np.ndarray, List]
     return tensor_with_only_one_stack.squeeze(dim=1)
 
 
-def parse_preprocessing_fn(fn_name: str) -> Callable:
+def parse_preprocessing_fn(fn_name: str) -> Callable[[Any], torch.Tensor]:
     '''
     Parses :param: fn_name to see if there is a preprocessing function
     with the same name. Useful when one wants to define a preprocessing
@@ -79,6 +83,8 @@ def parse_preprocessing_fn(fn_name: str) -> Callable:
         return flatten_last_dim_and_batch_vector_observation
     if fn_name == 'keep_last_stack_and_batch_vector_observation':
         return keep_last_stack_and_batch_vector_observation
+    if fn_name == 'turn_into_single_element_batch_and_flatten_last_dim':
+        return turn_into_single_element_batch_and_flatten_last_dim
     else:
         raise ValueError('Couldd not parse preprocessing function '
                          f'from name {fn_name}')
