@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, Callable
 from abc import ABC, abstractmethod
 
 import gym
@@ -98,11 +98,12 @@ class Agent(ABC):
         '''
         self.requires_acess_to_other_agents: bool = False
 
+        self._state_preprocessing_fn = self.identity_fn
+
         # Keys from self.__dict__ that will be ignored when pickling
         # an agent. Each agent subclass can incorporate new keys.
         # Read into object.__getstate__ for more info!
         self.keys_to_not_pickle = ['server_handler', '_summary_writer']
-
 
     @property
     def num_actors(self) -> int:
@@ -111,20 +112,6 @@ class Agent(ABC):
         (i.e on how many environments it is acting)
         '''
         return self._num_actors
-
-    @property
-    def summary_writer(self) -> torch.utils.tensorboard.SummaryWriter:
-        '''
-        torch.util.tensorboard.SummaryWritter. Super useful for logging
-        anything from performance (like loss computation) or timing (time that
-        it takes per training call)
-        '''
-        return self._summary_writer
-
-
-    @summary_writer.setter
-    def summary_writer(self, summary_writer: torch.utils.tensorboard.SummaryWriter):
-        self._summary_writer = summary_writer
 
     @num_actors.setter
     def num_actors(self, n: int):
@@ -137,6 +124,31 @@ class Agent(ABC):
         - DQN only needs a single experience replay, regardless of `num_actors`
         '''
         self._num_actors = n
+
+    @property
+    def summary_writer(self) -> torch.utils.tensorboard.SummaryWriter:
+        '''
+        torch.util.tensorboard.SummaryWritter. Super useful for logging
+        anything from performance (like loss computation) or timing (time that
+        it takes per training call)
+        '''
+        return self._summary_writer
+
+    @summary_writer.setter
+    def summary_writer(self, summary_writer: torch.utils.tensorboard.SummaryWriter):
+        self._summary_writer = summary_writer
+
+    @property
+    def state_preprocess_fn(self) -> Callable[[Any], torch.Tensor]:
+        return self._state_preprocessing_fn
+
+    # Reasonable default for state_preprocess_fn. We would use lambda x: x,
+    # but Pickle isn't a big friend of lambda functions
+    def identity_fn(self, x): return torch.tensor(x)
+
+    @state_preprocess_fn.setter
+    def state_preprocess_fn(self, state_preprocess_fn: Callable):
+        self._state_preprocessing_fn = state_preprocess_fn
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 legal_actions: Union[List[int], List[List[int]]],

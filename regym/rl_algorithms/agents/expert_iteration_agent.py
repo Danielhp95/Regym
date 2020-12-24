@@ -293,7 +293,7 @@ class ExpertIterationAgent(Agent):
         self.expert.server_handler = NeuralNetServerHandler(
             num_connections=num_connections,
             net=self.apprentice,
-            pre_processing_fn=self.server_state_preprocess_fn
+            preprocess_fn=self.server_state_preprocess_fn
         )
 
     def close_server(self):

@@ -93,7 +93,9 @@ class MCTSAgent(Agent):
         other_agent_model = other_agent.neural_net
         self.opponent_server_handler = NeuralNetServerHandler(
             num_connections=num_envs,
-            net=other_agent_model)
+            net=other_agent_model,
+            preprocess_fn=other_agent.state_preprocess_fn
+        )
 
     def random_selection_policy(self,
                                 obs,

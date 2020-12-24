@@ -6,21 +6,22 @@ import torch
 import torch.nn as nn
 
 from regym.rl_algorithms.agents import Agent
+from regym.networks.preprocessing import parse_preprocessing_fn
 
 
 class NeuralNetAgent(Agent):
 
     def __init__(self, neural_net: Optional[nn.Module],
-                 pre_processing_fn: Optional[Callable[[Any, List[int]], Any]],
+                 state_preprocess_fn: Optional[Callable[[Any, List[int]], Any]],
                  name: str):
         super().__init__(name=name)
         self.neural_net = neural_net
-        self.pre_processing_fn = pre_processing_fn
+        self.state_preprocess_fn = state_preprocess_fn
 
     @torch.no_grad()
     def model_free_take_action(self, observation,
                                legal_actions: List[int], multi_action: bool = False):
-        observation = self.pre_processing_fn(observation)
+        observation = self.state_preprocess_fn(observation)
         self.current_prediction = self.neural_net(observation, legal_actions=legal_actions)
 
         action = self.current_prediction['a']
@@ -40,8 +41,18 @@ class NeuralNetAgent(Agent):
         return f'NeuralNetAgent: {self.name}\nModel:{self.neural_net}'
 
     def clone(self):
-        return NeuralNetAgent(self.neural_net, self.pre_processing_fn,
+        return NeuralNetAgent(self.neural_net, self.state_preprocess_fn,
                               self.name)
+
+
+def generate_preprocessing_function(state_preprocess_fn: Union[Callable, str]) \
+                                    -> Callable:
+    if isinstance(state_preprocess_fn, Callable): return state_preprocess_fn
+    elif isinstance(state_preprocess_fn, str):
+        return parse_preprocessing_fn(state_preprocess_fn)
+    else: raise ValueError('Pre_processing fn should be either a Callable or a '
+                           'string which can be internally parsed into a callable '
+                           f"Instead {state_preprocess_fn} was given.")
 
 
 def build_NeuralNet_Agent(task, config: Dict[str, Any],
@@ -53,21 +64,21 @@ def build_NeuralNet_Agent(task, config: Dict[str, Any],
     :param config:
         - 'neural_net': (torch.nn.Module) representing the policy for this agent
                         the neural_net will be deepcopied.
-        - 'pre_processing_fn': (Callable) function used to format environment
+        - 'state_preprocess_fn': (Callable) function used to format environment
                                observations into something usable by the
                                neural net
     :param agent_name: String identifier
     '''
     check_input_validity(config)
     neural_net = deepcopy(config['neural_net'])
-    pre_processing_fn = config['pre_processing_fn']
-    return NeuralNetAgent(neural_net, pre_processing_fn, agent_name)
+    state_preprocess_fn = generate_preprocessing_function(config['state_preprocess_fn'])
+    return NeuralNetAgent(neural_net, state_preprocess_fn, agent_name)
 
 
 def check_input_validity(config):
     '''
     TODO:
         - check neural net (1) exists (2) it is of the right type (nn.module)
-        - Check pre_processing_fn is callable
+        - Check state_preprocess_fn is callable
     '''
     pass

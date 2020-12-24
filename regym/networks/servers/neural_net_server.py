@@ -61,19 +61,17 @@ class NeuralNetServerHandler:
 
     def __init__(self, num_connections: int,
                  net: torch.nn.Module,
-                 pre_processing_fn: Callable = batch_vector_observation,
+                 preprocess_fn: Callable = batch_vector_observation,
                  device: str = 'cpu',
                  max_requests: float = math.inf,
                  name: Optional[str] = None):
-
-
         '''
         NOTE: net will be deepcopied
 
         :param num_connections: Number of multiprocessing.Pipe objects to be
                                 created.
         :param net: Neural network that will process incoming tensors
-        :param pre_processing_fn: Function that will be ued on incoming tensors,
+        :param preprocess_fn: Function that will be ued on incoming tensors,
                                   its output will be fed onto :param: net.
         :param device: Device where :param: net will be mounted unto.
         :param max_requests: Maximum number of requests handled by the server.
@@ -81,7 +79,7 @@ class NeuralNetServerHandler:
         '''
         self.num_connections = num_connections
         self.device = device
-        self.pre_processing_fn = pre_processing_fn
+        self.preprocess_fn = preprocess_fn
         self.net_representation = str(net)
         self.max_requests = max_requests
 
@@ -111,7 +109,7 @@ class NeuralNetServerHandler:
                    target=neural_net_server,
                    kwargs={'net': deepcopy(self.net),
                        'connections': self.server_connections,
-                       'pre_processing_fn': self.pre_processing_fn,
+                       'preprocess_fn': self.preprocess_fn,
                        'device': self.device,
                        'max_requests': self.max_requests}
                        ,
@@ -138,7 +136,7 @@ class NeuralNetServerHandler:
         server_info = (f"NeuralNetServer name: {self.name}\n"
                        f"Connections: {self.num_connections}\n"
                        f"Device: {self.device}\n"
-                       f"prepocessing_fn: {self.pre_processing_fn}\n"
+                       f"prepocess_fn: {self.preprocess_fn}\n"
                        f"\tNum updates: {self.num_updates}")
         net_str = f"{textwrap.indent(self.net_representation, '    ')}"
         return server_info + "\n" + net_str
@@ -146,7 +144,7 @@ class NeuralNetServerHandler:
 
 def neural_net_server(net: torch.nn.Module,
                       connections: List[multiprocessing.Pipe],
-                      pre_processing_fn: Callable = batch_vector_observation,
+                      preprocess_fn: Callable = batch_vector_observation,
                       device: str = 'cpu',
                       max_requests: float = math.inf):
     """
@@ -154,7 +152,7 @@ def neural_net_server(net: torch.nn.Module,
     for observations (inputs) to be fed to torch.nn.Module :param: net.
     The neural net will be loaded onto :param: device (i.e, cpu, gpu:0).
     The :param: connections are polled for incoming observations, and
-    together as a list they are processed via :param: pre_processing_fn.
+    together as a list they are processed via :param: preprocess_fn.
 
     ASSUMPTION: Requests want individual observations, never batches.
 
@@ -163,7 +161,7 @@ def neural_net_server(net: torch.nn.Module,
     Currently this server DOES NOT handle other input gracefully.
 
     :param net: Neural network that will process incoming tensors
-    :param pre_processing_fn: Function that will be ued on incoming tensors,
+    :param preprocess_fn: Function that will be ued on incoming tensors,
                               its output will be fed onto :param: net.
     :param connections: List of multiprocessing.Pipes from where input to
                         :param: net will come from. Results from :param: net
@@ -182,11 +180,9 @@ def neural_net_server(net: torch.nn.Module,
         connections_to_serve) = _poll_connections(connections, poll_funcs)
         if connections_to_serve:
             processed_requests += len(observations)
-            pre_processed_obs = pre_processing_fn(observations).to(device)
-            prediction = net(pre_processed_obs.to(device), legal_actions=legal_actions)
-
+            preprocessed_obs = preprocess_fn(observations)
+            prediction = net(preprocessed_obs.to(device), legal_actions=legal_actions)
             responses = _generate_responses(len(connections_to_serve), prediction)
-
             _send_responses(connections_to_serve, responses)
 
 
