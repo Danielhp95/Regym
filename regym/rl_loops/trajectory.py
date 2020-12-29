@@ -110,6 +110,21 @@ class Trajectory:
                 remaining_skips -= 1
         raise ValueError(f'Could not find a timestep (with {skip} skips) steps back where agent ({agent_i}) acts')
 
+    @property
+    def observations(self) -> List:
+        return [t.observation for t in self._timesteps]
+
+    @property
+    def actions(self) -> List:
+        return [t.action for t in self._timesteps]
+
+    @property
+    def rewards(self) -> List:
+        return [t.reward for t in self._timesteps]
+
+    @property
+    def succ_observations(self) -> List:
+        return [t.succ_observation for t in self._timesteps]
 
     def __getitem__(self, n) -> Union[Timestep, List[Timestep]]:
         return self._timesteps[n]

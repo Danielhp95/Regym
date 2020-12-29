@@ -193,7 +193,6 @@ class ExpertIterationAgent(Agent):
             expert_child_visitations = extra_info['self']['child_visitations']  # self.current_prediction['child_visitations'][pred_index]
             self._handle_experience(o, a, r, succ_o, done, extra_info,
                                     self.storages[e_i], expert_child_visitations)
-            if done: del self.storages[e_i]
 
     def _handle_experience(self, o, a, r, succ_s, done: bool,
                            extra_info: Dict[int, Dict[str, Any]],

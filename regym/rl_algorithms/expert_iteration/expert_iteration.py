@@ -92,8 +92,7 @@ class ExpertIterationAlgorithm():
         self.episodes_collected_since_last_train = 0
         self.generation += 1
 
-        self.update_storage(self.memory, self.memory.size,
-                            keys=['s', 'V', 'normalized_child_visitations'])
+        self.update_storage(self.memory, self.memory.size)
 
         s, v, mcts_pi, opponent_s, opponent_policy = self.preprocess_memory(
             self.memory)
@@ -110,6 +109,7 @@ class ExpertIterationAlgorithm():
             indices=np.arange(dataset_size),
             batch_size=self.batch_size,
             num_epochs=self.num_epochs_per_iteration)
+
         if self.summary_writer:
             self.summary_writer.add_scalar('Timing/Generation_update', time() - start_time,
                                            self.generation)
@@ -167,7 +167,7 @@ class ExpertIterationAlgorithm():
                 loss.backward()
                 self.optimizer.step()
 
-    def update_storage(self, dataset, max_memory, keys):
+    def update_storage(self, dataset, max_memory):
         self.update_storage_size(dataset)
         # TODO: Remove duplicates when implemented correctly
         self.curate_dataset(dataset, dataset.size)
@@ -213,7 +213,6 @@ class ExpertIterationAlgorithm():
         ASSUMPTION: ALL "keys" have the same number of datapoints
         '''
         oversize = len(dataset.s) - dataset.size
-        import ipdb; ipdb.set_trace()
         if oversize > 0:
             for k in dataset.non_empty_keys(): del getattr(dataset, k)[:oversize]
         assert len(dataset.s) <= max_memory
