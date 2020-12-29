@@ -57,7 +57,7 @@ class Storage:
         for k in self.keys:
             if i < len(self.get(k)): self.get(k).pop(i)
 
-    def remove_duplicates(self, target_key: str, avg_keys: List[str] = []):
+    def remove_duplicates(self, target_key: str, avg_keys: List[str] = []) -> int:
         '''
         Removes duplicate of :param: target_key.
         If keys are present in :param: avg_keys, the average of the values
@@ -74,12 +74,11 @@ class Storage:
             duplicate_indices = self.find_duplicates(x, target_key, i)
             if len(duplicate_indices) > 0:
                 total_duplicates += len(duplicate_indices)
-                #print(f'{len(duplicate_indices)} duplicates found at index {i}')
                 if avg_keys != []:
                     k_avg = self.compute_average_over_keys([i] + duplicate_indices, avg_keys)
                     for k in avg_keys: self.get(k)[i] = k_avg[k]
                 for j in sorted(duplicate_indices, reverse=True): self.remove(j)
-        #print(size, total_duplicates, total_duplicates / size)
+        return total_duplicates
 
 
     def find_duplicates(self, x, target_key, start_index: int = -1):

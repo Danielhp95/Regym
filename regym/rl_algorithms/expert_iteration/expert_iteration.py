@@ -169,21 +169,35 @@ class ExpertIterationAlgorithm():
 
     def update_storage(self, dataset, max_memory, keys):
         self.update_storage_size(dataset)
-        keys_to_average_over = ['normalized_child_visitations', 'V']
+        # TODO: Remove duplicates when implemented correctly
+        self.curate_dataset(dataset, dataset.size)
 
-        opponent_modelling_keys = ['opponent_policy', 'opponent_s']
+    def remove_duplicates_from_dataset(self, dataset: Storage) -> int:
+        '''
+        TODO: no longer using this function
+
+        As remove_duplicates for, say,
+        key 's' would also remove the value for all keys at the indices where
+        's' was duplicated. This was OK previously when only cared for
+        's', 'normalized_child_visitations' and 'V', but this is unacceptable
+        when we also have independent keys like 'opponent_s' and 'opponent_policy'.
+        '''
+        exit_keys_to_average_over = ['normalized_child_visitations', 'V']
+        opponent_modelling_keys_to_average_over = ['opponent_policy']
+        duplicates = 0
 
         # Will there be an issue if we try to average over 'opponent_policy' when there are NaNs?
-        dataset.remove_duplicates(
+        # This remove_duplicates call is destroying valuable  datapoints
+        duplicates += dataset.remove_duplicates(
             target_key='s',
-            avg_keys=keys_to_average_over + (opponent_modelling_keys if self.use_agent_modelling else [])
+            avg_keys=exit_keys_to_average_over
         )
-
-        self.curate_dataset(
-            dataset,
-            dataset.size,
-            keys=['s', 'V', 'normalized_child_visitations'] + (opponent_modelling_keys if self.use_agent_modelling else [])
-        )
+        if self.use_agent_modelling:
+            duplicates += dataset.remove_duplicates(
+                target_key='opponent_s',
+                avg_keys=opponent_modelling_keys_to_average_over
+            )
+        return duplicates
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''
@@ -191,8 +205,7 @@ class ExpertIterationAlgorithm():
                 and dataset.size < self.end_memory_size:
             dataset.size += self.initial_memory_size
 
-    def curate_dataset(self, dataset: Storage, max_memory: int,
-                       keys: List[str]):
+    def curate_dataset(self, dataset: Storage, max_memory: int):
         '''
         Removes old experiences from :param: dataset so that it keeps at most
         :param: max_memory datapoints in it.
@@ -200,9 +213,12 @@ class ExpertIterationAlgorithm():
         ASSUMPTION: ALL "keys" have the same number of datapoints
         '''
         oversize = len(dataset.s) - dataset.size
+        import ipdb; ipdb.set_trace()
         if oversize > 0:
-            for k in keys: del getattr(dataset, k)[:oversize]
+            for k in dataset.non_empty_keys(): del getattr(dataset, k)[:oversize]
         assert len(dataset.s) <= max_memory
+        if self.summary_writer: self.summary_writer.add_scalar(
+            'Training/Memory_oversize_at_generation', oversize, self.generation)
 
     def __getstate__(self):
         '''
