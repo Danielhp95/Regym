@@ -137,7 +137,8 @@ def expert_iteration_config_dict():
     config['games_per_iteration'] = 2
     # Dataset params
     config['initial_memory_size'] = 3
-    config['memory_size_increase_frequency'] = 1
+    config['increase_memory_every_n_generations'] = 1
+    config['increase_memory_size_by'] = 10
     config['end_memory_size'] = 9
     # MCTS config
     config['mcts_budget'] = 20

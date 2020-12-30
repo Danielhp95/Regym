@@ -20,7 +20,8 @@ class ExpertIterationAlgorithm():
                  learning_rate: float,
                  model_to_train: nn.Module,
                  initial_memory_size: int,
-                 memory_size_increase_frequency: int,
+                 increase_memory_every_n_generations: int,
+                 increase_memory_size_by: int,
                  end_memory_size: int,
                  use_agent_modelling: bool,
                  num_opponents: int,
@@ -34,8 +35,12 @@ class ExpertIterationAlgorithm():
         :param learning_rate: learning rate for the optimizer
         :param model_to_train: Model whose parameters will be updated
         :param initial_memory_size: Initial maxium memory size
-        :param memory_size_increase_frequency: Number of generations to elapse
+        :param increase_memory_every_n_generations: Number of generations to elapse
                                                before increasing dataset size.
+        :param increase_memory_size_by: Number of datapoints to increase the size
+                                        of the algorithm's dataset everytime the dataset's
+                                        size grows, as dictated by
+                                        :param: increase_memory_every_n_generations
         :param end_memory_size: Maximum memory size
         :param use_agent_modelling: Flag to control whether to add a loss of
                                     from modelling opponent actions during training
@@ -48,7 +53,7 @@ class ExpertIterationAlgorithm():
         self.use_cuda = use_cuda
 
         # Init dataset
-        self.memory = Storage(size=initial_memory_size)
+        self.memory: Storage = Storage(size=initial_memory_size)
         self.memory.add_key('normalized_child_visitations')
 
         self.use_agent_modelling = use_agent_modelling
@@ -59,8 +64,9 @@ class ExpertIterationAlgorithm():
             self.memory.add_key('opponent_s')
 
         self.initial_memory_size = initial_memory_size
-        self.memory_size_increase_frequency = memory_size_increase_frequency
         self.end_memory_size = end_memory_size
+        self.increase_memory_every_n_generations = increase_memory_every_n_generations
+        self.increase_memory_size_by = increase_memory_size_by
 
         self.num_epochs_per_iteration = num_epochs_per_iteration
         self.batch_size = batch_size
@@ -89,8 +95,8 @@ class ExpertIterationAlgorithm():
     def train(self, apprentice_model: nn.Module):
         ''' Highest level function '''
         start_time = time()
-        self.episodes_collected_since_last_train = 0
         self.generation += 1
+        self.episodes_collected_since_last_train = 0
 
         self.update_storage(self.memory, self.memory.size)
 
@@ -201,9 +207,9 @@ class ExpertIterationAlgorithm():
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''
-        if self.generation % self.memory_size_increase_frequency == 0 \
+        if self.generation % self.increase_memory_every_n_generations == 0 \
                 and dataset.size < self.end_memory_size:
-            dataset.size += self.initial_memory_size
+            dataset.size += self.increase_memory_size_by
 
     def curate_dataset(self, dataset: Storage, max_memory: int):
         '''
@@ -234,5 +240,5 @@ class ExpertIterationAlgorithm():
     def __repr__(self):
         gen_stats = f'Generation: {self.generation}\nGames per generation: {self.games_per_iteration}\nEpisodes since last generation: {self.episodes_collected_since_last_train}\n'
         train_stats = f'Batches sampled: {self.num_batches_sampled}\nBatch size: {self.batch_size}\nLearning rate: {self.learning_rate}\nEpochs per generation: {self.episodes_collected_since_last_train}\n'
-        memory_stats = f'Initial memory size: {self.initial_memory_size}\nMemory increase frequency: {self.memory_size_increase_frequency}\nMax memory size: {self.end_memory_size}\n'
+        memory_stats = f'Initial memory size: {self.initial_memory_size}\nMemory increase frequency: {self.increase_memory_every_n_generations}\nMax memory size: {self.end_memory_size}\n'
         return gen_stats + train_stats + memory_stats + str(self.memory)

@@ -94,7 +94,7 @@ def log_exit_loss_progress(summary_writer,
                            values,
                            predictions,
                            iteration_count):
-    summary_writer.add_scalar('Training/Policy_loss', policy_imitation_loss.cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Expert_policy_imitation_loss', policy_imitation_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Expert_Iteration_loss', exit_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Total_loss', total_loss.cpu().item(), iteration_count)

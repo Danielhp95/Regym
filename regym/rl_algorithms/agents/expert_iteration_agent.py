@@ -485,7 +485,11 @@ def build_ExpertIteration_Agent(task: 'Task',
 
         (Collected) Dataset params:
         - 'initial_memory_size': (Int) Initial maximum size of replay buffer
-        - 'memory_size_increase_frequency': (Int) Number of iterations to elapse before increasing dataset size.
+        - 'increase_memory_every_n_generations': (Int) Number of iterations to elapse before increasing dataset size.
+        - 'increase_memory_size_by': Number of datapoints to increase the size
+                                     of the algorithm's dataset everytime the dataset's
+                                     size grows, as dictated by
+                                     :param: increase_memory_every_n_generations
         - 'end_memory_size': (Int) Ceiling on the size of replay buffer
         - 'num_epochs_per_iteration': (Int) Training epochs to over the game dataset per iteration
         - 'num_games_per_iteration': (Int) Number of episodes to collect before doing a training
@@ -517,9 +521,10 @@ def build_ExpertIteration_Agent(task: 'Task',
             num_epochs_per_iteration=config['num_epochs_per_iteration'],
             learning_rate=config['learning_rate'],
             games_per_iteration=config['games_per_iteration'],
-            memory_size_increase_frequency=config['memory_size_increase_frequency'],
             initial_memory_size=config['initial_memory_size'],
             end_memory_size=config['end_memory_size'],
+            increase_memory_every_n_generations=config['increase_memory_every_n_generations'],
+            increase_memory_size_by=config['increase_memory_size_by'],
             use_agent_modelling=config['use_agent_modelling'],
             num_opponents=(task.num_agents - 1), # We don't model ourselves
             use_cuda=config.get('use_cuda', False)
