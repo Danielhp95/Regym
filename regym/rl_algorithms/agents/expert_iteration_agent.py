@@ -376,8 +376,14 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
         return build_apprentice_with_agent_modelling(
                 feature_extractor, task, config)
     else:
-        body = FCBody(state_dim=feature_extractor.feature_dim,
-                      hidden_units=(64, 64))
+        default_embedding_size = (64, 64)
+        body = FCBody(
+            state_dim=feature_extractor.feature_dim,
+            hidden_units=config.get(
+                'post_feature_extractor_hidden_units',
+                default_embedding_size
+            )
+        )
 
         feature_and_body = SequentialBody(feature_extractor, body)
 
@@ -391,13 +397,26 @@ def build_apprentice_with_agent_modelling(feature_extractor, task, config):
     # TODO: remove hardcodings and place somewhere in config
     # - Embedding size
     # - The bodies are just FC layers (will in the future be RNNs)
-    embedding_size = 64
-    policy_inference_body = FCBody(feature_extractor.feature_dim, hidden_units=(embedding_size,))
-    actor_critic_body = FCBody(feature_extractor.feature_dim, hidden_units=(embedding_size,))
+    default_embedding_size = 64
+    policy_inference_body = FCBody(
+        feature_extractor.feature_dim,
+        hidden_units=config.get(
+            'post_feature_extractor_policy_inference_hidden_units',
+            default_embedding_size
+        )
+    )
+    actor_critic_body = FCBody(
+        feature_extractor.feature_dim,
+        hidden_units=config.get(
+            'post_feature_extractor_actor_critic_hidden_units',
+            default_embedding_size
+        )
+    )
 
     # We model all agents but ourselves
     num_agents_to_model = task.num_agents - 1
-    if not isinstance(task.action_dim, (int, float)): raise ValueError('number of actions must be an integer (1D)')
+    if not isinstance(task.action_dim, (int, float)):
+        raise ValueError('number of actions must be an integer (1D)')
     return PolicyInferenceActorCriticNet(feature_extractor=feature_extractor,
                                          num_policies=num_agents_to_model,
                                          num_actions=task.action_dim,

@@ -160,6 +160,11 @@ def expert_iteration_config_dict():
     config['strides'] = [1, 1, 1, 1, 1]  # To play Connect 4
     config['residual_connections'] = []
     config['post_feature_extractor_arch'] = 'MLP'
+    # If agent_modelling is not used
+    config['post_feature_extractor_hidden_units'] = [64, 64, 64, 64]
+    # If use_agent_modelling is set. a PolicyInferenceActorCriticNet will be used
+    config['post_feature_extractor_policy_inference_hidden_units'] = [64, 64, 64]
+    config['post_feature_extractor_actor_critic_hidden_units'] = [64, 64, 64]
     config['critic_gate_fn'] = 'tanh'
     return config
 
