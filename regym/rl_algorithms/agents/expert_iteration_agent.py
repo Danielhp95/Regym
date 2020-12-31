@@ -376,7 +376,7 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
         return build_apprentice_with_agent_modelling(
                 feature_extractor, task, config)
     else:
-        default_embedding_size = (64, 64)
+        default_embedding_size = [64, 64]
         body = FCBody(
             state_dim=feature_extractor.feature_dim,
             hidden_units=config.get(
