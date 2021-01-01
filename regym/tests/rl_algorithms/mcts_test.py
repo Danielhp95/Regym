@@ -73,7 +73,7 @@ def test_can_query_true_opponent_model(Connect4Task, mcts_config_dict):
         Connect4Task,
         {'neural_net': _generate_dummy_neural_net(torch.from_numpy(
             expected_opponent_policy).unsqueeze(0)),
-         'preprocessing_fn': lambda x: x
+         'state_preprocess_fn': lambda x: torch.tensor(x)
         },
         'Test-NNAgent')
 
