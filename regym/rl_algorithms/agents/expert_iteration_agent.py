@@ -397,7 +397,7 @@ def build_apprentice_with_agent_modelling(feature_extractor, task, config):
     # TODO: remove hardcodings and place somewhere in config
     # - Embedding size
     # - The bodies are just FC layers (will in the future be RNNs)
-    default_embedding_size = 64
+    default_embedding_size = [64]
     policy_inference_body = FCBody(
         feature_extractor.feature_dim,
         hidden_units=config.get(
