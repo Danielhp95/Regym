@@ -12,21 +12,6 @@ def old_UCB1(node, child, exploration_constant=sqrt(2)) -> float:
             exploration_constant * sqrt(log(node.visits) / child.visits))
 
 
-def old_PUCT(node, child, c: float) -> float:
-    '''
-    (P)redictor UCB1. A modification of UCB1 used to predict the value of
-    child node :param: child.
-
-    :param node: Node whose :param: child is evaluated
-    :param child: Child node of :param: nodejfor which the PUCT
-                  score is computed
-    :param c: Exploration constant
-    '''
-    Q = child.wins / child.visits if child.visits > 0 else 0
-    U = c * child.prior * sqrt(node.visits) / (child.visits + 1)
-    return Q + U
-
-
 def UCB1(node: SequentialNode, c: float) -> Dict[int, float]:
     '''
     :param node: Node whose children are evaluated
