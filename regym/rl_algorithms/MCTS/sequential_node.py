@@ -5,7 +5,8 @@ from typing import Dict, List
 class SequentialNode:
 
     def __init__(self, parent: 'SequentialNode', player: int,
-                 a: int, actions: List[int], priors: Dict[int, float]):
+                 a: int, actions: List[int], priors: Dict[int, float],
+                 is_root: bool = False):
         self.N: int = 0  # Visits
         self.a: int = a  # Action taken from :param: parent to reach here
         self.player: int = player  # Player who would take an action in the state represented in this node
@@ -22,6 +23,7 @@ class SequentialNode:
         self.untried_actions: List[int] = actions[:]  # Actions leading to un-initiated nodes
 
         self.is_terminal = self.actions == []
+        self.is_root = is_root  # Whether this node is the first of tree (the root)
 
     def add_child(self, a: int, P_a: Dict[int, float],
                   actions: List[int], player: int):
@@ -48,7 +50,7 @@ class SequentialNode:
         :returns: String representation of this node
         '''
         # This if statement is kind of ugly, right?
-        if self.parent is not None:
+        if not self.is_root:
             Q = self.parent.Q_a[self.a]
             W = self.parent.W_a[self.a]
             P = self.parent.P_a[self.a]

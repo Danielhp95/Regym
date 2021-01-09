@@ -204,13 +204,15 @@ def MCTS(rootstate: gym.Env, observation,
     :param num_agents: Number of agents present in the environment
     :returns: (int) Action to be taken by agent :param: player_index
               and visitations of each child in the root node
+              (TODO: add rest)
     '''
 
     actions, priors = get_actions_and_priors(rootstate, observation, policy_fn, player_index)
     if use_dirichlet:
         priors = add_dirichlet_noise(alpha=dirichlet_alpha, p=priors)
     rootnode = SequentialNode(parent=None, player=player_index, a='R',
-                              actions=actions, priors=priors)
+                              actions=actions, priors=priors,
+                              is_root=True)
 
     for _ in range(budget):
         node = rootnode
