@@ -152,7 +152,7 @@ class MCTSAgent(Agent):
     def extract_child_visitations_and_action_vectors(self, futures):
         visitation_vector, action_vector = [], []
         for f in futures:
-            i, (action, visitations) = f.result()
+            i, (action, visitations, tree) = f.result()
             action_vector += [action]
             visitation_vector += [visitations]
 
@@ -224,7 +224,7 @@ class MCTSAgent(Agent):
 
     def single_action_model_based_take_action(self, env: gym.Env, observation,
                                               player_index: int) -> int:
-        action, visitations = self.algorithm(
+        action, visitations, tree = self.algorithm(
                 player_index=player_index,
                 rootstate=env,
                 observation=observation,

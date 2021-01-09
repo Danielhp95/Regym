@@ -122,7 +122,8 @@ def MCTS_UCT(rootstate, observation,
              exploration_factor: float,
              use_dirichlet: bool,
              dirichlet_alpha: float,
-             rollout_policies: List = []) -> Tuple[int, Dict[int, int]]:
+             rollout_policies: List = []) \
+        -> Tuple[int, Dict[int, int], SimultaneousOpenLoopNode]:
     '''
     Conducts a game tree search using the MCTS-UCT algorithm
     for a total of :param: itermax iterations using an open loop approach
@@ -163,4 +164,4 @@ def MCTS_UCT(rootstate, observation,
     all_player_actions = action_selection_phase(root_nodes)
     child_visitations = {n.move: n.visits
                          for n in root_nodes[player_index].child_nodes}
-    return all_player_actions[player_index], child_visitations
+    return all_player_actions[player_index], child_visitations, root_nodes[player_index]

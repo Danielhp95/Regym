@@ -150,7 +150,7 @@ def MCTS(rootstate: gym.Env, observation,
          evaluation_fn: Optional[Callable[[Any, List[int]], float]],
          use_dirichlet: bool,
          dirichlet_alpha: float,
-         num_agents: int) -> Tuple[int, Dict[int, int]]:
+         num_agents: int) -> Tuple[int, Dict[int, int], SequentialNode]:
     '''
     Conducts an MCTS game tree search where the root node represents
     :param: rootstate with :param: observation for the :param: player_index.
@@ -225,4 +225,4 @@ def MCTS(rootstate: gym.Env, observation,
         backpropagation_phase(node, -1 * value)
 
     best_action = action_selection_phase(rootnode)
-    return best_action, rootnode.N_a
+    return best_action, rootnode.N_a, rootnode
