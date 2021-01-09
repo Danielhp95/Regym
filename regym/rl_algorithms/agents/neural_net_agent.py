@@ -71,7 +71,7 @@ def build_NeuralNet_Agent(task, config: Dict[str, Any],
     '''
     check_input_validity(config)
     neural_net = deepcopy(config['neural_net'])
-    state_preprocess_fn = generate_preprocessing_function(config['state_preprocess_fn'])
+    state_preprocess_fn = generate_preprocessing_function(config['preprocessing_fn'])
     return NeuralNetAgent(neural_net, state_preprocess_fn, agent_name)
 
 
