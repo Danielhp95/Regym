@@ -32,3 +32,20 @@ def add_dirichlet_noise(alpha: float, p: Dict[int, float]) -> Dict[int, float]:
     perturbed_priors_total = p_total + dirchlet_noise_total
     return {a_i: (p_a_i + dirichlet_noise[i]) / perturbed_priors_total
             for i, (a_i, p_a_i) in enumerate(p.items())}
+
+
+def random_selection_policy(obs,
+                            legal_actions: List[int],
+                            self_player_index: int = None,
+                            requested_player_index: int = None,
+                            action_dim: int = -1) -> np.ndarray:
+    '''
+    TODO:
+    '''
+    if legal_actions == []: return []
+    num_legal_actions = len(legal_actions)
+    action_probability = 1 / num_legal_actions
+    return np.array(
+        [action_probability if a_i in legal_actions else 0.
+         for a_i in range(action_dim)]
+    )

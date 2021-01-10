@@ -16,6 +16,7 @@ from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.MCTS.selection_strategies import old_UCB1, UCB1, PUCT
 from regym.rl_algorithms.MCTS import sequential_mcts
 from regym.rl_algorithms.MCTS import simultaneous_mcts
+from regym.rl_algorithms.MCTS import util
 from regym.networks.servers.neural_net_server import NeuralNetServerHandler
 
 
@@ -51,7 +52,8 @@ class MCTSAgent(Agent):
         # Function used to obtain a distribution over actions legal actions
         # given 2 parameters: observation, legal_actions.
         # In any given node. Used in PUCT selection_strat and ExpertIterationAgent
-        self.policy_fn: Callable[[Any, List[int], int, int], List[float]] = self.random_selection_policy
+        self.policy_fn: Callable[[Any, List[int], int, int], List[float]] = partial(util.random_selection_policy,
+                                                                                    action_dim=self.action_dim)
         self.server_based_policy_fn: Callable[[Any, List[int], Connection], List[float]] = None
 
         # Function to compute a value to backpropagate through the MCTS tree
@@ -132,6 +134,8 @@ class MCTSAgent(Agent):
                     self.multi_action_select_policy_and_evaluation_fns(
                         len(envs), player_index)
 
+            # TODO, use kwargs instead of args and praying that the order of the
+            # arguments makes sense
             futures = [ex.submit(async_search, env_i, self.algorithm,
                                  env, observations[env_i],
                                  self.budget, self.rollout_budget,
