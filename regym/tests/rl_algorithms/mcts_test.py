@@ -16,8 +16,8 @@ def test_sequential_mcts_consistency_on_tree_properties_in_connect4(Connect4Task
     '''
     - Root node should have the same number of visitations as the given budget.
     - A node's visit should be the sum of its children's visits
+    TODO: add more nuance on what is being tested
     '''
-    # For all subnodes, parent.N_a[a_i] == sum(child.N, parent.children[a_i].children)
 
     budget = 100
     rollout_budget = 100
@@ -45,6 +45,7 @@ def test_sequential_mcts_consistency_on_tree_properties_in_connect4(Connect4Task
         )
         _assert_only_top_node_is_root(tree)
         _assert_terminal_nodes_have_correct_values_in_deterministic_connect4(tree)
+        # TODO: make function below work
         #_assert_visitations_add_up(tree, budget, ['R'])
 
         _, _, done, _ = Connect4Task.env.step(best_action)
