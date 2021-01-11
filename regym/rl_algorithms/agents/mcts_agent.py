@@ -99,17 +99,6 @@ class MCTSAgent(Agent):
             preprocess_fn=other_agent.state_preprocess_fn
         )
 
-    def random_selection_policy(self,
-                                obs,
-                                legal_actions: List[int],
-                                self_player_index: int = None,
-                                requested_player_index: int = None):
-        if legal_actions == []: return []
-        num_legal_actions = len(legal_actions)
-        action_probability = 1 / num_legal_actions
-        return [action_probability if a_i in legal_actions else 0.
-                for a_i in range(self.action_dim)]
-
     def model_based_take_action(self, env: Union[gym.Env, Dict[int, gym.Env]],
                                 observation, player_index: int,
                                 multi_action: bool = False):

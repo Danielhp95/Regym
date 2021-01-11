@@ -92,9 +92,10 @@ def backpropagation_phase(node: SequentialNode, value: float):
     :param value: Value to backpropagate to the :param: node's parent.
     '''
     node.N += 1
-    if node.parent is None: return
-    node.parent.update(a_i=node.a, value=value)
-    backpropagation_phase(node.parent, -value)  # ASSUMPTION: 2-player zero sum game
+    if node.is_root: return
+    node.parent.update_edge_statistics(a_i=node.a, value=value)
+    backpropagation_phase(node.parent,
+                          -1. * value)  # ASSUMPTION: 2-player zero sum game
 
 
 def action_selection_phase(node: SequentialNode) -> int:
@@ -211,8 +212,7 @@ def MCTS(rootstate: gym.Env, observation,
     if use_dirichlet:
         priors = add_dirichlet_noise(alpha=dirichlet_alpha, p=priors)
     rootnode = SequentialNode(parent=None, player=player_index, a='R',
-                              actions=actions, priors=priors,
-                              is_root=True)
+                              actions=actions, priors=priors)
 
     for _ in range(budget):
         node = rootnode
@@ -223,6 +223,8 @@ def MCTS(rootstate: gym.Env, observation,
                                                    player_index=((node.player + 1) % num_agents))
             value = rollout_phase(state, node, obs,
                                   rollout_budget, evaluation_fn)
+        else:  # node.is_terminal
+            value = state.get_result(node.player)
         # Multiply by -1 because 'node.parent' tries to minimize 'node' reward
         backpropagation_phase(node, -1 * value)
 

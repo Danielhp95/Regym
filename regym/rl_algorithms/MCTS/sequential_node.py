@@ -5,8 +5,7 @@ from typing import Dict, List
 class SequentialNode:
 
     def __init__(self, parent: 'SequentialNode', player: int,
-                 a: int, actions: List[int], priors: Dict[int, float],
-                 is_root: bool = False):
+                 a: int, actions: List[int], priors: Dict[int, float]):
         self.N: int = 0  # Visits
         self.a: int = a  # Action taken from :param: parent to reach here
         self.player: int = player  # Player who would take an action in the state represented in this node
@@ -22,8 +21,20 @@ class SequentialNode:
         self.actions: List[int] = actions  # All possible actions that can be taken from this node
         self.untried_actions: List[int] = actions[:]  # Actions leading to un-initiated nodes
 
-        self.is_terminal = self.actions == []
-        self.is_root = is_root  # Whether this node is the first of tree (the root)
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
+
+    @property
+    def is_leaf(self) -> bool:
+        # If a node has no expanded children, it's at the fringe of the tree.
+        return self.children == {}
+
+    @property
+    def is_terminal(self) -> bool:
+        # If no actions can be taken, it means that there are no further
+        # transitions to explore, we are in a terminal node.
+        return self.actions == []
 
     def add_child(self, a: int, P_a: Dict[int, float],
                   actions: List[int], player: int):
@@ -34,7 +45,7 @@ class SequentialNode:
     def is_fully_expanded(self) -> bool:
         return self.untried_actions == []
 
-    def update(self, a_i: int, value: float):
+    def update_edge_statistics(self, a_i: int, value: float):
         self.W_a[a_i] += value
         # Equation to keep a running mean
         self.Q_a[a_i] = (self.N_a[a_i] * self.Q_a[a_i] + value) / (self.N_a[a_i] + 1)
@@ -60,7 +71,7 @@ class SequentialNode:
             P = 1.
         else: W, Q, P = 0., 0., 1.  # Root node before it has any children
 
-        node_stats = '{}: Q={:.1f}. W={:.1f}/N={}. P={:.2f}.'.format(self.a, Q, W, self.N, P)
+        node_stats = '{}: P: {}. Q={:.1f}. W={:.1f}/N={}. Pr={:.2f}.'.format(self.a, self.player, Q, W, self.N, P)
         terminal = '.Terminal' if self.is_terminal else ''
         s = ('.' * indent) + node_stats + terminal + '\n'
         if depth > 0:
