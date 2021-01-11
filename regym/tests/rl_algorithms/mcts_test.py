@@ -85,7 +85,6 @@ def _assert_terminal_nodes_have_correct_values_in_deterministic_connect4(node):
      if node.is_terminal:
          total_node_value = node.parent.W_a[node.a]
          avg_node_value   = node.parent.Q_a[node.a]
-         print(total_node_value, avg_node_value, node.N)
          assert total_node_value == avg_node_value * node.N, (
              "In a deterministic environment, a terminal node's total and average "
              "value should be proportional to the number of visits.\n"
