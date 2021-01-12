@@ -25,6 +25,6 @@ def request_prediction_from_server(observation,
     connection.send((observation, legal_actions))
     prediction = connection.recv()
     if key not in prediction.keys():
-        raise KeyError(f'Tried to access key {key} on a prediction '
+        raise KeyError(f'Tried to access key \'{key}\' on a prediction '
                        f'requested from server with keys {prediction.keys()}.')
     return prediction[key].squeeze(0).numpy()

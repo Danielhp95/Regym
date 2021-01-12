@@ -81,6 +81,33 @@ def test_can_query_learnt_opponent_models_at_train_time(Connect4Task, expert_ite
     # TODO: figure out a programatic way of testing this.
 
 
+def test_agent_initially_configured_to_use_true_opponent_models_can_switch_to_using_learnt_models_in_mcts(Connect4Task, expert_iteration_config_dict):
+    torch.multiprocessing.set_start_method('spawn')
+    expert_iteration_config_dict['use_agent_modelling'] = True
+    expert_iteration_config_dict['use_apprentice_in_expert'] = True
+    expert_iteration_config_dict['use_true_agent_models_in_mcts'] = True
+
+    brexit_agent = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict,
+                                               agent_name='ExIt-opponent_modelling-test')
+    rando = build_Random_Agent(Connect4Task, {}, 'Rando')
+    assert brexit_agent.use_apprentice_in_expert
+    assert brexit_agent.use_true_agent_models_in_mcts
+    assert not brexit_agent.use_learnt_opponent_models_in_mcts
+
+    brexit_agent.use_learnt_opponent_models_in_mcts = True
+    assert brexit_agent.use_apprentice_in_expert
+    assert brexit_agent.use_learnt_opponent_models_in_mcts
+    assert not brexit_agent.use_true_agent_models_in_mcts
+    # TODO: figure out a programatic way of testing this.
+    # Currently only checking if crashes. One can internally
+    # check that MCTSAgent is using the policy function 
+    # learnt_opponent_aware_server_based_policy_fn().
+    # Which is bad, but deadlines are always coming, aren't they.
+    Connect4Task.run_episodes([brexit_agent, rando],
+                              num_episodes=1, num_envs=1,
+                              training=False)
+
+
 def test_apprentice_can_model_expert(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['use_agent_modelling'] = False
 

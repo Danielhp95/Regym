@@ -85,8 +85,8 @@ class ExpertIterationAgent(Agent):
         if self.use_cuda: self.apprentice = self.apprentice.cuda()
 
         #### Algorithmic variations ####
-        self.use_true_agent_models_in_mcts = use_true_agent_models_in_mcts
-        self.use_learnt_opponent_models_in_mcts = use_learnt_opponent_models_in_mcts
+        self._use_true_agent_models_in_mcts = use_true_agent_models_in_mcts
+        self._use_learnt_opponent_models_in_mcts = use_learnt_opponent_models_in_mcts
         if self.use_true_agent_models_in_mcts and (not self.use_learnt_opponent_models_in_mcts):
             # We will need to set up a server for other agent's models
             # Inside MCTS, we make the evaluation_fn point to the right
@@ -119,6 +119,8 @@ class ExpertIterationAgent(Agent):
         self.storages: Dict[int, Storage] = {}
 
         # Set state preprocessing functions
+        # TODO: Have these as default values so that we don't
+        # use this ugly sequence of if statements
         if state_preprocess_fn:
             self.state_preprocess_fn: Callable = state_preprocess_fn
         else:
@@ -127,6 +129,38 @@ class ExpertIterationAgent(Agent):
             self.server_state_preprocess_fn: Callable = server_state_preprocess_fn
         else:
             self.server_state_preprocess_fn: Callable = batch_vector_observation
+
+    @property
+    def use_true_agent_models_in_mcts(self):
+        return self._use_true_agent_models_in_mcts
+
+    @property
+    def use_learnt_opponent_models_in_mcts(self):
+        return self._use_learnt_opponent_models_in_mcts
+
+    @use_learnt_opponent_models_in_mcts.setter
+    def use_learnt_opponent_models_in_mcts(self, value: bool):
+        '''
+        TODO
+        '''
+        if value:
+            self._use_true_agent_models_in_mcts = False
+            self.requires_acess_to_other_agents = False
+            self.expert.requires_acess_to_other_agents = False
+        self._use_learnt_opponent_models_in_mcts = value
+        self.embed_apprentice_in_expert()
+
+    @use_true_agent_models_in_mcts.setter
+    def use_true_agent_models_in_mcts(self, value: bool):
+        '''
+        TODO
+        '''
+        if value:
+            self._use_learnt_opponent_models_in_mcts = False
+            self.requires_acess_to_other_agents = True
+            self.expert.requires_acess_to_other_agents = True
+        self._use_true_agent_models_in_mcts = value
+        self.embed_apprentice_in_expert()
 
     @Agent.num_actors.setter
     def num_actors(self, n):
@@ -345,7 +379,7 @@ class ExpertIterationAgent(Agent):
                                                            connection: Connection) -> np.ndarray:
         key = 'probs' if requested_player_index == self_player_index else 'policy_0'
         return request_prediction_from_server(
-            observation, legal_actions, target_connection, key)
+            observation, legal_actions, connection, key)
     #
     ####
 
