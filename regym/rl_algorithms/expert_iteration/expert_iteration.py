@@ -218,7 +218,7 @@ class ExpertIterationAlgorithm():
 
         ASSUMPTION: ALL "keys" have the same number of datapoints
         '''
-        oversize = len(dataset.s) - dataset.size
+        oversize = max(len(dataset.s) - dataset.size, 0)
         if oversize > 0:
             for k in dataset.non_empty_keys(): del getattr(dataset, k)[:oversize]
         assert len(dataset.s) <= max_memory
