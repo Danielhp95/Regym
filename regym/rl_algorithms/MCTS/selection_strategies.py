@@ -35,5 +35,6 @@ def PUCT(node: SequentialNode, c: float) -> Dict[int, float]:
               child node present in :param: node
     '''
     return {a_i: node.Q_a[a_i] +
-            c * node.P_a[a_i] * (sqrt(node.N) / (node.N_a[a_i] + 1))
+            c * node.P_a[a_i] * (max(sqrt(node.N), 1)  # TODO: This is a hack! Because rootnode.N == 0 on first selection
+                                 / (node.N_a[a_i] + 1))
             for a_i in node.actions}

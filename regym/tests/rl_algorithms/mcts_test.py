@@ -10,6 +10,7 @@ from regym.rl_algorithms.agents import build_MCTS_Agent, build_Random_Agent, bui
 from regym.networks.servers import request_prediction_from_server
 from regym.rl_algorithms.MCTS import selection_strategies
 from regym.rl_algorithms.MCTS import sequential_mcts
+from regym.rl_algorithms.MCTS.sequential_node import SequentialNode
 from regym.rl_algorithms.MCTS import util
 
 def test_sequential_mcts_consistency_on_tree_properties_in_connect4(Connect4Task):
@@ -104,10 +105,19 @@ def _assert_terminal_nodes_have_correct_values_in_deterministic_connect4(node):
          _assert_terminal_nodes_have_correct_values_in_deterministic_connect4(child_node)
 
 
-#def test_PUCT_selection_strategies_correctly_uses_priors():
-#    # check that PUCT doesn't return 0.
-#    # use PUCT, already imported
-#    assert False
+def test_PUCT_selection_strategies_correctly_uses_priors():
+    priors = {0: 1/4, 1: 1/2, 2: 1/4}
+
+    node = SequentialNode(parent=None, player=0, a='R',
+                          actions=[0,1,2],
+                          priors=priors)  # This is what we care about
+
+    expected_selecion_scores_values = [1/4,1/2,1/4]
+    actual_selection_scores = selection_strategies.PUCT(node, c=1.)
+
+    np.testing.assert_array_equal(
+        expected_selecion_scores_values,
+        list(actual_selection_scores.values()))
 
 
 def test_non_integer_budget_raises_value_error(Connect4Task):
