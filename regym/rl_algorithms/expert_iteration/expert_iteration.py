@@ -92,8 +92,11 @@ class ExpertIterationAlgorithm():
                 self.memory.add({'opponent_policy': episode_trajectory.opponent_policy[i]})
                 self.memory.add({'opponent_s': episode_trajectory.opponent_s[i]})
 
-    def train(self, apprentice_model: nn.Module):
-        ''' Highest level function '''
+    def train(self, apprentice_model: nn.Module) -> torch.Tensor:
+        ''' Highest level function
+        :param apprentice_model: Model to train
+        :returns: Total loss computed
+        '''
         start_time = time()
         self.generation += 1
         self.episodes_collected_since_last_train = 0
@@ -105,7 +108,7 @@ class ExpertIterationAlgorithm():
 
         # We look at number of 's' states, but we could have used anything else
         dataset_size = len(self.memory.s)
-        self.regress_against_dataset(
+        generation_loss = self.regress_against_dataset(
             s,
             v,
             mcts_pi,
@@ -121,6 +124,10 @@ class ExpertIterationAlgorithm():
                                            self.generation)
             self.summary_writer.add_scalar('Training/Memory_size', dataset_size,
                                            self.generation)
+            self.summary_writer.add_scalar('Training/Total_generation_loss',
+                                           generation_loss.cpu(),
+                                           self.generation)
+        return generation_loss
 
     def preprocess_memory(self, memory: Storage) -> Tuple:
         # We are concatenating the entire datasat, this might be too memory expensive?
@@ -140,14 +147,19 @@ class ExpertIterationAlgorithm():
                                 opponent_s: Optional[torch.FloatTensor],
                                 apprentice_model: nn.Module,
                                 indices: List[int], batch_size: int,
-                                num_epochs: int):
+                                num_epochs: int) -> torch.Tensor:
         '''
         Updates :param apprentice_model: netowrk parameters to better predict:
             - State value function: :param: s, :param: v
             - Expert policy: :param: s, :param: mcts_pi
         Samples :param: num_batches of size :param: batch_size from list of
         :param: indices.
+        :returns: Total (Aggregated) loss computed over :param: num_epochs.
         '''
+        # Sneaky-hacky way of getting device
+        inititial_device = next(apprentice_model.parameters())
+        apprentice_model.to('cuda' if self.use_cuda else 'cpu')
+        total_loss = 0.
         for e in range(num_epochs):
             for batch_indices in random_sample(indices, batch_size):
                 self.num_batches_sampled += 1
@@ -172,6 +184,9 @@ class ExpertIterationAlgorithm():
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+                total_loss += loss.cpu().detach()
+        apprentice_model.to(inititial_device)
+        return total_loss
 
     def update_storage(self, dataset, max_memory):
         self.update_storage_size(dataset)
