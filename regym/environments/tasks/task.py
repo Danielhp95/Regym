@@ -328,6 +328,7 @@ class Task:
              f'num_agents: {self.num_agents}\n'
              f'Extended_agents: {self.extended_agents}\n'
              f'observation_dim: {self.observation_dim}\n'
+             f'observation_size: {self.observation_size}\n'
              f'observation_type: {self.observation_type}\n'
              f'state_space_size: {self.state_space_size}\n'
              f'action_space_size: {self.action_space_size}\n'

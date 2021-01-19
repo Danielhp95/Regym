@@ -9,7 +9,7 @@ import torch.nn as nn
 from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.replay_buffers import EXP
 from regym.networks import CategoricalDuelingDQNet, CategoricalDQNet
-from regym.networks import LeakyReLU, FCBody
+from regym.networks import FCBody
 from regym.networks.preprocessing import turn_into_single_element_batch
 from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm
 
@@ -113,11 +113,11 @@ def build_DQN_Agent(task, config, agent_name):
 
     kwargs['nbrTrainIteration'] = config['nbrTrainIteration']
     kwargs["nbr_actions"] = task.action_dim
-    kwargs["actfn"] = LeakyReLU
+    kwargs["actfn"] = nn.functional.leaky_relu
     kwargs["state_dim"] = task.observation_dim
 
     # Create model architecture:
-    body = FCBody(task.observation_dim)
+    body = FCBody(task.observation_size)
     if config['dueling']:
         model = CategoricalDuelingDQNet(body=body,
                                         action_dim=task.action_dim)

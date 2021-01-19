@@ -15,6 +15,7 @@ from regym.networks import Convolutional2DBody, FCBody, CategoricalActorCriticNe
 from regym.networks.preprocessing import (turn_into_single_element_batch,
                                           batch_vector_observation,
                                           parse_preprocessing_fn)
+from regym.networks.utils import parse_gating_fn
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 
@@ -410,21 +411,26 @@ def build_apprentice_model(task, config: Dict) -> nn.Module:
         return build_apprentice_with_agent_modelling(
                 feature_extractor, task, config)
     else:
-        default_embedding_size = [64, 64]
-        body = FCBody(
-            state_dim=feature_extractor.feature_dim,
-            hidden_units=config.get(
-                'post_feature_extractor_hidden_units',
-                default_embedding_size
-            )
+        return build_apprentice_no_agent_modelling(feature_extractor, config, task)
+
+def build_apprentice_no_agent_modelling(feature_extractor, config, task) -> nn.Module:
+    default_embedding_size = [64, 64]
+    body = FCBody(
+        state_dim=feature_extractor.feature_dim,
+        hidden_units=config.get(
+            'post_feature_extractor_hidden_units',
+            default_embedding_size
         )
+    )
 
-        feature_and_body = SequentialBody(feature_extractor, body)
+    feature_and_body = SequentialBody(feature_extractor, body)
 
-        return CategoricalActorCriticNet(state_dim=feature_and_body.feature_dim,
-                                         action_dim=task.action_dim,
-                                         critic_gate_fn=config.get('critic_gate_fn', None),
-                                         body=feature_and_body)
+    critic_gate_fn = parse_gating_fn(config.get('critic_gate_fn', None))
+
+    return CategoricalActorCriticNet(state_dim=feature_and_body.feature_dim,
+                                     action_dim=task.action_dim,
+                                     critic_gate_fn=critic_gate_fn,
+                                     body=feature_and_body)
 
 
 def build_apprentice_with_agent_modelling(feature_extractor, task, config):

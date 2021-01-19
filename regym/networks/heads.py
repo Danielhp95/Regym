@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from regym.networks import LeakyReLU
 from regym.networks.utils import BaseNet, layer_init, tensor
 from regym.networks.bodies import DummyBody
 
@@ -19,7 +18,7 @@ class CategoricalDQNet(nn.Module, BaseNet):
     def __init__(self,
                  body: nn.Module,
                  action_dim: int,
-                 actfn=LeakyReLU,
+                 actfn=F.leaky_relu,
                  use_cuda=False):
         BaseNet.__init__(self)
         super(CategoricalDQNet, self).__init__()
@@ -64,7 +63,7 @@ class CategoricalDuelingDQNet(nn.Module, BaseNet):
     def __init__(self,
                  body: nn.Module,
                  action_dim: int,
-                 actfn=LeakyReLU):
+                 actfn=F.leaky_relu):
         BaseNet.__init__(self)
         super(CategoricalDuelingDQNet, self).__init__()
         self.action_dim = action_dim
@@ -209,10 +208,7 @@ class CategoricalActorCriticNet(nn.Module, BaseNet):
         super(CategoricalActorCriticNet, self).__init__()
         self.action_dim = action_dim
 
-        if critic_gate_fn:
-            gating_fns = {'tanh': nn.functional.tanh}
-            self.critic_gate_fn = gating_fns[critic_gate_fn]
-        else: self.critic_gate_fn = None
+        self.critic_gate_fn = critic_gate_fn
 
         self.network = ActorCriticNet(state_dim, action_dim, body, actor_body, critic_body)
 

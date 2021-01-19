@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Callable
 import os
 
 import numpy as np
@@ -179,3 +179,11 @@ def create_convolutional_layers(channels: List[int], kernel_sizes: List[int],
 
         if use_batch_normalization: convolutions += [nn.BatchNorm2d(c_out)]
     return nn.Sequential(*convolutions)
+
+
+def parse_gating_fn(gating_fn: str) -> Callable[[torch.Tensor], torch.Tensor]:
+    if gating_fn is None: return
+    if gating_fn == 'tanh':
+        return torch.tanh
+    else:
+        raise ValueError(f'Unkown gating function: {gating_fn} could not be parsed')

@@ -140,7 +140,7 @@ class ConvolutionalResidualBlock(nn.Module):
 
 
 class FCBody(nn.Module):
-    def __init__(self, state_dim, hidden_units=(64, 64), gate=F.leaky_relu):
+    def __init__(self, state_dim, hidden_units=[64, 64], gate=F.leaky_relu):
         super(FCBody, self).__init__()
         dims = [state_dim] + hidden_units
         self.layers = nn.ModuleList([layer_init(nn.Linear(dim_in, dim_out))
@@ -156,7 +156,7 @@ class FCBody(nn.Module):
 
 
 class LSTMBody(nn.Module):
-    def __init__(self, state_dim, hidden_units=(256), gate=F.leaky_relu):
+    def __init__(self, state_dim, hidden_units=[256], gate=F.leaky_relu):
         super(LSTMBody, self).__init__()
         dims = (state_dim, ) + hidden_units
         # Consider future cases where we may not want to initialize the LSTMCell(s)
