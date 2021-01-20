@@ -142,7 +142,8 @@ class ExpertIterationAgent(Agent):
     @use_learnt_opponent_models_in_mcts.setter
     def use_learnt_opponent_models_in_mcts(self, value: bool):
         '''
-        TODO
+        If set, during MCTS search, in order to compute action priors for
+        opponent, the learnt opponent model from this agent' apprentice will be queried.
         '''
         if value:
             self._use_true_agent_models_in_mcts = False
@@ -154,7 +155,8 @@ class ExpertIterationAgent(Agent):
     @use_true_agent_models_in_mcts.setter
     def use_true_agent_models_in_mcts(self, value: bool):
         '''
-        TODO
+        If set, during MCTS search, in order to compute action priors for
+        opponent, the true opponent model will be queried.
         '''
         if value:
             self._use_learnt_opponent_models_in_mcts = False
@@ -188,14 +190,18 @@ class ExpertIterationAgent(Agent):
 
         # Parallel environments
         if self.use_true_agent_models_in_mcts:
-            # Query true opponent model from opponent NeuralNetServerHandler
+            # For this agent's nodes: Use the apprentice's actor policy head
+            # For opponent nodes: Use true opponent model from opponent NeuralNetServerHandler
             self.expert.server_based_policy_fn = \
                 self.__class__.opponent_aware_server_based_policy_fn
         elif self.use_learnt_opponent_models_in_mcts:
-            # Query learnt opponent model from NeuralNetServerHandler
+            # For this agent's nodes: Use the apprentice's actor policy head
+            # For opponent nodes: Use the apprentice's opponent model head
             self.expert.server_based_policy_fn = \
                 self.__class__.learnt_opponent_model_aware_server_based_policy_fn
         else:
+            # For this agent's nodes: Use the apprentice's actor policy head
+            # For opponent nodes: Use the apprentice's actor policy head
             self.expert.server_based_policy_fn = partial(
                 request_prediction_from_server,
                 key='probs')
@@ -434,9 +440,6 @@ def build_apprentice_no_agent_modelling(feature_extractor, config, task) -> nn.M
 
 
 def build_apprentice_with_agent_modelling(feature_extractor, task, config):
-    # TODO: remove hardcodings and place somewhere in config
-    # - Embedding size
-    # - The bodies are just FC layers (will in the future be RNNs)
     default_embedding_size = [64]
     policy_inference_body = FCBody(
         feature_extractor.feature_dim,
