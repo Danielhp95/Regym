@@ -160,9 +160,9 @@ class ExpertIterationAgent(Agent):
         '''
         if value:
             self._use_learnt_opponent_models_in_mcts = False
-            self.requires_acess_to_other_agents = True
-            self.expert.requires_acess_to_other_agents = True
         self._use_true_agent_models_in_mcts = value
+        self.requires_acess_to_other_agents = value
+        self.expert.requires_acess_to_other_agents = value
         self.embed_apprentice_in_expert()
 
     @Agent.num_actors.setter
