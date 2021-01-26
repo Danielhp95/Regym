@@ -158,7 +158,11 @@ class MCTSAgent(Agent):
             # V(s) = sum_{a in A} Q(s, a) * \pi_MCTS(a | s)
             # Where \pi_MCTS is the normalized child visitation
             normalized_child_visitations = child_visitations[-1] / child_visitations[-1].sum()
-            q_values = torch.FloatTensor([tree.Q_a[a_i] for a_i in tree.children.keys()])
+            q_values = torch.FloatTensor(
+                [tree.Q_a[a_i] if a_i in tree.children.keys() else 0.
+                 for a_i in range(self.action_dim)
+                ]
+            )
             value_predictions += [(q_values * normalized_child_visitations).sum()]
 
         return child_visitations, action_vector, value_predictions
