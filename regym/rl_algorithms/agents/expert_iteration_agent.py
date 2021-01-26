@@ -354,15 +354,18 @@ class ExpertIterationAgent(Agent):
         raise NotImplementedError('Cloning ExpertIterationAgent not supported')
 
     def __repr__(self):
+        basic_stats = f'Name: {self.name}\nRequires access to other agents: {self.requires_acess_to_other_agents}\n'
         agent_stats = (f'Agent modelling: {self.use_agent_modelling}\n'
                        f'Use apprentice in expert: {self.use_apprentice_in_expert}\n'
                        f'Use agent mdelling in mcts: {self.use_true_agent_models_in_mcts}\n'
                        f'Use learnt opponent models in mcts: {self.use_learnt_opponent_models_in_mcts}\n'
                        f'State processing fn: {self.state_preprocess_fn}\n'
+                       f'Server based State processing fn: {self.server_state_preprocess_fn}'
                       )
+        agent = f"Agent:\n{textwrap.indent(str(agent_stats), '    ')}\n"
         expert = f"Expert:\n{textwrap.indent(str(self.expert), '    ')}\n"
         algorithm = f"Algorithm:\n{textwrap.indent(str(self.algorithm), '    ')}"
-        return agent_stats + expert + algorithm
+        return basic_stats + agent + expert + algorithm
 
     #####
     # This is a dirty HACK but oh well...

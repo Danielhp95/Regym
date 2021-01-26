@@ -260,7 +260,17 @@ class MCTSAgent(Agent):
         if self.opponent_server_handler: self.opponent_server_handler.close_server()
 
     def __repr__(self):
-        s = f'MCTSAgent: {self.name}.\nBudget: {self.budget}\nRollout budget: {self.rollout_budget}\nSelection phase: {self.selection_phase_id}\nExploration cnst: {self.exploration_constant}\nUse Direchlet noise: {self.use_dirichlet}\nDirchlet alpha: {self.dirichlet_alpha}'
+        s = (f'MCTSAgent: {self.name}.\n'
+             f'Budget: {self.budget}\n'
+             f'Rollout budget: {self.rollout_budget}\n'
+             f'Selection phase: {self.selection_phase_id}\n'
+             f'Selection strategy: {self.selection_strat}\n'
+             f'Exploration cnst: {self.exploration_constant}\n'
+             f'Use Dirichlet noise: {self.use_dirichlet}\n'
+             f'Dirchlet alpha: {self.dirichlet_alpha}\n'
+             f'Server based policy_fn: {self.server_based_policy_fn}\n'
+             f'Server based evaluation_fn: {self.server_based_evaluation_fn}'
+             )
         return s
 
 

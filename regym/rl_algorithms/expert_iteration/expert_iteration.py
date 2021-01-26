@@ -254,6 +254,6 @@ class ExpertIterationAlgorithm():
 
     def __repr__(self):
         gen_stats = f'Generation: {self.generation}\nGames per generation: {self.games_per_iteration}\nEpisodes since last generation: {self.episodes_collected_since_last_train}\n'
-        train_stats = f'Batches sampled: {self.num_batches_sampled}\nBatch size: {self.batch_size}\nLearning rate: {self.learning_rate}\nEpochs per generation: {self.episodes_collected_since_last_train}\n'
+        train_stats = f'Batches sampled: {self.num_batches_sampled}\nBatch size: {self.batch_size}\nLearning rate: {self.learning_rate}\nEpochs per generation: {self.num_epochs_per_iteration}\n'
         memory_stats = f'Initial memory size: {self.initial_memory_size}\nMemory increase frequency: {self.increase_memory_every_n_generations}\nMax memory size: {self.end_memory_size}\n'
-        return gen_stats + train_stats + memory_stats + str(self.memory)
+        return gen_stats + train_stats + memory_stats + f'{self.memory}\n' + f'Use CUDA: {self.use_cuda}'
