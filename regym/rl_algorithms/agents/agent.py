@@ -256,6 +256,16 @@ class Agent(ABC):
         '''
         raise NotImplementedError('Should be implemented in subclass')
 
+    def reset_after_episodes(self):
+        '''
+        TODO: improve wording
+        Especially useful when running multiple episodes in parallel on a Task
+        via `Task.run_episodes(...)`, as some episodes might be halted half-way through,
+        corrupting an agent's internal state (i.e, with episode specific storages half-full,
+        which need to be reseted when a new episode begins)
+        '''
+        pass
+
     @abstractmethod
     def clone(self):
         '''

@@ -217,6 +217,10 @@ class ExpertIterationAgent(Agent):
             storage.add_key('opponent_policy')  # \pi_{opponent}(.|s)
         return storage
 
+    def reset_after_episodes(self):
+        ''' Resets storages, in case they were half-full between training runs '''
+        self.storages: Dict[int, Storage] = {}
+
     def handle_experience(self, o, a, r: float, succ_s, done=False,
                           extra_info: Dict[int, Dict[str, Any]] = {}):
         super().handle_experience(o, a, r, succ_s, done)

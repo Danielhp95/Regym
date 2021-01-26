@@ -193,6 +193,7 @@ class Task:
         self.total_timesteps_run += sum(map(lambda t: len(t), trajectories))
 
         self.end_agent_servers(agent_vector)
+        for agent in agent_vector: agent.reset_after_episodes()
         return trajectories
 
 
