@@ -88,7 +88,7 @@ class MCTSAgent(Agent):
                                       'is only supported with tasks with 2 '
                                       f'agents. Current task has {len(other_agents_vector) + 1}')
         other_agent = other_agents_vector[0]
-        ''' Make this nice '''
+        ''' TODO: Make this nice '''
         #if not hasattr(other_agent, 'algorithm.model'):
         #    raise ValueError('Expected to find nn.Module at '
         #                     f'{other_agent.__class__}.algorithm.model')
@@ -136,23 +136,32 @@ class MCTSAgent(Agent):
                        in zip(envs.items(), policy_fns, evaluation_fns)]
 
             (child_visitations,
-             action_vector) = self.extract_child_visitations_and_action_vectors(
+             action_vector,
+             value_predictions) = self.extract_child_visitations_action_vectors_and_value_predictions(
                 futures)
-            self.current_prediction['child_visitations'] = torch.FloatTensor(child_visitations)
+            self.current_prediction['child_visitations'] = torch.stack(child_visitations)
             self.current_prediction['action'] = torch.tensor(action_vector)
+            self.current_prediction['V'] = torch.stack(value_predictions)
         return action_vector
 
-    def extract_child_visitations_and_action_vectors(self, futures):
-        visitation_vector, action_vector = [], []
+    def extract_child_visitations_action_vectors_and_value_predictions(self, futures):
+        child_visitations, action_vector, value_predictions = [], [], []
         for f in futures:
             i, (action, visitations, tree) = f.result()
             action_vector += [action]
-            visitation_vector += [visitations]
+            child_visitations += [torch.FloatTensor(
+                [visitations[a_i] if a_i in visitations else 0.
+                for a_i in range(self.action_dim)]
+            )]
 
-        child_visitations = [[visitation[move_id] if move_id in visitation else 0.
-                             for move_id in range(self.action_dim)]
-                             for visitation in visitation_vector]
-        return child_visitations, action_vector
+            # According to Bellman equation. State-value function can be computed from Q values thus:
+            # V(s) = sum_{a in A} Q(s, a) * \pi_MCTS(a | s)
+            # Where \pi_MCTS is the normalized child visitation
+            normalized_child_visitations = child_visitations[-1] / child_visitations[-1].sum()
+            q_values = torch.FloatTensor([tree.Q_a[a_i] for a_i in tree.children.keys()])
+            value_predictions += [(q_values * normalized_child_visitations).sum()]
+
+        return child_visitations, action_vector, value_predictions
 
     def multi_action_select_policy_and_evaluation_fns(self,
                                                       num_envs: int,
@@ -231,16 +240,15 @@ class MCTSAgent(Agent):
                 use_dirichlet=self.use_dirichlet,
                 dirichlet_alpha=self.dirichlet_alpha)
 
-        self.record_selected_action(self.current_prediction, action, visitations)
-        return action
-
-    def record_selected_action(self, prediction, action, visitations):
-        # This is needed to ensure that all actions are represented
-        # because :param: env won't expose non-legal actions
         child_visitations = [visitations[move_id] if move_id in visitations else 0.
                              for move_id in range(self.action_dim)]
-        prediction['action'] = action
-        prediction['child_visitations'] = child_visitations
+        self.current_prediction['action'] = action
+        self.current_prediction['child_visitations'] = child_visitations
+        # TODO: change this to compute 'V' in the same way as in multi_action_model_based_take_action
+        # Which uses the bellman equation
+        # (averages using normalized child visits instead of just uniformly averaging over Q_a values)
+        self.current_prediction['V'] = sum([tree.Q_a[a_i] for a_i in tree.children.keys()]) / len(tree.children)
+        return action
 
     def clone(self):
         cloned = MCTSAgent(name=self.name, algorithm=self.algorithm,

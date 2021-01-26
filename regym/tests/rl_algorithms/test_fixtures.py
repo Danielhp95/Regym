@@ -134,6 +134,7 @@ def expert_iteration_config_dict():
     config['use_true_agent_models_in_mcts'] = False
     config['use_apprentice_in_expert'] = False
     config['use_learnt_opponent_models_in_mcts'] = False
+    config['average_episode_returns_with_mcts_values'] = False
     config['games_per_iteration'] = 2
     # Dataset params
     config['initial_memory_size'] = 3

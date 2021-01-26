@@ -34,6 +34,7 @@ class ExpertIterationAgent(Agent):
                  use_agent_modelling: bool,
                  use_true_agent_models_in_mcts: bool,
                  use_learnt_opponent_models_in_mcts: bool,
+                 average_episode_returns_with_mcts_values: bool,
                  action_dim: int,
                  observation_dim: Tuple[int],
                  num_opponents: int,
@@ -55,7 +56,7 @@ class ExpertIterationAgent(Agent):
                                          phase and expansion phase with the
                                          apprentice. If False, this algorithm
                                          is equivalent to DAGGER
-        :param use_agent_modelling: Wether to model other agent's actions as
+        :param use_agent_modelling: Whether to model other agent's actions as
                                     an auxiliary task. As in DPIQN paper
         :param use_true_agent_models_in_mcts: Whether to use opponent modelling inside of MCTS.
                                             During training: creates a NeuralNetServerHandler
@@ -63,10 +64,14 @@ class ExpertIterationAgent(Agent):
                                             Requires the other agent's model.
                                             During inference: uses opponent modelling head
                                             of self.apprentice.
-        :param use_learnt_opponent_models_in_mcts: Wether to learnt opponent models, by querying
+        :param use_learnt_opponent_models_in_mcts: Whether to learnt opponent models, by querying
                                            the head of apprentice (nn.Module) which is
                                            trained to model opponent actions
                                            (key from prediction dictionary 'policy_0')
+        :param average_episode_returns_with_mcts_values: Whether to average
+                                the episode returns with Q values of MCTS' root
+                                node, to serve as targets for the apprentice's
+                                value head.
         :param action_dim: Shape of actions, use to generate placeholder values
         :param observation_dim: Shape of observations, use to generate placeholder values
         :param num_opponents: Number of opponents that will be playing in an environment
@@ -84,6 +89,8 @@ class ExpertIterationAgent(Agent):
         self.expert: Agent = expert
         self.apprentice: nn.Module = apprentice
         if self.use_cuda: self.apprentice = self.apprentice.cuda()
+
+        self.average_episode_returns_with_mcts_values = average_episode_returns_with_mcts_values
 
         #### Algorithmic variations ####
         self._use_true_agent_models_in_mcts = use_true_agent_models_in_mcts
@@ -225,8 +232,10 @@ class ExpertIterationAgent(Agent):
                           extra_info: Dict[int, Dict[str, Any]] = {}):
         super().handle_experience(o, a, r, succ_s, done)
         expert_child_visitations = self.expert.current_prediction['child_visitations']
+        expert_state_value_prediction = self.expert.current_prediction['V']
         self._handle_experience(o, a, r, succ_s, done, extra_info,
-                                self.storage, expert_child_visitations)
+                                self.storage,
+                                expert_child_visitations, expert_state_value_prediction)
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
         # Simplify & explain the idea behind
@@ -236,16 +245,19 @@ class ExpertIterationAgent(Agent):
         for (o, a, r, succ_o, done, extra_info), (pred_index, e_i) in zip(experiences, enumerate(env_ids)):
             self.storages[e_i] = self.storages.get(e_i, self.init_storage(size=100))
             expert_child_visitations = extra_info['self']['child_visitations']  # self.current_prediction['child_visitations'][pred_index]
+            expert_state_value_prediction = extra_info['self']['V']
             self._handle_experience(o, a, r, succ_o, done, extra_info,
-                                    self.storages[e_i], expert_child_visitations)
+                                    self.storages[e_i],
+                                    expert_child_visitations, expert_state_value_prediction)
 
     def _handle_experience(self, o, a, r, succ_s, done: bool,
                            extra_info: Dict[int, Dict[str, Any]],
                            storage: Storage,
-                           expert_child_visitations: List[int]):
+                           expert_child_visitations: torch.FloatTensor,
+                           expert_state_value_prediction: torch.FloatTensor):
         # Preprocessing all variables
         o, r = self.process_environment_signals(o, r)
-        normalized_visits = torch.Tensor(self.normalize(expert_child_visitations))
+        normalized_visits = expert_child_visitations / expert_child_visitations.sum()
 
         if self.use_agent_modelling:
             opponent_policy, opponen_obs = self.process_extra_info(extra_info)
@@ -254,7 +266,8 @@ class ExpertIterationAgent(Agent):
         self.update_storage(storage, o, r, done,
                             opponent_policy=opponent_policy,
                             opponent_s=opponen_obs,
-                            mcts_policy=normalized_visits)
+                            mcts_policy=normalized_visits,
+                            expert_state_value_prediction=expert_state_value_prediction)
         if done: self.handle_end_of_episode(storage)
         self.expert.handle_experience(o, a, r, succ_s, done)
 
@@ -303,20 +316,24 @@ class ExpertIterationAgent(Agent):
                        done: bool,
                        opponent_policy: torch.Tensor,
                        opponent_s: torch.Tensor,
-                       mcts_policy: torch.Tensor):
+                       mcts_policy: torch.Tensor,
+                       expert_state_value_prediction: torch.Tensor):
         storage.add({'normalized_child_visitations': mcts_policy,
                      's': o})
         if self.use_agent_modelling:
             storage.add({'opponent_policy': opponent_policy,
                          'opponent_s': opponent_s})
+        if self.average_episode_returns_with_mcts_values:
+            storage.add({'V': expert_state_value_prediction})
         if done:
             # Hendrik idea:
             # Using MCTS value for current search might be better?
-            for _ in range(len(storage.s)): storage.add({'V': r})
-
-    def normalize(self, x):
-        total = sum(x)
-        return [x_i / total for x_i in x]
+            if self.average_episode_returns_with_mcts_values:
+                # Average all previously estimated values with episode return
+                storage.V = [(value + r) / 2 for value in storage.V]
+            else:
+                # Use episodic return for all points
+                for _ in range(len(storage.s)): storage.add({'V': r})
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 observation, player_index: int, multi_action: bool):
@@ -363,6 +380,7 @@ class ExpertIterationAgent(Agent):
                        f'Use apprentice in expert: {self.use_apprentice_in_expert}\n'
                        f'Use agent mdelling in mcts: {self.use_true_agent_models_in_mcts}\n'
                        f'Use learnt opponent models in mcts: {self.use_learnt_opponent_models_in_mcts}\n'
+                       f'Average episode returns with MCTS values: {self.average_episode_returns_with_mcts_values}\n'
                        f'State processing fn: {self.state_preprocess_fn}\n'
                        f'Server based State processing fn: {self.server_state_preprocess_fn}'
                       )
@@ -535,12 +553,16 @@ def build_ExpertIteration_Agent(task: 'Task',
 
                                       If True, PUCT will be used as a selection
                                       strategy in MCTS, otherwise UCB1 will be used
-        - 'use_agent_modelling': (Bool) Wether to model other agent's actions
+        - 'use_agent_modelling': (Bool) Whether to model other agent's actions
                                  as an axuliary task. As in DPIQN paper
-        - 'use_true_agent_models_in_mcts': (Bool) Wether to use true agent models
+        - 'use_true_agent_models_in_mcts': (Bool) Whether to use true agent models
                                            to compute priors for MCTS nodes.
-        - 'use_learnt_opponent_models_in_mcts': (Bool) Wether to use learnt agent models
+        - 'use_learnt_opponent_models_in_mcts': (Bool) Whether to use learnt agent models
                                                 to compute priors for MCTS nodes.
+        - 'average_episode_returns_with_mcts_values': (Bool) Whether to average
+                                the episode returns with Q values of MCTS' root
+                                node, to serve as targets for the apprentice's
+                                value head. Idea taken from: https://medium.com/oracledevs/lessons-from-alphazero-part-4-improving-the-training-target-6efba2e71628
 
         MCTS params:
         - 'mcts_budget': (Int) Number of iterations of the MCTS loop that will be carried
@@ -608,6 +630,7 @@ def build_ExpertIteration_Agent(task: 'Task',
             use_agent_modelling=config['use_agent_modelling'],
             use_true_agent_models_in_mcts=config['use_true_agent_models_in_mcts'],
             use_learnt_opponent_models_in_mcts=config['use_learnt_opponent_models_in_mcts'],
+            average_episode_returns_with_mcts_values=config.get('average_episode_returns_with_mcts_values', False),
             action_dim=task.action_dim,
             observation_dim=task.observation_dim,
             num_opponents=(task.num_agents - 1),
