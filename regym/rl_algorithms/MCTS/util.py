@@ -19,18 +19,26 @@ def extract_best_actions(scores: Dict[int, float]) -> List[int]:
     return best_candidates
 
 
-def add_dirichlet_noise(alpha: float, p: Dict[int, float]) -> Dict[int, float]:
+def add_dirichlet_noise(alpha: float,
+                        p: Dict[int, float],
+                        noise_strength: float=1.) -> Dict[int, float]:
     '''
     Adds dirichlet noise to distribution stored in the values of :param p:.
     :param alpha: Parameter of Dirichlet distribution
     :param p: Dictionary whose values contain the distribution to be perturbed
+    :param noise_strength: Ranging [0, 1], Multiplier for noise strenght
     :returns: Dictionary containing perturbed distribution
     '''
+    assert 0 <= noise_strength <= 1, ('Param noise_strength must lie between 0 and 1. '
+                                        f'Given: {noise_strength}.')
+
     dirichlet_noise = np.random.dirichlet(np.full(shape=(len(p.keys())), fill_value=alpha))
-    dirchlet_noise_total = sum(dirichlet_noise)
+    scaled_dirichlet_noise = noise_strength * dirichlet_noise
+    dirchlet_noise_total = sum(scaled_dirichlet_noise)
+
     p_total = sum(p.values())
     perturbed_priors_total = p_total + dirchlet_noise_total
-    return {a_i: (p_a_i + dirichlet_noise[i]) / perturbed_priors_total
+    return {a_i: (p_a_i + scaled_dirichlet_noise[i]) / perturbed_priors_total
             for i, (a_i, p_a_i) in enumerate(p.items())}
 
 

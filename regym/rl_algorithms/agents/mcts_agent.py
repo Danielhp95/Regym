@@ -251,7 +251,8 @@ class MCTSAgent(Agent):
         # TODO: change this to compute 'V' in the same way as in multi_action_model_based_take_action
         # Which uses the bellman equation
         # (averages using normalized child visits instead of just uniformly averaging over Q_a values)
-        self.current_prediction['V'] = sum([tree.Q_a[a_i] for a_i in tree.children.keys()]) / len(tree.children)
+        if hasattr(tree, 'children'):  # i.e: if we re on a SequentialNode. TODO: this is hacky
+            self.current_prediction['V'] = sum([tree.Q_a[a_i] for a_i in tree.children.keys()]) / len(tree.children)
         return action
 
     def clone(self):

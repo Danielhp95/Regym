@@ -13,6 +13,36 @@ from regym.rl_algorithms.MCTS import sequential_mcts
 from regym.rl_algorithms.MCTS.sequential_node import SequentialNode
 from regym.rl_algorithms.MCTS import util
 
+def test_can_apply_dirichlet_noise_to_priors():
+    seed = 420
+    initial_priors = {0: 1/3, 1: 1/3, 2: 1/3}
+
+    expected_changed_prior = {0: 1/3, 1: 1/3, 2: 1/3}
+
+    np.random.seed(seed)
+    actual_priors_1 = util.add_dirichlet_noise(alpha=1., p=initial_priors, noise_strength=1.)
+
+    assert sum(actual_priors_1.values()) == 1.
+
+    np.random.seed(seed)
+    actual_priors_2 = util.add_dirichlet_noise(alpha=1., p=initial_priors, noise_strength=0.5)
+
+    assert sum(actual_priors_2.values()) == 1.
+    # The difference between initial_priors and actual_priors_1 should be greater than
+    # the difference between initial_priors and actual_priors_2, due to reduced strength
+    assert np.sum(np.abs(np.array(list(initial_priors.values())) - np.array(list(actual_priors_1.values())))) >\
+           np.sum(np.abs(np.array(list(initial_priors.values())) - np.array(list(actual_priors_2.values()))))
+
+    np.random.seed(seed)
+    actual_priors_3 = util.add_dirichlet_noise(alpha=1., p=initial_priors, noise_strength=0)
+
+    assert sum(actual_priors_3.values()) == 1.
+
+    # If noise_strength = 0, then priors are unaltered
+    np.testing.assert_array_equal(np.array(list(initial_priors.values())),  # All this casting is ugly
+                                  np.array(list(actual_priors_3.values())))
+
+
 def test_sequential_mcts_consistency_on_tree_properties_in_connect4(Connect4Task):
     '''
     - Root node should have the same number of visitations as the given budget.
