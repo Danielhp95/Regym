@@ -495,12 +495,15 @@ def build_apprentice_with_agent_modelling(feature_extractor, task, config):
 def build_expert(task, config: Dict, expert_name: str) -> MCTSAgent:
     selection_phase = 'puct' if config['use_apprentice_in_expert'] else 'ucb1'
     exploration = f'exploration_factor_{selection_phase}'
-    expert_config = {'budget': config['mcts_budget'],
-                     'rollout_budget': config['mcts_rollout_budget'],
-                     'selection_phase': selection_phase,
-                     'use_dirichlet': config['mcts_use_dirichlet'],
-                     exploration: config['mcts_exploration_factor'],
-                     'dirichlet_alpha': config['mcts_dirichlet_alpha']}
+    expert_config = {
+        'budget': config['mcts_budget'],
+        'rollout_budget': config.get('mcts_rollout_budget', 0.),
+        'selection_phase': selection_phase,
+        'use_dirichlet': config.get('mcts_use_dirichlet', False),
+        exploration: config['mcts_exploration_factor'],
+        'dirichlet_alpha': config['mcts_dirichlet_alpha'],
+        'dirichlet_strength': config.get('mcts_dirichlet_strength', 1.)
+    }
     return build_MCTS_Agent(task, expert_config, agent_name=expert_name)
 
 

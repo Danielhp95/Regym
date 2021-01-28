@@ -122,6 +122,7 @@ def MCTS_UCT(rootstate, observation,
              exploration_factor: float,
              use_dirichlet: bool,
              dirichlet_alpha: float,
+             dirichlet_strength: float,
              rollout_policies: List = []) \
         -> Tuple[int, Dict[int, int], SimultaneousOpenLoopNode]:
     '''
@@ -147,6 +148,9 @@ def MCTS_UCT(rootstate, observation,
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
     :param policy_fn: TODO
     :param evaluation_fn: TODO
+    :param use_dirichlet: UNUSED
+    :param dirichlet_alpha: UNUSED
+    :param dirichlet_strength: UNUSED
     :returns: Action to be taken by player
     '''
     root_nodes = [SimultaneousOpenLoopNode(state=rootstate, perspective_player=i)

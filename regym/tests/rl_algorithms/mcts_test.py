@@ -13,6 +13,7 @@ from regym.rl_algorithms.MCTS import sequential_mcts
 from regym.rl_algorithms.MCTS.sequential_node import SequentialNode
 from regym.rl_algorithms.MCTS import util
 
+
 def test_can_apply_dirichlet_noise_to_priors():
     seed = 420
     initial_priors = {0: 1/3, 1: 1/3, 2: 1/3}
@@ -72,6 +73,7 @@ def test_sequential_mcts_consistency_on_tree_properties_in_connect4(Connect4Task
             evaluation_fn=None,
             use_dirichlet=False,
             dirichlet_alpha=None,
+            dirichlet_strength=None,
             num_agents=2
         )
         _assert_only_top_node_is_root(tree)

@@ -26,7 +26,8 @@ class MCTSAgent(Agent):
                  selection_phase_id: str,
                  iteration_budget: int, rollout_budget: int,
                  exploration_constant: float, task_num_agents: int,
-                 task_action_dim: int, use_dirichlet: bool, dirichlet_alpha: float):
+                 task_action_dim: int,
+                 use_dirichlet: bool, dirichlet_alpha: float, dirichlet_strength: float):
         '''
         Agent for various algorithms of the Monte Carlo Tree Search family (MCTS).
         MCTS algorithms are model based (aka, statistical forward planners). which will require
@@ -37,6 +38,8 @@ class MCTSAgent(Agent):
 
         A nice survey paper of MCTS approaches:
                 https://www.researchgate.net/publication/235985858_A_Survey_of_Monte_Carlo_Tree_Search_Methods
+
+        TODO: add params explanation
         '''
         super(MCTSAgent, self).__init__(name=name, requires_environment_model=True)
         self.algorithm = algorithm
@@ -65,6 +68,7 @@ class MCTSAgent(Agent):
         # Adding exploration to root nodes
         self.use_dirichlet = use_dirichlet
         self.dirichlet_alpha = dirichlet_alpha
+        self.dirichlet_strength = dirichlet_strength
 
         self.current_prediction: Union[Dict, Dict[int, Dict]] = {}
 
@@ -125,13 +129,14 @@ class MCTSAgent(Agent):
 
             # TODO, use kwargs instead of args and praying that the order of the
             # arguments makes sense
+            # TODO: turn this into kwargs, pretty please!!
             futures = [ex.submit(async_search, env_i, self.algorithm,
                                  env, observations[env_i],
                                  self.budget, self.rollout_budget,
                                  self.selection_strat, self.exploration_constant,
                                  player_index, policy_fn,
                                  evaluation_fn, self.use_dirichlet,
-                                 self.dirichlet_alpha, self.num_agents)
+                                 self.dirichlet_alpha, self.dirichlet_strength, self.num_agents)
                        for (env_i, env), policy_fn, evaluation_fn
                        in zip(envs.items(), policy_fns, evaluation_fns)]
 
@@ -242,7 +247,9 @@ class MCTSAgent(Agent):
                 policy_fn=self.policy_fn,
                 exploration_factor=self.exploration_constant,
                 use_dirichlet=self.use_dirichlet,
-                dirichlet_alpha=self.dirichlet_alpha)
+                dirichlet_alpha=self.dirichlet_alpha,
+                dirichlet_strength=self.dirichlet_strength
+        )
 
         child_visitations = [visitations[move_id] if move_id in visitations else 0.
                              for move_id in range(self.action_dim)]
@@ -281,6 +288,7 @@ class MCTSAgent(Agent):
              f'Exploration cnst: {self.exploration_constant}\n'
              f'Use Dirichlet noise: {self.use_dirichlet}\n'
              f'Dirchlet alpha: {self.dirichlet_alpha}\n'
+             f'Dirichlet strenght: {self.dirichlet_strength}\n'
              f'Server based policy_fn: {self.server_based_policy_fn}\n'
              f'Server based evaluation_fn: {self.server_based_evaluation_fn}'
              )
@@ -339,7 +347,8 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                       task_num_agents=task.num_agents,
                       task_action_dim=task.action_dim,
                       use_dirichlet=use_dirichlet,
-                      dirichlet_alpha=config.get('dirichlet_alpha', None))
+                      dirichlet_alpha=config.get('dirichlet_alpha', None),
+                      dirichlet_strength=config.get('dirichlet_strength', 1.))
     return agent
 
 
@@ -354,6 +363,9 @@ def check_config_validity(config: Dict, task: regym.environments.Task):
        raise KeyError("If selection phase 'ucb1' is selected, a 'exploration_factor_ucb1' key must exist in config dict")
     if 'puct' == config['selection_phase'] and 'exploration_factor_puct' not in config:
         raise KeyError("If selection phase 'puct' is selected, a 'exploration_factor_puct' key must exist in config dict")
+    if 'dirichlet_strength' in config:
+        assert 0 <= config['dirichlet_strength'] <= 1., \
+            (f"Param noise_strength must lie between 0 and 1. Given: {config['dirichlet_strength']}.")
     if task.env_type == regym.environments.EnvType.MULTIAGENT_SIMULTANEOUS_ACTION \
             and 'puct' == config['selection_phase']:
         raise NotImplementedError(f'MCTSAgent does not currently support PUCT selection phase for tasks of type EnvType.MULTIAGENT_SIMULTANEOUS_ACTION, such as {task.name}')

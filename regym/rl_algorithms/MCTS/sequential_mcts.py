@@ -151,6 +151,7 @@ def MCTS(rootstate: gym.Env, observation,
          evaluation_fn: Optional[Callable[[Any, List[int]], float]],
          use_dirichlet: bool,
          dirichlet_alpha: float,
+         dirichlet_strength: float,
          num_agents: int) -> Tuple[int, Dict[int, int], SequentialNode]:
     '''
     Conducts an MCTS game tree search where the root node represents
@@ -202,6 +203,8 @@ def MCTS(rootstate: gym.Env, observation,
                           root node of the MCTS tree to encourage exploration
     :param dirichlet_alpha: Parameter of Dirichlet distribution.
                             Only used if :param: use_dirichlet flag is set
+    :param dirichlet_strength: [0, 1] Multiplier of the effect of Dirichlet
+                               noise on root node's priors.
     :param num_agents: Number of agents present in the environment
     :returns: (int) Action to be taken by agent :param: player_index
               and visitations of each child in the root node
@@ -210,7 +213,7 @@ def MCTS(rootstate: gym.Env, observation,
 
     actions, priors = get_actions_and_priors(rootstate, observation, policy_fn, player_index)
     if use_dirichlet:
-        priors = add_dirichlet_noise(alpha=dirichlet_alpha, p=priors)
+        priors = add_dirichlet_noise(alpha=dirichlet_alpha, p=priors, noise_strength=dirichlet_strength)
     rootnode = SequentialNode(parent=None, player=player_index, a='R',
                               actions=actions, priors=priors)
 
