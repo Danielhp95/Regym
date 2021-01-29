@@ -10,7 +10,7 @@ import regym
 from regym.rl_algorithms.agents import Agent
 from regym.networks import CategoricalActorCriticNet, GaussianActorCriticNet
 from regym.networks import FCBody, LSTMBody, Convolutional2DBody
-from regym.networks.preprocessing import turn_into_single_element_batch
+from regym.networks.preprocessing import turn_into_single_element_batch, parse_preprocessing_fn
 
 from regym.rl_algorithms.PPO import PPOAlgorithm
 
@@ -18,9 +18,9 @@ from regym.rl_algorithms.PPO import PPOAlgorithm
 class PPOAgent(Agent):
 
     def __init__(self, name, algorithm):
+        super().__init__(name)
         self.algorithm = algorithm  # This has to go before the super initializer
-        super(PPOAgent, self).__init__(name)
-        self.state_preprocessing = self.algorithm.kwargs['state_preprocess']
+        self.state_preprocess_fn = self.algorithm.kwargs['state_preprocess_fn']
 
         self.recurrent = False
         self.rnn_states = None
@@ -85,7 +85,7 @@ class PPOAgent(Agent):
         storage = self.algorithm.storages[storage_idx]
 
         non_terminal = torch.ones(1)*(1 - int(done))
-        state = self.state_preprocessing(s)
+        state = self.state_preprocess_fn(s)
         r = torch.FloatTensor([r])
 
         # This is not pretty, and is the remnants of
@@ -131,7 +131,7 @@ class PPOAgent(Agent):
         return action
 
     def compute_prediction(self, state, legal_actions) -> Dict:
-        preprocessed_state = self.state_preprocessing(state)
+        preprocessed_state = self.state_preprocess_fn(state)
         if self.algorithm.use_cuda: preprocessed_state = preprocessed_state.cuda()
 
         if self.recurrent:
@@ -149,6 +149,14 @@ class PPOAgent(Agent):
         clone.training = training
 
         return clone
+
+    def __repr__(self):
+        agent_stats = (f'PPO Agent: {self.name}\n'
+                       f'Handled experiences: {self.handled_experiences}\n'
+                       f'Finished episodes: {self.finished_episodes}\n'
+                       f'State preprocess fn: {self.state_preprocess_fn}\n'
+                       )
+        return agent_stats + str(self.algorithm)
 
 
 def create_model(task: regym.environments.Task,
@@ -215,8 +223,9 @@ def build_PPO_Agent(task: regym.environments.Task, config: Dict[str, object], ag
     :returns: PPOAgent adapted to be trained on :param: task under :param: config
     '''
     kwargs = config.copy()
-    if 'state_preprocess' not in kwargs:
-        kwargs['state_preprocess'] = turn_into_single_element_batch
+    if 'state_preprocess_fn' not in kwargs:
+        kwargs['state_preprocess_fn'] = turn_into_single_element_batch
+    else: kwargs['state_preprocess_fn'] = parse_preprocessing_fn(kwargs['state_preprocess_fn'])
 
     model = create_model(task, config)
     model.share_memory()

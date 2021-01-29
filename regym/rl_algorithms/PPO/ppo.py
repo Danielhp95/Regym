@@ -219,3 +219,22 @@ class PPOAlgorithm():
             total_loss.backward(retain_graph=False)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
             self.optimizer.step()
+
+
+    def __repr__(self):
+        return (f'Num updates: {self.num_updates}\n'
+         f'Num optimizer steps: {self.num_optimizer_steps}\n'
+         f'Horizon: {self.horizon}\n'
+         f'Discount: {self.discount}\n'
+         f'Use_gae: {self.use_gae}\n'
+         f'Gae tau: {self.gae_tau}\n'
+         f'Ppo ratio clip: {self.ppo_ratio_clip}\n'
+         f'Entropy weight: {self.entropy_weight}\n'
+         f'Optimization epochs: {self.optimization_epochs}\n'
+         f'Learning rate: {self.learning_rate}\n'
+         f'Gradient clip: {self.gradient_clip}\n'
+         f'Adam eps: {self.adam_eps}\n'
+         f'Batch size: {self.batch_size}\n'
+         f'Use cuda: {self.use_cuda}\n'
+         f'Storages: {self.storages}'
+         )
