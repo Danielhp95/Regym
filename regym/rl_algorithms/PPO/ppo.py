@@ -43,6 +43,7 @@ class PPOAlgorithm():
         self.gradient_clip = kwargs['gradient_clip']
         self.adam_eps = kwargs['adam_eps']
         self.use_cuda = kwargs['use_cuda']
+        self.batch_size = kwargs['mini_batch_size']
         self.model = model
         if self.use_cuda:
             self.model = self.model.cuda()
@@ -155,7 +156,9 @@ class PPOAlgorithm():
 
         # Turning actions into dim: self.horizon x 1
         # (Might break in environments where actions are not a single number)
-        states = states.view(len(storage.s), -1)
+        assert storage.s != self.horizon, (f'Number of states in storage ({len(storage.s)}) '
+                                           f"should be equal to PPO's horizon ({self.horizon})")
+        #states = states.view(len(storage.s), -1)
         actions = actions.view(-1, 1)
         log_probs_old = log_probs_old.view(-1, 1)
         returns = returns.view(-1, 1)
@@ -186,7 +189,7 @@ class PPOAlgorithm():
                 sampled_returns, sampled_advantages, sampled_rnn_states)
 
     def optimize_model(self, states, actions, log_probs_old, returns, advantages, rnn_states=None):
-        sampler = random_sample(np.arange(states.size(0)), self.kwargs['mini_batch_size'])
+        sampler = random_sample(np.arange(states.size(0)), self.batch_size)
         assert( (self.recurrent and rnn_states is not None) or not(self.recurrent or rnn_states is not None) )
         if self.recurrent:
             nbr_layers_per_rnn = { k:len(rnn_states[k][0] ) for k in self.rnn_keys}
