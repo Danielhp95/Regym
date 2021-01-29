@@ -82,7 +82,7 @@ def test_can_query_learnt_opponent_models_at_train_time(Connect4Task, expert_ite
 
 
 def test_agent_initially_configured_to_use_true_opponent_models_can_switch_to_using_learnt_models_in_mcts(Connect4Task, expert_iteration_config_dict):
-    torch.multiprocessing.set_start_method('spawn')
+    torch.multiprocessing.set_start_method('spawn', force='True')
     expert_iteration_config_dict['use_agent_modelling'] = True
     expert_iteration_config_dict['use_apprentice_in_expert'] = True
     expert_iteration_config_dict['use_true_agent_models_in_mcts'] = True
