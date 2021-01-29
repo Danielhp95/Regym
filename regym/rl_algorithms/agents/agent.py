@@ -6,6 +6,7 @@ import torch
 
 from regym.networks.servers import neural_net_server
 
+
 class Agent(ABC):
     '''
     This Agent class is an abstract interface for all other Agent subclasses.
@@ -98,7 +99,7 @@ class Agent(ABC):
         '''
         self.requires_acess_to_other_agents: bool = False
 
-        self._state_preprocessing_fn = self.identity_fn
+        self._state_preprocess_fn = self.identity_fn
 
         # Keys from self.__dict__ that will be ignored when pickling
         # an agent. Each agent subclass can incorporate new keys.
@@ -140,7 +141,13 @@ class Agent(ABC):
 
     @property
     def state_preprocess_fn(self) -> Callable[[Any], torch.Tensor]:
-        return self._state_preprocessing_fn
+        '''
+        Function used to process environment observations. Normal usecases
+        include preprocessing environment observations before a prediction
+        is computed to take an action (during `Agent.model_free_take_action()`)
+        or before inserting an observation in an algorithm specific dataset.
+        '''
+        return self._state_preprocess_fn
 
     # Reasonable default for state_preprocess_fn. We would use lambda x: x,
     # but Pickle isn't a big friend of lambda functions
@@ -148,7 +155,10 @@ class Agent(ABC):
 
     @state_preprocess_fn.setter
     def state_preprocess_fn(self, state_preprocess_fn: Callable):
-        self._state_preprocessing_fn = state_preprocess_fn
+        if not isinstance(state_preprocess_fn, Callable):
+            error_msg = f'Attempted to set a {type(state_preprocess_fn)} as a state_preprocess_fn, it must be a Callable'
+            raise ValueError(error_msg)
+        self._state_preprocess_fn = state_preprocess_fn
 
     def model_based_take_action(self, env: Union[gym.Env, List[gym.Env]],
                                 legal_actions: Union[List[int], List[List[int]]],
