@@ -1,10 +1,11 @@
 from typing import List, Callable
 import math
+from copy import deepcopy
 
-from ..rl_algorithms import AgentHook
+import torch
 
 '''
-Based on the paper: Emergent Complexity in Multi TODO
+Based on the paper: Emergent Complexity via Multi-agent Competition
 The implementation differs from Bansal's because this class
 allows to use distributions which aren't uniform.
 '''
@@ -43,14 +44,14 @@ class DeltaDistributionalSelfPlay():
         :param distribution: Distribution to be used over the filtered set of agents.
         :returns: Agent, sampled from the menagerie, to be used as an opponent in the next episode
         '''
-        latest_training_agent_hook = AgentHook(training_agent.clone(training=False))
+        latest_training_agent = training_agent.clone(training=False)
         indices = range(len(menagerie) + 1) # +1 accounts for the training agent, not (yet) included in menagerie
         subset_of_considered_indices = slice(math.ceil(self.delta * len(menagerie)), len(indices))
         valid_agents_indices = indices[subset_of_considered_indices]
         samples_indices = [self.distribution(valid_agents_indices)]
-        samples = [menagerie[i] if i < len(menagerie) else latest_training_agent_hook
+        samples = [menagerie[i] if i < len(menagerie) else latest_training_agent
                    for i in samples_indices]
-        return [AgentHook.unhook(sampled_hook_agent) for sampled_hook_agent in samples]
+        return [sampled_hook_agent for sampled_hook_agent in samples]
 
     def curator(self, menagerie, training_agent, episode_trajectory, training_agent_index, candidate_save_path):
         '''
@@ -60,8 +61,13 @@ class DeltaDistributionalSelfPlay():
         '''
 
         if (self.save_skips_i % self.save_every_n_episodes) == 0:
-            menagerie_addition = [AgentHook(training_agent.clone(training=False),
-                                            save_path=candidate_save_path)]
+            # By having a deep copy we are slowing things down, because
+            # We could have a clone function. But at the pace that we change
+            # the Agent class, this is not really worth it.
+            cloned_agent = deepcopy(training_agent)
+            cloned_agent.training = False
+            torch.save(cloned_agent, candidate_save_path)
+            menagerie_addition = [cloned_agent]
         else: menagerie_addition = []
 
         self.save_skips_i += 1

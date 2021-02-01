@@ -4,15 +4,16 @@ http://papers.nips.cc/paper/7007-a-unified-game-theoretic-approach-to-multiagent
 
 TODO: difference between PSRO which takes 3 separate stages and our method, which is an online method.
 '''
-
 from typing import Callable, List
+from copy import deepcopy
 import dill
 import logging
 import time
 from itertools import product
+
+import torch
 import numpy as np
 
-from regym.rl_algorithms import AgentHook
 from regym.game_theory import solve_zero_sum_game
 from regym.util import play_multiple_matches
 from regym.environments import generate_task, Task, EnvType
@@ -90,7 +91,7 @@ class PSRONashResponse():
                 candidate_save_path: str) -> List['Agent']:
         '''
         :param menagerie: archive of agents selected by the curator and the potential opponents
-        :param training_agent: AgentHook of the Agent currently being trained
+        :param training_agent: Agent currently being trained
         :returns: menagerie to be used in the next training episode.
         '''
         self.statistics[-1].total_elapsed_episodes += 1
@@ -177,9 +178,10 @@ class PSRONashResponse():
         return policy_1_overall_winrate
 
     def add_agent_to_menagerie(self, training_agent, candidate_save_path=None):
-        if candidate_save_path is not None:
-            AgentHook(training_agent, save_path=candidate_save_path)
-        self.menagerie.append(training_agent.clone(training=False))
+        if candidate_save_path: torch.save(training_agent, candidate_save_path)
+        cloned_agent = deepcopy(training_agent)
+        cloned_agent.training_agent = False
+        self.menagerie.append(cloned_agent)
 
     def create_new_iteration_statistics(self, last_iteration_statistics):
         return self.IterationStatistics(len(self.statistics), last_iteration_statistics.total_elapsed_episodes,

@@ -5,7 +5,8 @@ import os
 from tqdm import trange
 
 
-def self_play_training(task, training_agent, self_play_scheme,
+def self_play_training(task: 'Task', training_agent: 'Agent',
+                       self_play_scheme: object,
                        target_episodes: int=10, opci: int=1,
                        menagerie: List=[],
                        menagerie_path: str='.',
@@ -22,7 +23,7 @@ def self_play_training(task, training_agent, self_play_scheme,
 
     :param task: Mutiagent task
     :param training_scheme: Self play training scheme that extends the multiagent rl loop
-    :param training_agent: AgentHook of the agent being trained, together with training algorithm
+    :param training_agent: Agent being trained
     :param target_episodes: number of episodes that will be run before training ends.
     :param opci: Opponent policy Change Interval
     :param menageries_path: path to folder where all menageries are stored.
