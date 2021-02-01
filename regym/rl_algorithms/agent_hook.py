@@ -19,9 +19,14 @@ def load_population_from_path(path: str, file_extension='pt',
     If :param: sort_fn is passed, all appropiate files in :param: path
     are sorted according to :param: sort_fn.
 
+     NOTE: it might be easier to sort agents once they are loaded
+     (for instance, by looking at the number of finished_episodes).
+     :param: sort_fn is used to sort over file paths (i.e strings)
+
     :param path: Relative path from which
-    :param file_extension: 
-    :param sort_fn: Function to be used as part of list.sort(key={})
+    :param file_extension: Only files with this extension will be loaded
+    :param sort_fn: Function to be used as part of list.sort(key={}), to
+                    sort agent files before loading.
     '''
     files = [os.path.abspath(f'{path}/{f}') for f in listdir(path)
              if isfile(join(path, f)) and f.endswith(file_extension)]
