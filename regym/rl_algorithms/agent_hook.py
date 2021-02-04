@@ -1,10 +1,12 @@
+from enum import Enum
+from typing import List, Callable, Tuple, Any
 import os
 from os import listdir
 from os.path import isfile, join
-from typing import List, Callable, Tuple, Any
+
 import torch
+import tqdm
 from .agents import TabularQLearningAgent, DeepQNetworkAgent, PPOAgent, MixedStrategyAgent
-from enum import Enum
 
 AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
 
@@ -12,7 +14,8 @@ AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
 # TODO: move elsewhere. Maybe utils?
 # TODO: test function
 def load_population_from_path(path: str, file_extension='pt',
-                              sort_fn: Callable[[str], Tuple[Any]]=None) -> List:
+                              sort_fn: Callable[[str], Tuple[Any]]=None,
+                              show_progress: bool=False) -> List:
     '''
     Loads a population of agents from :param: path.
     Agent files are recognized by the :param: file_extension.
@@ -31,6 +34,7 @@ def load_population_from_path(path: str, file_extension='pt',
     files = [os.path.abspath(f'{path}/{f}') for f in listdir(path)
              if isfile(join(path, f)) and f.endswith(file_extension)]
     if sort_fn is not None: files.sort(key=sort_fn)
+    if show_progress: files = tqdm.tqdm(files, desc=f'Loading agents from {path}')
     return [torch.load(open(f, 'rb')) for f in files]
 
 
