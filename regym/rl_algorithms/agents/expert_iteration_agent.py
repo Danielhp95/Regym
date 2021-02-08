@@ -423,6 +423,7 @@ def choose_feature_extractor(task, config: Dict):
                                     kernel_sizes=config['kernel_sizes'],
                                     paddings=config['paddings'],
                                     strides=config['strides'],
+                                    final_feature_dim=config['final_feature_dim'],
                                     residual_connections=config.get('residual_connections', []),
                                     use_batch_normalization=config['use_batch_normalization'])
         return model
@@ -598,6 +599,7 @@ def build_ExpertIteration_Agent(task: 'Task',
             - 'channels': Tuple[int]
             - 'kernel_sizes': Tuple[int]
             - 'paddings': Tuple[int]
+            - 'final_feature_dim': int. Dimensionality of the final, fully connected layer of a convolutional body
         - 'critic_gate_fn': Gating function to be applied to critic's
                             output head. Supported: ['None', 'tanh']
     '''

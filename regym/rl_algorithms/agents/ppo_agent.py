@@ -170,12 +170,13 @@ def create_model(task: regym.environments.Task,
             body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
         elif config['phi_arch'] == 'CNN':
             body = Convolutional2DBody(input_shape=config['preprocessed_input_dimensions'],
-                                        channels=config['channels'],
-                                        kernel_sizes=config['kernel_sizes'],
-                                        paddings=config['paddings'],
-                                        strides=config['strides'],
-                                        residual_connections=config.get('residual_connections', []),
-                                        use_batch_normalization=config['use_batch_normalization'])
+                                       channels=config['channels'],
+                                       kernel_sizes=config['kernel_sizes'],
+                                       paddings=config['paddings'],
+                                       strides=config['strides'],
+                                       final_feature_dim=config['final_feature_dim'],
+                                       residual_connections=config.get('residual_connections', []),
+                                       use_batch_normalization=config['use_batch_normalization'])
         input_dim = output_dim
     else:
         body = None

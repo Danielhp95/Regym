@@ -31,22 +31,27 @@ class Convolutional2DBody(nn.Module):
     def __init__(self, input_shape: Tuple[int, int],
                  channels: List[int], kernel_sizes: List[int],
                  paddings: List[int], strides: List[int],
+                 final_feature_dim: int = 256,
                  residual_connections: List[Tuple[int, int]] = [],
                  use_batch_normalization=False,
                  gating_function: Callable = F.relu):
         '''
+        NOTE: The output comes from a fully connected layer, not a convolution.
+
         :param input_shape: (Height x Width) dimensions of input tensors
         :param channels: List with number of channels for each convolution
         :param kernel_sizes: List of 'k' the size of the square kernel sizes for each convolution
         :param paddings: List with square paddings 'p' for each convolution
         :param strides: List with square stridings 's' for each convolution
+        :param final_feature_dim: Size of the 1D fully connected layer that happens
+                                  after all convolutions.
         :param residual_connections: (l1, l2) tuples denoting that output
                                      from l1 should be added to input of l2
         :param use_batch_normalization: Whether to use BatchNorm2d after each convolution
         :param gating_function: Gating function to use after each convolution
         '''
         super().__init__()
-        self.check_input_validity(channels, kernel_sizes, paddings, strides)
+        self.check_input_validity(channels, kernel_sizes, paddings, strides, final_feature_dim)
         self.gating_function = gating_function
         height_in, width_in = input_shape
 
@@ -61,18 +66,26 @@ class Convolutional2DBody(nn.Module):
         self.convolutions = nn.ModuleList(convs)
 
         output_height, output_width = self.dimensions[-1]
-        self.feature_dim = output_height * output_width * channels[-1]
 
-    def forward(self, x):
+        '''
+        Creates the final layer of the convolutional body, which transforms the
+        final convolution's feature map into a fully connected layer, to make it
+        easier to stich together with other layers
+        '''
+        flattened_input = output_height * output_width * channels[-1]
+        self.final_fc_layer = nn.Linear(flattened_input, final_feature_dim)
+        self.feature_dim = final_feature_dim
+
+    def forward(self, x: torch.Tensor):
         conv_map = x
         for convolution in self.convolutions:
             conv_map = self.gating_function(convolution(conv_map))
         # Without start_dim, we are flattening over the entire batch!
         flattened_conv_map = conv_map.flatten(start_dim=1)
-        flat_embedding = self.gating_function(flattened_conv_map)
+        flat_embedding = self.gating_function(self.final_fc_layer(flattened_conv_map))
         return flat_embedding
 
-    def check_input_validity(self, channels, kernel_sizes, paddings, strides):
+    def check_input_validity(self, channels, kernel_sizes, paddings, strides, final_feature_dim):
         if len(channels) < 2: raise ValueError('At least 2 channels must be specified')
         if len(kernel_sizes) != (len(channels) - 1):
             raise ValueError(f'{len(kernel_sizes)} kernel_sizes were specified, but exactly {len(channels) -1} are required')
@@ -82,6 +95,11 @@ class Convolutional2DBody(nn.Module):
             raise ValueError(f'{len(paddings)} paddings were specified, but exactly {len(channels) -1} are required')
         if len(strides) != (len(channels) - 1):
             raise ValueError(f'{len(strides)} strides were specified, but exactly {len(channels) -1} are required')
+        if final_feature_dim <= 0:
+            raise ValueError('Param final_feature_dim corresponds to the number '
+                             'of neurons to have on the final output layer of a Convolutional2DBody. '
+                             f'It must be positive (i.e = 256). Given: {final_feature_dim}')
+
 
     def layer_connections(self, dimensions: List[Tuple[int, int]],
                           residual_connections: List[Tuple[int, int]],
