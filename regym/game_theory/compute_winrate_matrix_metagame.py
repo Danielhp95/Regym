@@ -138,7 +138,6 @@ def compute_winrates_in_parallel(agent_1: Agent, agent_2: Agent,
     )
     winrates = [len(list(filter(lambda t: t.winner == a_i, trajectories))) / len(trajectories)
                 for a_i in range(2)]  # TODO, improve, instead of using magic number
-    print(winrates)
     return np.array(winrates)
 
 
