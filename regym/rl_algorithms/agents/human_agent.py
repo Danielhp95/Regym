@@ -25,7 +25,16 @@ class HumanAgent(Agent):
         pass
 
 
-def build_Human_Agent(task, config, agent_name):
+def build_Human_Agent(task, config, agent_name) -> HumanAgent:
+    '''
+    Creates an agent to be manually controlled by a human. Can only
+    be played in tasks with Discrete action space.
+
+    :param task: Task where the agent is going to be executed
+    :param config: IGNORED
+    :param agent_name: string identifier
+    :returns: Agent to be controlled by human.
+    '''
     if task.action_type != 'Discrete':
         raise ValueError('Human agents can only act on Discrete action spaces, as input comes from keyboard')
     return HumanAgent(number_of_actions=task.action_dim, name=agent_name)
