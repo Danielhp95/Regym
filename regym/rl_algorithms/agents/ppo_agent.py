@@ -9,7 +9,7 @@ import numpy as np
 import regym
 from regym.rl_algorithms.agents import Agent
 from regym.networks import CategoricalActorCriticNet, GaussianActorCriticNet
-from regym.networks import FCBody, LSTMBody, Convolutional2DBody
+from regym.networks import FCBody, LSTMBody, Convolutional2DBody, SequentialBody
 from regym.networks.preprocessing import turn_into_single_element_batch, parse_preprocessing_fn
 
 from regym.rl_algorithms.PPO import PPOAlgorithm
@@ -163,10 +163,11 @@ def create_model(task: regym.environments.Task,
                  config: Dict[str, object]) -> nn.Module:
     input_dim = task.observation_size
     if config['phi_arch'] != 'None':
-        output_dim = 64  # TODO: beware of magic number
         if config['phi_arch'] == 'RNN':
+            output_dim = 64  # TODO: beware of magic number
             body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
         elif config['phi_arch'] == 'MLP':
+            output_dim = 64  # TODO: beware of magic number
             body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
         elif config['phi_arch'] == 'CNN':
             body = Convolutional2DBody(input_shape=config['preprocessed_input_dimensions'],
@@ -177,6 +178,21 @@ def create_model(task: regym.environments.Task,
                                        final_feature_dim=config['final_feature_dim'],
                                        residual_connections=config.get('residual_connections', []),
                                        use_batch_normalization=config['use_batch_normalization'])
+        elif config['phi_arch'] == 'CNN-MLP':
+            cnn_body = Convolutional2DBody(input_shape=config['preprocessed_input_dimensions'],
+                                           channels=config['channels'],
+                                           kernel_sizes=config['kernel_sizes'],
+                                           paddings=config['paddings'],
+                                           strides=config['strides'],
+                                           final_feature_dim=config['final_feature_dim'],
+                                           residual_connections=config.get('residual_connections', []),
+                                           use_batch_normalization=config['use_batch_normalization'])
+            mlp_body = FCBody(state_dim=cnn_body.feature_dim,
+                              hidden_units=config['body_mlp_hidden_units'])
+
+            body = SequentialBody([cnn_body, mlp_body])
+            output_dim = body.feature_dim
+
         input_dim = output_dim
     else:
         body = None
