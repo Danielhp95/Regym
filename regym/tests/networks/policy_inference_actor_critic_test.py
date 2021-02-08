@@ -15,9 +15,9 @@ def test_can_learn_two_different_policies():
     target_policy_1 = torch.FloatTensor([[1., 0., 0.]])
     target_policy_2 = torch.FloatTensor([[1/3, 1/3, 1/3]])
 
-    feature_extractor = FCBody(state_dim=3, hidden_units=(3,), gate=nn.functional.leaky_relu)
-    policy_inference_body = FCBody(state_dim=3, hidden_units=(3,), gate=nn.functional.leaky_relu)
-    actor_critic_body = FCBody(state_dim=3, hidden_units=(3,), gate=nn.functional.leaky_relu)
+    feature_extractor = FCBody(state_dim=3, hidden_units=[3], gate=nn.functional.leaky_relu)
+    policy_inference_body = FCBody(state_dim=3, hidden_units=[3], gate=nn.functional.leaky_relu)
+    actor_critic_body = FCBody(state_dim=3, hidden_units=[3], gate=nn.functional.leaky_relu)
 
     model = PolicyInferenceActorCriticNet(
                  num_policies=num_policies,
@@ -39,8 +39,8 @@ def train_model(model, target_policy_1, target_policy_2):
         prediction = model(input_tensor)
 
         from torch.nn.functional import kl_div
-        cross_entropy_loss_1 = cross_entropy_loss(model_prediction=prediction['policy_0']['probs'], target=target_policy_1.unsqueeze(0))
-        cross_entropy_loss_2 = cross_entropy_loss(model_prediction=prediction['policy_1']['probs'], target=target_policy_2.unsqueeze(0))
+        cross_entropy_loss_1 = cross_entropy_loss(model_prediction=prediction['policy_0'], target=target_policy_1.unsqueeze(0))
+        cross_entropy_loss_2 = cross_entropy_loss(model_prediction=prediction['policy_1'], target=target_policy_2.unsqueeze(0))
 
         total_loss = cross_entropy_loss_1 + cross_entropy_loss_2
         optimizer.zero_grad()
@@ -58,8 +58,8 @@ def _test_model(model, target_policy_1, target_policy_2):
         input_tensor = torch.rand(size=(1, 3))
         prediction = model(input_tensor)
 
-        pred_1 = prediction['policy_0']['probs'].detach().numpy()
-        pred_2 = prediction['policy_1']['probs'].detach().numpy()
+        pred_1 = prediction['policy_0'].detach().numpy()
+        pred_2 = prediction['policy_1'].detach().numpy()
 
         np.testing.assert_array_almost_equal(pred_1, target_policy_1.numpy(), decimal=1)
         np.testing.assert_array_almost_equal(pred_2, target_policy_2.numpy(), decimal=1)
