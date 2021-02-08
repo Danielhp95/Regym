@@ -18,7 +18,7 @@ class SequentialBody(nn.Module):
     A wrapper around torch.nn.Sequential so that it exposes property 'feature_dim'
     '''
 
-    def __init__(self, *bodies: Iterable[nn.Module]):
+    def __init__(self, bodies: Iterable[nn.Module]):
         super().__init__()
         self.sequence = nn.Sequential(*bodies)
         self.feature_dim = self.sequence[-1].feature_dim
@@ -134,6 +134,8 @@ class ConvolutionalResidualBlock(nn.Module):
                  paddings: List[int], strides: List[int],
                  use_batch_normalization=False,
                  gating_function: Callable = F.relu):
+        # TODO: document that a residual block cannot have stride / padding bigger than 1.
+        # or at least, Regym does not support it.
         super().__init__()
         self.use_1x1conv = channels[0] != channels[-1]
         if self.use_1x1conv:
