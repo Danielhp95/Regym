@@ -79,7 +79,7 @@ def test_sequential_mcts_consistency_on_tree_properties_in_connect4(Connect4Task
         _assert_only_top_node_is_root(tree)
         _assert_terminal_nodes_have_correct_values_in_deterministic_connect4(tree)
         # TODO: make function below work
-        #_assert_visitations_add_up(tree, budget, ['R'])
+        _assert_visitations_add_up(tree, budget, ['R'])
 
         _, _, done, _ = Connect4Task.env.step(best_action)
 
@@ -103,15 +103,31 @@ def _assert_visitations_add_up(node, budget, action_sequence):
              f'visitations as budget. Expected: {budget}. Actual: {node.N}')
 
     child_visitations = sum(node.N_a.values())
-    assert node.N == child_visitations, (
-           'The visits of a node should be equal '
-            'to the sum of the edge visits stored in that node.\n '
-             f'Sum N_a: {child_visitations}. N: {node.N}\n'
-             f'Branch path action sequence: {action_sequence}\n'
-             f'{node}')
+    if node.is_leaf and not node.is_terminal:
+        assert node.N == 1, f'Leaf non-terminal nodes must only have been visited once. Visits {node.N}'
+    if node.is_root:
+        assert node.N == child_visitations, (
+            'Root node child visitations should be the same as the sum '
+            'of its children vistations. Which should be equal to the budget.\n'
+            f'Sum N_a: {child_visitations}. N: {node.N}. Budget: {budget}.\n')
+    elif not node.is_terminal:
+        _assert_node_visitations_match_up_to_parent_edge_visitations(node)
+        assert node.N == (1 + child_visitations), (
+            'The visits of non-leaf, non-terminal nodes should be equal to the'
+            ' sum of edge visits stored in that node + 1 (the one coming from'
+            ' when the node was first visited as a leaf node).\n'
+           f'Sum N_a: {child_visitations}. N: {node.N}\n'
+           f'Branch path action sequence: {action_sequence}')
 
     for child_node in node.children.values():
         _assert_visitations_add_up(child_node, budget, action_sequence + [child_node.a])
+
+
+def _assert_node_visitations_match_up_to_parent_edge_visitations(node):
+    assert node.N == node.parent.N_a[node.a], (
+        "The visitations stored on a node should match the visitations "
+        "stored on the parent's edge leading up to this node\n"
+        f"N: {node.N}. Parent's N_a: {node.parent.N_a[node.a]}")
 
 
 def _assert_terminal_nodes_have_correct_values_in_deterministic_connect4(node):
