@@ -1,5 +1,6 @@
-from functools import reduce
 from typing import List, Tuple
+from functools import reduce
+from time import time
 from copy import deepcopy
 import torch
 import torch.nn as nn
@@ -64,6 +65,9 @@ class PPOAlgorithm():
         # Number of policy updates (Number of times compute_loss() was called)
         self.num_optimizer_steps = 0
 
+        # To be set by a PPOAgent
+        self.summary_writer: torch.util.tensorboard.SummaryWritter = None
+
     def create_storages(self, num_storages: int, size=-1) -> List[Storage]:
         if size == -1: size = self.horizon
         storages = [Storage(size) for _ in range(num_storages)]
@@ -74,6 +78,7 @@ class PPOAlgorithm():
         return storages
 
     def train(self):
+        start_time = time()
         self.num_updates += 1
         for storage in self.storages:
             storage.placeholder(num_elements=len(storage.s))
@@ -84,11 +89,20 @@ class PPOAlgorithm():
 
         if self.recurrent: rnn_states = self.reformat_rnn_states(rnn_states)
 
+        total_loss = 0
         for _ in range(self.optimization_epochs):
-            self.optimize_model(states, actions, log_probs_old, returns,
-                                advantages, rnn_states)
+            epoch_loss = self.optimize_model(states, actions, log_probs_old, returns,
+                                             advantages, rnn_states)
+            total_loss += epoch_loss
 
         for storage in self.storages: storage.reset()
+
+        if self.summary_writer:
+            self.summary_writer.add_scalar('Timing/Policy_update', time() - start_time,
+                                           self.num_updates)
+            self.summary_writer.add_scalar('Training/Avg_loss_per_epoch',
+                                           (total_loss / self.optimization_epochs).cpu(),
+                                           self.num_updates)
 
     def reformat_rnn_states(self, rnn_states):
         reformated_rnn_states = { k: ( [list()], [list()] ) for k in self.rnn_keys }
@@ -194,6 +208,7 @@ class PPOAlgorithm():
         if self.recurrent:
             nbr_layers_per_rnn = { k:len(rnn_states[k][0] ) for k in self.rnn_keys}
 
+        total_loss = 0.
         for batch_indices in sampler:
             self.num_optimizer_steps += 1
             batch_indices = torch.from_numpy(batch_indices).long()
@@ -204,7 +219,7 @@ class PPOAlgorithm():
                     states, actions, log_probs_old, returns, advantages,
                     rnn_states)
 
-            total_loss = compute_loss(states=sampled_states,
+            batch_loss = compute_loss(states=sampled_states,
                                       actions=sampled_actions,
                                       log_probs_old=sampled_log_probs_old,
                                       returns=sampled_returns,
@@ -213,13 +228,27 @@ class PPOAlgorithm():
                                       rnn_states=sampled_rnn_states,
                                       ratio_clip=self.ppo_ratio_clip,
                                       entropy_weight=self.entropy_weight,
-                                      iteration_count=self.num_optimizer_steps)
+                                      iteration_count=self.num_optimizer_steps,
+                                      summary_writer=self.summary_writer)
 
             self.optimizer.zero_grad()
-            total_loss.backward(retain_graph=False)
+            batch_loss.backward(retain_graph=False)
             nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
             self.optimizer.step()
+            total_loss += batch_loss.cpu().detach()
+        return total_loss
 
+    def __getstate__(self):
+        '''
+        Function invoked when pickling.
+
+        torch.utils.SummaryWriters are not pickable.
+        '''
+        to_pickle_dict = self.__dict__
+        if 'summary_writer' in to_pickle_dict:
+            to_pickle_dict = self.__dict__.copy()
+            to_pickle_dict['summary_writer'] = None
+        return to_pickle_dict
 
     def __repr__(self):
         return (f'Num updates: {self.num_updates}\n'

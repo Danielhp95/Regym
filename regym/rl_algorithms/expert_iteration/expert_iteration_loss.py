@@ -72,7 +72,7 @@ def compute_loss(states: torch.FloatTensor,
                                                  kl_divergence_opponent_modelling,
                                                  iteration_count)
 
-    if summary_writer:
+    if summary_writer and (iteration_count % 10 == 0):
         log_exit_loss_progress(summary_writer,
                                policy_imitation_loss,
                                value_loss,
