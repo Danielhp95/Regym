@@ -122,7 +122,7 @@ def generate_upper_triangular_symmetric_metagame(population: List[Agent],
                 task,
                 episodes_per_matchup // 2,
                 num_envs)
-            winrates = (winrates_1 + winrates_2) // 2
+            winrates = (winrates_1 + winrates_2) / 2
         winrate_matrix[i, j] = winrates[0]
     return winrate_matrix
 
