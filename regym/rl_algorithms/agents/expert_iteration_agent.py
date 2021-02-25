@@ -455,7 +455,7 @@ def build_apprentice_no_agent_modelling(feature_extractor, config, task) -> nn.M
         )
     )
 
-    feature_and_body = SequentialBody(feature_extractor, body)
+    feature_and_body = SequentialBody([feature_extractor, body])
 
     critic_gate_fn = parse_gating_fn(config.get('critic_gate_fn', None))
 
