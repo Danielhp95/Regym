@@ -73,6 +73,7 @@ class ExpertIterationAlgorithm():
         self.learning_rate = learning_rate
 
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
+                                          weight_decay=1e-3,      # Adding this here instead of hyperparameter to test if its benefitial or not
                                           lr=self.learning_rate)
 
         # To be set by an ExpertIterationAgent

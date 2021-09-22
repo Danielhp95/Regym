@@ -38,9 +38,9 @@ class ExpertIterationAgent(Agent):
                  action_dim: int,
                  observation_dim: Tuple[int],
                  num_opponents: int,
-                 state_preprocess_fn: Optional[Callable],
-                 server_state_preprocess_fn: Optional[Callable],
-                 use_cuda: bool):
+                 state_preprocess_fn: Optional[Callable]=turn_into_single_element_batch,
+                 server_state_preprocess_fn: Optional[Callable]=batch_vector_observation,
+                 use_cuda: bool=False):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
                           trajectories computed by this agent, in turn
@@ -127,16 +127,8 @@ class ExpertIterationAgent(Agent):
         self.storages: Dict[int, Storage] = {}
 
         # Set state preprocessing functions
-        # TODO: Have these as default values so that we don't
-        # use this ugly sequence of if statements
-        if state_preprocess_fn:
-            self.state_preprocess_fn: Callable = state_preprocess_fn
-        else:
-            self.state_preprocess_fn: Callable = turn_into_single_element_batch
-        if server_state_preprocess_fn:
-            self.server_state_preprocess_fn: Callable = server_state_preprocess_fn
-        else:
-            self.server_state_preprocess_fn: Callable = batch_vector_observation
+        self.state_preprocess_fn = state_preprocess_fn
+        self.server_state_preprocess_fn = server_state_preprocess_fn
 
     @property
     def use_true_agent_models_in_mcts(self):
