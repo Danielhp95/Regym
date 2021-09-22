@@ -253,7 +253,8 @@ class Agent(ABC):
                             num_envs: int):
         '''
         Function that grants this agent access to all :param: other_agents_vector,
-        which act on :param: task.
+        which act on :param: task BEFORE simulation. Useful, for instance,
+        if an agent requires knowledge about other agent's internals
 
         Will only be invoked if self.requires_acess_to_other_agents is set
 

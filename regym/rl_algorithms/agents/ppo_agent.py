@@ -170,10 +170,10 @@ def create_model(task: regym.environments.Task,
     if config['phi_arch'] != 'None':
         if config['phi_arch'] == 'RNN':
             output_dim = 64  # TODO: beware of magic number
-            body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
+            body = LSTMBody(input_dim, hidden_units=[output_dim], gate=F.leaky_relu)
         elif config['phi_arch'] == 'MLP':
             output_dim = 64  # TODO: beware of magic number
-            body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+            body = FCBody(input_dim, hidden_units=[output_dim, output_dim], gate=F.leaky_relu)
         elif config['phi_arch'] == 'CNN':
             body = Convolutional2DBody(input_shape=config['preprocessed_input_dimensions'],
                                        channels=config['channels'],
@@ -202,21 +202,21 @@ def create_model(task: regym.environments.Task,
     else:
         body = None
 
-    if config['actor_arch'] != 'None':
+    if config.get('actor_arch', 'None') != 'None':
         output_dim = 64
         if config['actor_arch'] == 'RNN':
-            actor_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
+            actor_body = LSTMBody(input_dim, hidden_units=[output_dim], gate=F.leaky_relu)
         elif config['actor_arch'] == 'MLP':
-            actor_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+            actor_body = FCBody(input_dim, hidden_units=[output_dim, output_dim], gate=F.leaky_relu)
     else:
         actor_body = None
 
-    if config['critic_arch'] != 'None':
+    if config.get('critic_arch', 'None') != 'None':
         output_dim = 64
         if config['critic_arch'] == 'RNN':
-            critic_body = LSTMBody(input_dim, hidden_units=(output_dim,), gate=F.leaky_relu)
+            critic_body = LSTMBody(input_dim, hidden_units=[output_dim], gate=F.leaky_relu)
         elif config['critic_arch'] == 'MLP':
-            critic_body = FCBody(input_dim, hidden_units=(output_dim, output_dim), gate=F.leaky_relu)
+            critic_body = FCBody(input_dim, hidden_units=[output_dim, output_dim], gate=F.leaky_relu)
     else:
         critic_body = None
 
