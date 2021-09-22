@@ -91,6 +91,7 @@ class MCTSAgent(Agent):
             raise NotImplementedError('Using opponent modelling inside MCTS '
                                       'is only supported with tasks with 2 '
                                       f'agents. Current task has {len(other_agents_vector) + 1}')
+        ''' CURRENT HACK: We only look at the first element in other_agents_vector '''
         other_agent = other_agents_vector[0]
         ''' TODO: Make this nice '''
         #if not hasattr(other_agent, 'algorithm.model'):
