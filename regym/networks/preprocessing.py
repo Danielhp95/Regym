@@ -5,12 +5,15 @@ import torch
 
 
 def turn_into_single_element_batch(x: np.ndarray, use_cuda=False) -> torch.Tensor:
+    ''' Most basic function which turns input into a single element batch '''
     tensor = torch.Tensor(x).unsqueeze(0).type(torch.FloatTensor)
     if use_cuda: tensor = tensor.cuda()
     return tensor
 
 
 def turn_into_single_element_batch_and_flatten_last_dim(x) -> torch.Tensor:
+    ''' Useful for transforming a matrix (like a board game)
+    into a single 1D vector'''
     return torch.FloatTensor(x).unsqueeze(0).flatten(start_dim=1, end_dim=2)
 
 
@@ -85,6 +88,8 @@ def parse_preprocessing_fn(fn_name: str) -> Callable[[Any], torch.Tensor]:
         return keep_last_stack_and_batch_vector_observation
     if fn_name == 'turn_into_single_element_batch_and_flatten_last_dim':
         return turn_into_single_element_batch_and_flatten_last_dim
+    if fn_name == 'flatten_and_turn_into_single_element_batch':
+        return flatten_and_turn_into_single_element_batch
     else:
         raise ValueError('Couldd not parse preprocessing function '
                          f'from name {fn_name}')
