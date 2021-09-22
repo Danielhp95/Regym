@@ -174,7 +174,10 @@ class ExpertIterationAgent(Agent):
 
     @Agent.num_actors.setter
     def num_actors(self, n):
-        self._num_actors = n
+        # We would like to just say: super().num_actors = n
+        # But python is really annoying when it comes to property setters
+        # See: https://bugs.python.org/issue14965
+        super(self.__class__, self.__class__).num_actors.fset(self, n)
         self.expert.num_actors = n
 
     @Agent.summary_writer.setter
