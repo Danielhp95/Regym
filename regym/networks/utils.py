@@ -187,3 +187,11 @@ def parse_gating_fn(gating_fn: str) -> Callable[[torch.Tensor], torch.Tensor]:
         return torch.tanh
     else:
         raise ValueError(f'Unkown gating function: {gating_fn} could not be parsed')
+
+
+def entropy(probs: torch.Tensor) -> torch.FloatTensor:
+    ''' Safely computes Shannon entropy for tensor :param: probs '''
+    min_real = torch.finfo(probs.dtype).min
+    safe_probs = torch.clamp(probs, min=min_real) + 1e-15
+    p_log_p = safe_probs * torch.log(safe_probs)
+    return - p_log_p.sum(dim=-1)

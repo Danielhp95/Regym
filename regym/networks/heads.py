@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from regym.networks.utils import BaseNet, layer_init, tensor
+from regym.networks.utils import BaseNet, layer_init, tensor, entropy
 from regym.networks.bodies import DummyBody
 
 
@@ -50,12 +50,9 @@ class CategoricalDQNet(nn.Module, BaseNet):
             q_value, action = q_values.max(dim=1)
 
         probs = F.softmax(q_values, dim=-1)
-        log_probs = torch.log(probs + self.EPS)
-        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
-
         return {'a': action,
                 'Q': q_values,
-                'entropy': entropy}
+                'entropy': entropy(probs)}
 
 
 class CategoricalDuelingDQNet(nn.Module, BaseNet):
@@ -82,11 +79,8 @@ class CategoricalDuelingDQNet(nn.Module, BaseNet):
         Q = V.expand_as(A) + (A - A.mean(1, keepdim=True))
 
         probs = F.softmax(Q, dim=-1)
-        log_probs = torch.log(probs + self.EPS)
-        entropy = -1. * torch.sum(probs * log_probs, dim=-1)
-
         return {'V': V, 'A': A, 'Q': Q, 'a': Q.max(dim=1)[1],
-                'entropy': entropy}
+                'entropy': entropy(probs)}
 
 
 class CategoricalHead(nn.Module, BaseNet):
@@ -106,11 +100,10 @@ class CategoricalHead(nn.Module, BaseNet):
 
         probs = F.softmax(logits, dim=-1)
         log_probs = probs.log()
-        entropy = -1. * torch.sum(probs * log_probs)
         action = torch.distributions.Categorical(logits=logits).sample()
         action = action.view(-1, 1)
         return {'probs': probs, 'log_probs': log_probs, 'a': action,
-                'entropy': entropy}
+                'entropy': entropy(probs)}
 
 
 class QuantileNet(nn.Module, BaseNet):

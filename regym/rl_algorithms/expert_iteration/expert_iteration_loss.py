@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
 from regym.networks.generic_losses import cross_entropy_loss
+from regym.networks.utils import entropy
 
 
 def compute_loss(states: torch.FloatTensor,
@@ -34,7 +35,6 @@ def compute_loss(states: torch.FloatTensor,
     predictions = apprentice_model(states)
 
     # returns policy loss (cross entropy against normalized_child_visitations):
-
     # learning to copy expert: Cross entropy
     policy_imitation_loss = cross_entropy_loss(
         model_prediction=predictions['probs'],
@@ -65,7 +65,7 @@ def compute_loss(states: torch.FloatTensor,
 
         '''First focus on learning the opponent, then focus on baseline loss'''
         total_loss = exit_loss * policy_inference_weight + opponent_modelling_loss
-        if summary_writer:
+        if summary_writer and (iteration_count % 10 == 0):
             log_opponent_modelling_loss_progress(summary_writer,
                                                  opponent_modelling_loss,
                                                  policy_inference_weight,
@@ -81,6 +81,7 @@ def compute_loss(states: torch.FloatTensor,
                                kl_divergence,
                                values,
                                predictions,
+                               pi_mcts,
                                iteration_count)
     return total_loss
 
@@ -93,6 +94,7 @@ def log_exit_loss_progress(summary_writer,
                            kl_divergence,
                            values,
                            predictions,
+                           pi_mcts,
                            iteration_count):
     summary_writer.add_scalar('Training/Expert_policy_imitation_loss', policy_imitation_loss.cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Value_loss', value_loss.cpu().item(), iteration_count)
@@ -103,6 +105,7 @@ def log_exit_loss_progress(summary_writer,
     summary_writer.add_scalar('Training/Mean_value_estimations', predictions['V'].mean().cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Mean_value_targets', values.mean().cpu().item(), iteration_count)
     summary_writer.add_scalar('Training/Apprentice_entropy', predictions['entropy'].mean().cpu().item(), iteration_count)
+    summary_writer.add_scalar('Training/Expert_entropy', entropy(pi_mcts).mean().cpu().item(), iteration_count)
 
 
 def log_opponent_modelling_loss_progress(summary_writer,
