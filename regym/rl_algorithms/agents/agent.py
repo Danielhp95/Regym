@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import gym
 import torch
 
-from regym.networks.servers import neural_net_server
+from regym.networks.servers import neural_net_server, NeuralNetServerHandler
 
 
 class Agent(ABC):

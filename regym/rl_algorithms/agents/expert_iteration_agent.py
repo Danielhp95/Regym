@@ -2,8 +2,8 @@ from typing import List, Dict, Any, Callable, Union, Tuple, Optional
 from multiprocessing.connection import Connection
 from functools import partial
 import multiprocessing
-import textwrap
 
+import textwrap
 import gym
 import numpy as np
 import torch
@@ -38,6 +38,8 @@ class ExpertIterationAgent(Agent):
                  action_dim: int,
                  observation_dim: Tuple[int],
                  num_opponents: int,
+                 temperature: float=1.,
+                 drop_temperature_after_n_moves: int=np.inf,
                  state_preprocess_fn: Optional[Callable]=turn_into_single_element_batch,
                  server_state_preprocess_fn: Optional[Callable]=batch_vector_observation,
                  use_cuda: bool=False):
@@ -85,6 +87,9 @@ class ExpertIterationAgent(Agent):
         self.use_cuda = use_cuda
         self.requires_self_prediction = True
 
+        self.temperature: float = temperature
+        self.drop_temperature_after_n_moves: int = drop_temperature_after_n_moves
+
         self.algorithm: ExpertIterationAlgorithm = algorithm
         self.expert: Agent = expert
         self.apprentice: nn.Module = apprentice
@@ -130,6 +135,8 @@ class ExpertIterationAgent(Agent):
         self.state_preprocess_fn = state_preprocess_fn
         self.server_state_preprocess_fn = server_state_preprocess_fn
 
+        self.current_episode_lengths = []
+
     @property
     def use_true_agent_models_in_mcts(self):
         return self._use_true_agent_models_in_mcts
@@ -171,6 +178,7 @@ class ExpertIterationAgent(Agent):
         # See: https://bugs.python.org/issue14965
         super(self.__class__, self.__class__).num_actors.fset(self, n)
         self.expert.num_actors = n
+        self.current_episode_lengths = [0] * self.num_actors
 
     @Agent.summary_writer.setter
     def summary_writer(self, summary_writer):
@@ -242,20 +250,26 @@ class ExpertIterationAgent(Agent):
             expert_child_visitations = extra_info['self']['child_visitations']  # self.current_prediction['child_visitations'][pred_index]
             expert_state_value_prediction = extra_info['self']['V']
             self._handle_experience(o, a, r, succ_o, done, extra_info,
+                                    e_i,
                                     self.storages[e_i],
                                     expert_child_visitations, expert_state_value_prediction)
 
     def _handle_experience(self, o, a, r, succ_s, done: bool,
                            extra_info: Dict[int, Dict[str, Any]],
+                           env_i: int,
                            storage: Storage,
                            expert_child_visitations: torch.FloatTensor,
                            expert_state_value_prediction: torch.FloatTensor):
+        self.current_episode_lengths[env_i] += 1
         # Preprocessing all variables
         o, r = self.process_environment_signals(o, r)
-        normalized_visits = expert_child_visitations / expert_child_visitations.sum()
 
-        if self.use_agent_modelling:
-            opponent_policy, opponen_obs = self.process_extra_info(extra_info)
+        normalized_visits = self._normalize_visitations_with_temperature(
+            visitations=expert_child_visitations,
+            temperature=(self.temperature if self.current_episode_lengths[env_i] <= self.drop_temperature_after_n_moves else 0.1)
+        )
+
+        if self.use_agent_modelling: opponent_policy, opponen_obs = self.process_extra_info(extra_info)
         else: opponent_policy, opponen_obs = {}, []
 
         self.update_storage(storage, o, r, done,
@@ -263,17 +277,32 @@ class ExpertIterationAgent(Agent):
                             opponent_s=opponen_obs,
                             mcts_policy=normalized_visits,
                             expert_state_value_prediction=expert_state_value_prediction)
-        if done: self.handle_end_of_episode(storage)
+        if done: self.handle_end_of_episode(storage, env_i)
         self.expert.handle_experience(o, a, r, succ_s, done)
 
-    def handle_end_of_episode(self, storage: Storage):
+    def _normalize_visitations_with_temperature(self,
+                                                visitations: torch.Tensor,
+                                                temperature: float):
+        '''
+        Artificially changing the value of :param: visitations
+        via :param: temperature:
+            - If temperature > 1: Increases entropy, encouraging exploration
+            - If temperature == 1: No changes
+            - If temperature < 1: Decreases entropy, encouraging exploitation
+        Dropping temperature to 0.1 is equivalent to greedily selecting most visited action
+        '''
+        expert_child_visitations_with_temperature = visitations ** (1/temperature)
+        return expert_child_visitations_with_temperature / expert_child_visitations_with_temperature.sum()
+
+    def handle_end_of_episode(self, storage: Storage, env_i: int):
+        self.current_episode_lengths[env_i] = 0  # We are now beginning a new episode
         self.algorithm.add_episode_trajectory(storage)
         storage.reset()
         if self.algorithm.should_train():
             self.algorithm.train(self.apprentice)
             if self.use_apprentice_in_expert:
                 # We need to update the neural net in server used by MCTS
-                assert self.expert.server_handler, 'There should be a server'
+                assert self.expert.server_handler, 'NeuralNetServerHandler missing while trying to update its neural net'
                 self.expert.server_handler.update_neural_net(self.apprentice)
 
     def process_environment_signals(self, o, r: float):
@@ -572,6 +601,11 @@ def build_ExpertIteration_Agent(task: 'Task',
         - 'mcts_use_dirichlet': (Bool) Whether to add dirichlet noise to the
                                 MCTS rootnode's action probabilities (see PUCT)
         - 'mcts_dirichlet_alpha': Parameter of Dirichlet distribution
+        - 'temperature': Value by which MCTS child visitations will be
+                         inversely exponentiated to (N^(1/temperature))
+        - 'drop_temperature_after_n_moves': Number of moves after which
+                                            temperature parameter will dropped
+                                            to a very small value (around 0.01)
 
         (Collected) Dataset params:
         - 'initial_memory_size': (Int) Initial maximum size of replay buffer
@@ -636,5 +670,7 @@ def build_ExpertIteration_Agent(task: 'Task',
             num_opponents=(task.num_agents - 1),
             state_preprocess_fn=state_preprocess_fn,
             server_state_preprocess_fn=server_state_preprocess_fn,
-            use_cuda=config.get('use_cuda', False)
+            use_cuda=config.get('use_cuda', False),
+            temperature=config.get('temperature', 1.),
+            drop_temperature_after_n_moves=config.get('drop_temperature_after_n_moves', np.inf)
     )

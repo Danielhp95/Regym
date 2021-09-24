@@ -153,6 +153,8 @@ def expert_iteration_config_dict():
     config['num_epochs_per_iteration'] = 2
     config['learning_rate'] = 1.0e-3
     # NN: Feature extractor
+    config['temperature'] = 1.
+    config['drop_temperature_after_n_moves'] = 100
     config['feature_extractor_arch'] = 'CNN'
     config['use_batch_normalization'] = False
     config['preprocessed_input_dimensions'] = [7, 6]  # To play Connect 4
