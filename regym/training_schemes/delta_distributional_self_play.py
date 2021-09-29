@@ -52,12 +52,11 @@ class DeltaDistributionalSelfPlay():
         :param distribution: Distribution to be used over the filtered set of agents.
         :returns: Agent, sampled from the menagerie, to be used as an opponent in the next episode
         '''
-        latest_training_agent = training_agent.clone(training=False)
         indices = range(len(menagerie) + 1) # +1 accounts for the training agent, not (yet) included in menagerie
         subset_of_considered_indices = slice(math.ceil(self.delta * len(menagerie)), len(indices))
         valid_agents_indices = indices[subset_of_considered_indices]
         samples_indices = [self.distribution(valid_agents_indices)]
-        samples = [menagerie[i] if i < len(menagerie) else latest_training_agent
+        samples = [menagerie[i] if i < len(menagerie) else training_agent.clone(training=False)
                    for i in samples_indices]
         return [sampled_hook_agent for sampled_hook_agent in samples]
 
@@ -82,8 +81,9 @@ class DeltaDistributionalSelfPlay():
             assert hasattr(training_agent, 'algorithm'), 'Saving after policy update only supported if policy is stored in Agent.algorithm.model'
             assert hasattr(training_agent.algorithm, 'model'), 'Saving after policy update only supported if policy is stored in Agent.algorithm.model'
             assert isinstance(training_agent.algorithm.model, torch.nn.Module)
-            if len(menagerie) == 0 or not(are_neural_nets_equal(
-                    menagerie[-1].algorithm.model, training_agent.algorithm.model)):
+            policy_remains_the_same = are_neural_nets_equal(
+                menagerie[-1].algorithm.model, training_agent.algorithm.model)
+            if len(menagerie) == 0 or not(policy_remains_the_same):
                 menagerie_addition = self.clone_agent_to_add_to_menagerie(training_agent, candidate_save_path)
 
         elif (self.save_skips_i % self.save_every_n_episodes) == 0:
@@ -106,4 +106,4 @@ class DeltaDistributionalSelfPlay():
         return [cloned_agent]
 
     def __repr__(self):
-        return f'DeltaDistributionalSelfPlay: delta={self.delta}, distribution={self.distribution}, save every n episodes: {self.save_every_n_episodes}'
+        return f'DeltaDistributionalSelfPlay: delta={self.delta}, distribution={self.distribution}, save every n episodes: {self.save_every_n_episodes}, save after policy update: {self.save_after_policy_update}'
