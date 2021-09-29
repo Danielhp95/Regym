@@ -162,7 +162,7 @@ class ExpertIterationAlgorithm():
         apprentice_model.to('cuda' if self.use_cuda else 'cpu')
         total_loss = torch.Tensor([0.])
         for e in range(num_epochs):
-            for batch_indices in random_sample(indices, batch_size)
+            for batch_indices in random_sample(indices, batch_size):
                 self.num_batches_sampled += 1
 
                 if self.use_agent_modelling:
