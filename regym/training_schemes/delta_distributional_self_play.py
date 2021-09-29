@@ -76,14 +76,15 @@ class DeltaDistributionalSelfPlay():
         :returns: menagerie to be used in the next training episode.
         '''
 
+        # In case that menagerie starts off empty
+        if len(menagerie) == 0: menagerie += self.clone_agent_to_add_to_menagerie(training_agent, candidate_save_path)
         menagerie_addition = []
         if self.save_after_policy_update:
             assert hasattr(training_agent, 'algorithm'), 'Saving after policy update only supported if policy is stored in Agent.algorithm.model'
             assert hasattr(training_agent.algorithm, 'model'), 'Saving after policy update only supported if policy is stored in Agent.algorithm.model'
             assert isinstance(training_agent.algorithm.model, torch.nn.Module)
-            policy_remains_the_same = are_neural_nets_equal(
-                menagerie[-1].algorithm.model, training_agent.algorithm.model)
-            if len(menagerie) == 0 or not(policy_remains_the_same):
+            policy_remains_the_same = are_neural_nets_equal(menagerie[-1].algorithm.model, training_agent.algorithm.model)
+            if not(policy_remains_the_same):
                 menagerie_addition = self.clone_agent_to_add_to_menagerie(training_agent, candidate_save_path)
 
         elif (self.save_skips_i % self.save_every_n_episodes) == 0:
