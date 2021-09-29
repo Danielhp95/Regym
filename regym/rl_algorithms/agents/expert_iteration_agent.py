@@ -178,7 +178,7 @@ class ExpertIterationAgent(Agent):
         # See: https://bugs.python.org/issue14965
         super(self.__class__, self.__class__).num_actors.fset(self, n)
         self.expert.num_actors = n
-        self.current_episode_lengths = [0] * self.num_actors
+        self.current_episode_lengths = [0 for _ in range(self.num_actors)]
 
     @Agent.summary_writer.setter
     def summary_writer(self, summary_writer):
@@ -292,7 +292,8 @@ class ExpertIterationAgent(Agent):
         Dropping temperature to 0.1 is equivalent to greedily selecting most visited action
         '''
         expert_child_visitations_with_temperature = visitations ** (1/temperature)
-        return expert_child_visitations_with_temperature / expert_child_visitations_with_temperature.sum()
+        normalized_visitations = expert_child_visitations_with_temperature / expert_child_visitations_with_temperature.sum()
+        return normalized_visitations.clamp(min=0., max=1.)
 
     def handle_end_of_episode(self, storage: Storage, env_i: int):
         self.current_episode_lengths[env_i] = 0  # We are now beginning a new episode

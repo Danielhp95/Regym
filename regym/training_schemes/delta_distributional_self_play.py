@@ -84,7 +84,6 @@ class DeltaDistributionalSelfPlay():
             assert isinstance(training_agent.algorithm.model, torch.nn.Module)
             if len(menagerie) == 0 or not(are_neural_nets_equal(
                     menagerie[-1].algorithm.model, training_agent.algorithm.model)):
-                print(training_agent.algorithm.num_updates)
                 menagerie_addition = self.clone_agent_to_add_to_menagerie(training_agent, candidate_save_path)
 
         elif (self.save_skips_i % self.save_every_n_episodes) == 0:

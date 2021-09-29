@@ -122,13 +122,18 @@ def sync_grad(target_network, src_network):
         param._grad = src_param.grad.clone()
 
 
-def random_sample(indices, batch_size):
+def random_sample(indices, batch_size, use_remainder=True):
+    '''
+    Randomly samples batches of size :param: batch_size from :param: indices.
+    In the case that the number of indices is not integer divisable by batch_size,
+    a smaller batch will be yielded last if :param: use_remainder is set.
+    '''
     indices = np.asarray(np.random.permutation(indices))
     batches = indices[:len(indices) // batch_size * batch_size].reshape(-1, batch_size)
     for batch in batches:
         yield batch
     remainder = len(indices) % batch_size
-    if remainder:
+    if remainder and use_remainder:
         yield indices[-remainder:]
 
 

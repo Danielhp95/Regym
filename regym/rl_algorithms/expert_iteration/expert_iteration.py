@@ -160,9 +160,9 @@ class ExpertIterationAlgorithm():
         # Sneaky-hacky way of getting device
         inititial_device = next(apprentice_model.parameters())
         apprentice_model.to('cuda' if self.use_cuda else 'cpu')
-        total_loss = 0.
+        total_loss = torch.Tensor([0.])
         for e in range(num_epochs):
-            for batch_indices in random_sample(indices, batch_size):
+            for batch_indices in random_sample(indices, batch_size)
                 self.num_batches_sampled += 1
 
                 if self.use_agent_modelling:
@@ -184,6 +184,7 @@ class ExpertIterationAlgorithm():
                 # Name a more iconic trio
                 self.optimizer.zero_grad()
                 loss.backward()
+                nn.utils.clip_grad_norm_(apprentice_model.parameters(), 1)
                 self.optimizer.step()
                 total_loss += loss.cpu().detach()
         apprentice_model.to(inititial_device)
