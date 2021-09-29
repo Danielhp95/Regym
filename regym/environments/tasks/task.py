@@ -163,13 +163,15 @@ class Task:
         self._check_required_number_of_agents_are_present(len(agent_vector))
         extended_agent_vector = self._extend_agent_vector(agent_vector)
 
+        if num_envs == -1: num_envs = cpu_count()
+
         if summary_writer:
             if isinstance(summary_writer, str):
                 summary_writer = SummaryWriter(summary_writer)
 
         self.let_agents_access_each_other(
             agent_vector,
-            num_envs if num_envs != -1 else cpu_count()
+            num_envs
         )
 
         if initial_episode == -1: initial_episode = self.total_episodes_run
