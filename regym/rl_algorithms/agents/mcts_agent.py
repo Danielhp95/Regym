@@ -163,14 +163,18 @@ class MCTSAgent(Agent):
             # According to Bellman equation. State-value function can be computed from Q values thus:
             # V(s) = sum_{a in A} Q(s, a) * \pi_MCTS(a | s)
             # Where \pi_MCTS is the normalized child visitation
+            # Turns out that computing V(s) this way was generates pessimistic value predictions,
+            # insofar as the final value targets stored in the replay buffer were consistently
+            # lower than the true winrate during training.
+            # Instead, we are opting for choosing the highest value from MCTS.
             normalized_child_visitations = child_visitations[-1] / child_visitations[-1].sum()
             q_values = torch.FloatTensor(
                 [tree.Q_a[a_i] if a_i in tree.children.keys() else 0.
                  for a_i in range(self.action_dim)
                 ]
             )
-            value_predictions += [(q_values * normalized_child_visitations).sum()]
-
+            #value_predictions += [(q_values * normalized_child_visitations).sum()]
+            value_predictions += [torch.max(q_values)]
         return child_visitations, action_vector, value_predictions
 
     def multi_action_select_policy_and_evaluation_fns(self,
