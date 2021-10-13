@@ -91,5 +91,5 @@ def parse_preprocessing_fn(fn_name: str) -> Callable[[Any], torch.Tensor]:
     if fn_name == 'flatten_and_turn_into_single_element_batch':
         return flatten_and_turn_into_single_element_batch
     else:
-        raise ValueError('Couldd not parse preprocessing function '
+        raise ValueError('Could not parse preprocessing function '
                          f'from name {fn_name}')

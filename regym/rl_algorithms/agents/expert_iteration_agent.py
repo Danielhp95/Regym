@@ -16,6 +16,7 @@ from regym.networks.preprocessing import (turn_into_single_element_batch,
                                           batch_vector_observation,
                                           parse_preprocessing_fn)
 from regym.networks.utils import parse_gating_fn
+from regym.util.data_augmentation import parse_data_augmentation_fn, apply_data_augmentation_to_experiences
 
 from regym.rl_algorithms.agents import Agent, build_MCTS_Agent, MCTSAgent
 
@@ -42,6 +43,7 @@ class ExpertIterationAgent(Agent):
                  drop_temperature_after_n_moves: int=np.inf,
                  state_preprocess_fn: Optional[Callable]=turn_into_single_element_batch,
                  server_state_preprocess_fn: Optional[Callable]=batch_vector_observation,
+                 data_augmnentation_fn: Optional[Callable]=None,
                  use_cuda: bool=False):
         '''
         :param algorithm: ExpertIterationAlgorithm which will be fed
@@ -81,6 +83,8 @@ class ExpertIterationAgent(Agent):
                                     are fed into the apprentice (an nn.Module)
         :param server_state_preprocess_fn: Same as :param: state_preprocess_fn, but this fn
                                            will be given to underlying NeuralNetServer
+        :param data_augmnentation_fn: Function used to augment experiences (create new ones)
+                                Currently only implemented for handle_multiple_experiences.
         :param use_cuda: Whether to load neural net to a cuda device for action predictions
         '''
         super().__init__(name=name, requires_environment_model=True)
@@ -134,6 +138,7 @@ class ExpertIterationAgent(Agent):
         # Set state preprocessing functions
         self.state_preprocess_fn = state_preprocess_fn
         self.server_state_preprocess_fn = server_state_preprocess_fn
+        self.data_augmnentation_fn = data_augmnentation_fn
 
         self.current_episode_lengths = []
 
@@ -241,13 +246,12 @@ class ExpertIterationAgent(Agent):
                                 expert_child_visitations, expert_state_value_prediction)
 
     def handle_multiple_experiences(self, experiences: List, env_ids: List[int]):
-        # Simplify & explain the idea behind
-        # pred_index corresponds to the (tensor) index for self.current_prediction
-        # corresponding to environment index (e_i)
         super().handle_multiple_experiences(experiences, env_ids)
-        for (o, a, r, succ_o, done, extra_info), (pred_index, e_i) in zip(experiences, enumerate(env_ids)):
+        if self.data_augmnentation_fn:
+            experiences, env_ids = apply_data_augmentation_to_experiences(experiences, env_ids, self.data_augmnentation_fn)
+        for (o, a, r, succ_o, done, extra_info), e_i in zip(experiences, env_ids):
             self.storages[e_i] = self.storages.get(e_i, self.init_storage(size=100))
-            expert_child_visitations = extra_info['self']['child_visitations']  # self.current_prediction['child_visitations'][pred_index]
+            expert_child_visitations = extra_info['self']['child_visitations']
             expert_state_value_prediction = extra_info['self']['V']
             self._handle_experience(o, a, r, succ_o, done, extra_info,
                                     e_i,
@@ -641,6 +645,9 @@ def build_ExpertIteration_Agent(task: 'Task',
     (state_preprocess_fn, server_state_preprocess_fn) = \
         generate_preprocessing_functions(config)
 
+    data_augmnentation_fn = parse_data_augmentation_fn(config['data_augmnentation_fn']) \
+        if 'data_augmnentation_fn' in config else None
+
     algorithm = ExpertIterationAlgorithm(
             model_to_train=apprentice,
             batch_size=config['batch_size'],
@@ -673,5 +680,6 @@ def build_ExpertIteration_Agent(task: 'Task',
             server_state_preprocess_fn=server_state_preprocess_fn,
             use_cuda=config.get('use_cuda', False),
             temperature=config.get('temperature', 1.),
-            drop_temperature_after_n_moves=config.get('drop_temperature_after_n_moves', np.inf)
+            drop_temperature_after_n_moves=config.get('drop_temperature_after_n_moves', np.inf),
+            data_augmnentation_fn=data_augmnentation_fn
     )
