@@ -121,7 +121,7 @@ def generate_upper_triangular_symmetric_metagame(population: List[Agent],
                 population[j], population[i],
                 task,
                 episodes_per_matchup // 2,
-                num_envs)
+                num_envs)[::-1]  # We reverse the winrates so that agent i's winrate is first
             winrates = (winrates_1 + winrates_2) / 2
         winrate_matrix[i, j] = winrates[0]
     return winrate_matrix
