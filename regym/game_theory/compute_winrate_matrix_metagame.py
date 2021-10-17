@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from itertools import product
 
 from tqdm import tqdm
@@ -145,7 +145,7 @@ def generate_evaluation_matrix_multi_population(populations: List[List[Agent]],
                                                 task: Task,
                                                 episodes_per_matchup: int,
                                                 num_envs: int = 1,
-                                                show_progress: bool = False) -> np.ndarray:
+                                                show_progress: bool = True) -> np.ndarray:
     '''
     Generates an evaluation matrix (a metagame) for a multiagent :param: task
     given a set of :param: populations, each containing a (possibly uneven) number
@@ -275,7 +275,7 @@ def parallel_multi_population_winrate_matrix_computation(populations: List[List[
 
 def relative_population_performance(population_1: List[Agent],
                                     population_2: List[Agent],
-                                    task: Task, episodes_per_matchup: int) -> float:
+                                    task: Task, episodes_per_matchup: int) -> Tuple[float, np.ndarray]:
     '''
     From 'Open Ended Learning in Symmetric Zero-sum Games'
     https://arxiv.org/abs/1901.08106
@@ -295,12 +295,17 @@ def relative_population_performance(population_1: List[Agent],
     :param episodes_per_matchup: Number of times each matchup will be repeated to compute
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
-    :returns: Population performance of :param: population_1 relative to
-              :param: population_2.
+    :returns:
+        - Population performance of :param: population_1 relative to
+          :param: population_2.
+        - Empirical winrate metagame normal form game.
     '''
-    return evolution_relative_population_performance(population_1, population_2, task,
-                                                     episodes_per_matchup,
-                                                     initial_index=(len(population_1) -1))[0]
+    relative_performance_evolution, final_winrate_metagame = evolution_relative_population_performance(
+        population_1, population_2,
+        task,
+        episodes_per_matchup,
+        initial_index=(len(population_1) -1))
+    return relative_performance_evolution[0], final_winrate_metagame
 
 
 def evolution_relative_population_performance(population_1: List[Agent],
@@ -308,7 +313,8 @@ def evolution_relative_population_performance(population_1: List[Agent],
                                               task: Task,
                                               episodes_per_matchup: int,
                                               num_envs: int = 1,
-                                              initial_index: int = 0) -> np.ndarray:
+                                              initial_index: int = 0) \
+                                              -> Tuple[np.ndarray, np.ndarray]:
     '''
     Computes various relative population performances for :param: population_1
     and :param: population_2, where the first relative population performance
@@ -346,7 +352,7 @@ def evolution_relative_population_performance(population_1: List[Agent],
     if num_envs < 1 and num_envs != -1:
         raise ValueError(f'Param `num_envs` has to be equal or greater than 1, unless -1 is specified, which is internally changed to the cpu count. Given {num_envs}')
 
-    winrate_matrix = generate_evaluation_matrix_multi_population(populations=[
+    winrate_matrix_metagame = generate_evaluation_matrix_multi_population(populations=[
                                                                      population_1,
                                                                      population_2
                                                                      ],
@@ -355,12 +361,12 @@ def evolution_relative_population_performance(population_1: List[Agent],
                                                                  num_envs=num_envs)
     # The antisymmetry refers to the operation performed to the winrates inside
     # of the matrix, NOT the matrix itself
-    antisymmetric_form = winrate_matrix - 1/2
+    antisymmetric_form = winrate_matrix_metagame - 1/2
     relative_performances = np.zeros(len(population_1) - initial_index)
     for i in range(initial_index + 1, len(population_1) + 1):
         _, _, value_1, _ = solve_zero_sum_game(antisymmetric_form[:i, :i])
         relative_performances[(i-1) - initial_index] = value_1
-    return relative_performances
+    return relative_performances, winrate_matrix_metagame
 
 
 def check_input_validity(population: List[Agent], episodes_per_matchup: int, task: Task, is_game_symmetrical: bool):

@@ -135,7 +135,7 @@ def test_can_compute_relative_population_performance(RPSTask):
     # which are antisymmetric around 0. So min=-0.5, max=0.5.
     expected_relative_population_performance = -0.5
 
-    actual_relative_pop_performance = relative_population_performance(
+    actual_relative_pop_performance, winrate_matrix = relative_population_performance(
                  population_1=population_1, population_2=population_2,
                  task=RPSTask, episodes_per_matchup=10)
 
@@ -145,7 +145,7 @@ def test_can_compute_relative_population_performance(RPSTask):
 
     expected_relative_population_performance = 0.5
 
-    actual_relative_pop_performance = relative_population_performance(
+    actual_relative_pop_performance, winrate_matrix = relative_population_performance(
                  population_1=population_2, population_2=population_1,
                  task=RPSTask, episodes_per_matchup=10)
 
@@ -162,7 +162,7 @@ def test_can_compute_evolution_of_relative_population_performance(RPSTask):
 
     expected_evolution_relative_population_performance = [0, 0.5]
 
-    actual_evolution_rel_pop_perf = evolution_relative_population_performance(
+    actual_evolution_rel_pop_perf, winrate_matrix = evolution_relative_population_performance(
             population_1=population_1, population_2=population_2,
             task=RPSTask, episodes_per_matchup=500)
     np.testing.assert_allclose(expected_evolution_relative_population_performance,
