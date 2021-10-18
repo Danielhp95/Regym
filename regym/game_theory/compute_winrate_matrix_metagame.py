@@ -275,7 +275,9 @@ def parallel_multi_population_winrate_matrix_computation(populations: List[List[
 
 def relative_population_performance(population_1: List[Agent],
                                     population_2: List[Agent],
-                                    task: Task, episodes_per_matchup: int) -> Tuple[float, np.ndarray]:
+                                    task: Task,
+                                    num_envs: int=-1,
+                                    episodes_per_matchup: int=100) -> Tuple[float, np.ndarray]:
     '''
     From 'Open Ended Learning in Symmetric Zero-sum Games'
     https://arxiv.org/abs/1901.08106
@@ -292,6 +294,7 @@ def relative_population_performance(population_1: List[Agent],
     :param population_1 / _2: Populations from which relative population
                               performance will be computed
     :param task: Multiagent Task for which the metagame is being computed
+    :param num_envs: Number of parallel environments to set up to compute winrate matrices
     :param episodes_per_matchup: Number of times each matchup will be repeated to compute
                                  empirical winrates. Higher values generate a more accurate
                                  metagame, at the expense of longer compute time.
@@ -304,6 +307,7 @@ def relative_population_performance(population_1: List[Agent],
         population_1, population_2,
         task,
         episodes_per_matchup,
+        num_envs=num_envs,
         initial_index=(len(population_1) -1))
     return relative_performance_evolution[0], final_winrate_metagame
 

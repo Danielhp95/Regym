@@ -137,6 +137,7 @@ def test_can_compute_relative_population_performance(RPSTask):
 
     actual_relative_pop_performance, winrate_matrix = relative_population_performance(
                  population_1=population_1, population_2=population_2,
+                 num_envs=1,  # Due to issues with Gym's AsyncVector shared_memory, we run 1 at a time
                  task=RPSTask, episodes_per_matchup=10)
 
     np.testing.assert_allclose(actual_relative_pop_performance, expected_relative_population_performance)
@@ -147,6 +148,7 @@ def test_can_compute_relative_population_performance(RPSTask):
 
     actual_relative_pop_performance, winrate_matrix = relative_population_performance(
                  population_1=population_2, population_2=population_1,
+                 num_envs=1,  # Due to issues with Gym's AsyncVector shared_memory, we run 1 at a time
                  task=RPSTask, episodes_per_matchup=10)
 
     np.testing.assert_allclose(actual_relative_pop_performance, expected_relative_population_performance)
@@ -164,6 +166,7 @@ def test_can_compute_evolution_of_relative_population_performance(RPSTask):
 
     actual_evolution_rel_pop_perf, winrate_matrix = evolution_relative_population_performance(
             population_1=population_1, population_2=population_2,
+            num_envs=1,  # Due to issues with Gym's AsyncVector shared_memory, we run 1 at a time
             task=RPSTask, episodes_per_matchup=500)
     np.testing.assert_allclose(expected_evolution_relative_population_performance,
                                actual_evolution_rel_pop_perf, atol=0.05)
