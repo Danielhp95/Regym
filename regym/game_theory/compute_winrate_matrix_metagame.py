@@ -312,7 +312,7 @@ def evolution_relative_population_performance(population_1: List[Agent],
                                               population_2: List[Agent],
                                               task: Task,
                                               episodes_per_matchup: int,
-                                              num_envs: int = 1,
+                                              num_envs: int = -1,
                                               initial_index: int = 0) \
                                               -> Tuple[np.ndarray, np.ndarray]:
     '''
