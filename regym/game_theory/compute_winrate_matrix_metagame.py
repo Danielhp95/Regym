@@ -9,6 +9,7 @@ from regym.rl_algorithms.agents import Agent
 from regym.environments import Task, EnvType
 from regym.util import play_multiple_matches
 from regym.game_theory import solve_zero_sum_game
+from regym.rl_loops import compute_winrates
 
 
 def compute_winrate_matrix_metagame(population: List[Agent],
@@ -73,7 +74,7 @@ def compute_winrate_matrix_metagame(population: List[Agent],
 def generate_upper_triangular_symmetric_metagame(population: List[Agent],
                                                  task: Task,
                                                  episodes_per_matchup: int,
-                                                 is_game_symmetrical: bool,
+                                                 is_game_symmetrical: bool=False,
                                                  num_envs: int = 1,
                                                  show_progress: bool=False) -> np.ndarray:
     '''
@@ -101,7 +102,7 @@ def generate_upper_triangular_symmetric_metagame(population: List[Agent],
     if show_progress:
         matchups_agent_indices = tqdm(
             matchups_agent_indices,
-            desc=f"Computing metagame, num_envs={num_envs}, episodes_per_matchup={episodes_per_matchup} on task {task.name}",
+            desc=f"Computing evaluation matrix winrate metagame, num_envs={num_envs}, episodes_per_matchup={episodes_per_matchup} on task {task.name}",
             total=len(matchups_agent_indices)
         )
 
@@ -224,7 +225,7 @@ def multi_population_winrate_matrix_computation(populations: List[List[Agent]],
                                                 task: Task,
                                                 episodes_per_matchup: int) -> np.ndarray:
     '''
-    TODO
+    TODO: Check wether removing this function is safe
     '''
     population_1, population_2 = populations
     winrate_matrix = np.zeros((len(population_1), len(population_2)))
@@ -259,17 +260,28 @@ def parallel_multi_population_winrate_matrix_computation(populations: List[List[
             total=len(matchups_agent_indices)
         )
     for i, j in matchups_agent_indices:
-        trajectories = task.run_episodes(
+        # We compute 2 sets of trjectories, one where population_1 plays first and another where population_2 plays first
+        trajectories_1 = task.run_episodes(
             agent_vector=[
                 population_1[i],
                 population_2[j]
             ],
-            num_episodes=episodes_per_matchup,
+            num_episodes=episodes_per_matchup // 2,
             num_envs=num_envs,
             training=False
         )
-        player_1_winrate = len(list(filter(lambda t: t.winner == 0, trajectories))) / len(trajectories)
-        winrate_matrix[i, j] = player_1_winrate
+        trajectories_2 = task.run_episodes(
+            agent_vector=[
+                population_2[j],
+                population_1[i]
+            ],
+            num_episodes=episodes_per_matchup // 2,
+            num_envs=num_envs,
+            training=False
+        )
+        winrates_1 = compute_winrates(trajectories_1)
+        winrates_2 = compute_winrates(trajectories_2)
+        winrate_matrix[i, j] = (winrates_1[0] + winrates_2[1]) / 2
     return winrate_matrix
 
 
