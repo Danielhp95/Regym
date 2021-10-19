@@ -183,7 +183,7 @@ class MCTSAgent(Agent):
             # A third approach is to take the value of the most visited action
             # which also (as of October 2021), also corresponds to the same action
             # outputted by the action_selection_strategy.
-            value_prediction = [torch.FloatTensor(tree.Q_a[action_selection_phase(tree)])]
+            value_predictions += [torch.FloatTensor([tree.Q_a[action_selection_phase(tree)]])]
         return child_visitations, action_vector, value_predictions
 
     def multi_action_select_policy_and_evaluation_fns(self,
