@@ -17,6 +17,7 @@ from regym.rl_algorithms.MCTS.selection_strategies import old_UCB1, UCB1, PUCT
 from regym.rl_algorithms.MCTS import sequential_mcts
 from regym.rl_algorithms.MCTS import simultaneous_mcts
 from regym.rl_algorithms.MCTS import util
+from regym.rl_algorithms.MCTS.sequential_mcts import action_selection_phase
 from regym.networks.servers.neural_net_server import NeuralNetServerHandler
 
 
@@ -166,15 +167,23 @@ class MCTSAgent(Agent):
             # Turns out that computing V(s) this way was generates pessimistic value predictions,
             # insofar as the final value targets stored in the replay buffer were consistently
             # lower than the true winrate during training.
-            # Instead, we are opting for choosing the highest value from MCTS.
-            normalized_child_visitations = child_visitations[-1] / child_visitations[-1].sum()
-            q_values = torch.FloatTensor(
-                [tree.Q_a[a_i] if a_i in tree.children.keys() else 0.
-                 for a_i in range(self.action_dim)
-                ]
-            )
+            #normalized_child_visitations = child_visitations[-1] / child_visitations[-1].sum()
             #value_predictions += [(q_values * normalized_child_visitations).sum()]
-            value_predictions += [torch.max(q_values)]
+
+            # Another approach is to take the action _a_ with the largest Q(s, _a_).
+            # This action value will not correspond to the actions taken by MCTS.
+            # This might have the effect of letting agents learn wrong state-value-functions
+            #q_values = torch.FloatTensor(
+            #    [tree.Q_a[a_i] if a_i in tree.children.keys() else 0.
+            #     for a_i in range(self.action_dim)
+            #    ]
+            #)
+            #value_predictions += [torch.max(q_values)]  # TODO: Potentially child to q value for most visited child
+
+            # A third approach is to take the value of the most visited action
+            # which also (as of October 2021), also corresponds to the same action
+            # outputted by the action_selection_strategy.
+            value_prediction = [torch.FloaTensor(tree.Q_a[action_selection_phase(tree)])]
         return child_visitations, action_vector, value_predictions
 
     def multi_action_select_policy_and_evaluation_fns(self,
