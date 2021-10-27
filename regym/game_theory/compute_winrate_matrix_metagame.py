@@ -380,9 +380,20 @@ def evolution_relative_population_performance(population_1: List[Agent],
     antisymmetric_form = winrate_matrix_metagame - 1/2
     relative_performances = np.zeros(len(population_1) - initial_index)
     for i in range(initial_index + 1, len(population_1) + 1):
-        _, _, value_1, _ = solve_zero_sum_game(antisymmetric_form[:i, :i])
-        relative_performances[(i-1) - initial_index] = value_1
+        relative_performances[(i-1) - initial_index] = compute_relative_population_performance_from_winrate_matrix(antisymmetric_form[:i, :i])
     return relative_performances, winrate_matrix_metagame
+
+
+def compute_relative_population_performance_from_winrate_matrix(winrate_matrix: np.ndarray) -> float:
+    '''
+    Computes the relative population performance for the row player of
+    :param: winrate_matrix.
+
+    :param winrate_matrix: Antisymmetric winrate metagame
+    :returns: Relative population performance
+    '''
+    _, _, value_1, _ = solve_zero_sum_game(winrate_matrix)
+    return value_1
 
 
 def check_input_validity(population: List[Agent], episodes_per_matchup: int, task: Task, is_game_symmetrical: bool):
