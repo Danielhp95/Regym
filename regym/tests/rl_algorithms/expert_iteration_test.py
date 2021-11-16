@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
 import torch
@@ -81,38 +81,69 @@ def test_can_query_learnt_opponent_models_at_train_time(Connect4Task, expert_ite
     # TODO: figure out a programatic way of testing this.
 
 
-def test_agent_initially_configured_to_use_true_opponent_models_can_switch_to_using_learnt_models_in_mcts(Connect4Task, expert_iteration_config_dict):
-    torch.multiprocessing.set_start_method('spawn', force='True')
-    expert_iteration_config_dict['use_agent_modelling'] = True
-    expert_iteration_config_dict['use_apprentice_in_expert'] = True
-    expert_iteration_config_dict['use_true_agent_models_in_mcts'] = True
+def test_can_control_age_of_replay_buffer(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['initial_max_generations_in_memory'] = 1
+    expert_iteration_config_dict['increase_memory_every_n_generations'] = 3
+    expert_iteration_config_dict['memory_increase_step'] = 1
+    expert_iteration_config_dict['final_max_generations_in_memory'] = 2
 
-    brexit_agent = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict,
-                                               agent_name='ExIt-opponent_modelling-test')
-    rando = build_Random_Agent(Connect4Task, {}, 'Rando')
-    assert brexit_agent.use_apprentice_in_expert
-    assert brexit_agent.use_true_agent_models_in_mcts
-    assert not brexit_agent.use_learnt_opponent_models_in_mcts
+    exit_alg = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict,
+                                           agent_name='ExIt-control-dataset-test').algorithm
+    # TODO: update this
+    memory_1 = create_memory(5, fixed_policy_target=None, task=Connect4Task)  # Ignore last 2 parameters
+    memory_2 = create_memory(10, fixed_policy_target=None, task=Connect4Task)
+    memory_3 = create_memory(20, fixed_policy_target=None, task=Connect4Task)
 
-    brexit_agent.use_learnt_opponent_models_in_mcts = True
-    assert brexit_agent.use_apprentice_in_expert
-    assert brexit_agent.use_learnt_opponent_models_in_mcts
-    assert not brexit_agent.use_true_agent_models_in_mcts
-    # TODO: figure out a programatic way of testing this.
-    # Currently only checking if crashes. One can internally
-    # check that MCTSAgent is using the policy function 
-    # learnt_opponent_aware_server_based_policy_fn().
-    # Which is bad, but deadlines are always coming, aren't they.
-    Connect4Task.run_episodes([brexit_agent, rando],
-                              num_episodes=1, num_envs=1,
-                              training=False)
+    assert len(exit_alg.memory) == 0
+    assert exit_alg.current_max_generations_in_memory == 1
+    # Add first Storage on top of empty memory
+    exit_alg.add_episode_trajectory(memory_1)
+    exit_alg.update_storage(exit_alg.memory)
+    assert len(exit_alg.memory) == len(memory_1)
+    exit_alg.generation += 1
+    # Add second, first should be gone
+    exit_alg.add_episode_trajectory(memory_2)
+    exit_alg.update_storage(exit_alg.memory)
+    assert len(exit_alg.memory) == len(memory_2)
+    exit_alg.generation += 1
+    # Add third, second and third should remain
+    exit_alg.add_episode_trajectory(memory_3)
+    exit_alg.update_storage(exit_alg.memory)
+    assert len(exit_alg.memory) == len(memory_2) + len(memory_3)
+
+
+#def test_agent_initially_configured_to_use_true_opponent_models_can_switch_to_using_learnt_models_in_mcts(Connect4Task, expert_iteration_config_dict):
+#    torch.multiprocessing.set_start_method('spawn', force='True')
+#    expert_iteration_config_dict['use_agent_modelling'] = True
+#    expert_iteration_config_dict['use_apprentice_in_expert'] = True
+#    expert_iteration_config_dict['use_true_agent_models_in_mcts'] = True
+#
+#    brexit_agent = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict,
+#                                               agent_name='ExIt-opponent_modelling-test')
+#    rando = build_Random_Agent(Connect4Task, {}, 'Rando')
+#    assert brexit_agent.use_apprentice_in_expert
+#    assert brexit_agent.use_true_agent_models_in_mcts
+#    assert not brexit_agent.use_learnt_opponent_models_in_mcts
+#
+#    brexit_agent.use_learnt_opponent_models_in_mcts = True
+#    assert brexit_agent.use_apprentice_in_expert
+#    assert brexit_agent.use_learnt_opponent_models_in_mcts
+#    assert not brexit_agent.use_true_agent_models_in_mcts
+#    # TODO: figure out a programatic way of testing this.
+#    # Currently only checking if crashes. One can internally
+#    # check that MCTSAgent is using the policy function 
+#    # learnt_opponent_aware_server_based_policy_fn().
+#    # Which is bad, but deadlines are always coming, aren't they.
+#    Connect4Task.run_episodes([brexit_agent, rando],
+#                              num_episodes=1, num_envs=1,
+#                              training=False)
 
 
 def test_apprentice_can_model_expert(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['use_agent_modelling'] = False
 
-    expert_iteration_config_dict['batch_size'] = 10
-    expert_iteration_config_dict['num_epochs_per_iteration'] = 10
+    expert_iteration_config_dict['batch_size'] = 5
+    expert_iteration_config_dict['num_epochs_per_iteration'] = 50
 
     _test_learn_against_fixed_distribution(
         Connect4Task,
@@ -125,7 +156,7 @@ def test_can_model_fixed_stochastic_policy(Connect4Task, expert_iteration_config
     expert_iteration_config_dict['use_agent_modelling'] = True
 
     expert_iteration_config_dict['batch_size'] = 10
-    expert_iteration_config_dict['num_epochs_per_iteration'] = 10
+    expert_iteration_config_dict['num_epochs_per_iteration'] = 50
 
     _test_learn_against_fixed_distribution(
         Connect4Task,
@@ -134,26 +165,27 @@ def test_can_model_fixed_stochastic_policy(Connect4Task, expert_iteration_config
     )
 
 
-def _test_learn_against_fixed_distribution(task, config, prediction_process_fn: Callable):
+def _test_learn_against_fixed_distribution(task, config, prediction_process_fn: Callable, epochs: int=10):
     # Random stochstic policy
     target_policy = torch.Tensor([0.17, 0.03, 0.05, 0.4, 0.05, 0.2, 0.1])
 
     # Create agent and dataset
-    memory = create_memory(100, target_policy, task)
+    memory = create_memory(size=100, fixed_policy_target=target_policy, task=task)
     ex_it = build_ExpertIteration_Agent(task, config, agent_name='ExIt-opponent_modelling-test')
-    ex_it.algorithm.memory = memory
+    ex_it.algorithm.add_episode_trajectory(memory)
 
     # Train
-    num_trains = 4
-    for _ in range(num_trains):
-        ex_it.algorithm.train(ex_it.apprentice)
+    ex_it.algorithm.train(ex_it.apprentice)
+    #num_trains = 4
+    #for _ in range(num_trains):
+    #    ex_it.algorithm.train(ex_it.apprentice)
 
     # Test
     _test_model(ex_it, target_policy, task, prediction_process_fn)
 
 
 def _test_model(agent, target_policy, task, prediction_process_fn,
-                test_iterations=50, kl_divergence_tolerance=0.01):
+                test_iterations=50, kl_divergence_tolerance=0.05):
     for i in range(test_iterations):
         with torch.no_grad():
             sample_obs = agent.state_preprocess_fn(
@@ -162,7 +194,8 @@ def _test_model(agent, target_policy, task, prediction_process_fn,
             processed_prediction = prediction_process_fn(agent.apprentice(sample_obs))
             kl_div = torch.nn.functional.kl_div(
                 processed_prediction.log(),
-                target_policy
+                target_policy,
+                reduction='batchmean'
             )
             assert kl_div.item() < kl_divergence_tolerance, (f'Prection was too far off from allowed tolerance {kl_divergence_tolerance}\n'
                                                              f'Target distribution: {target_policy}\n'
@@ -176,6 +209,24 @@ def test_can_use_apprentice_in_expert_in_expansion_and_rollout_phase(Connect4Tas
     exIt_agent_1 = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt1-test')
     exIt_agent_2 = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt2-test')
     Connect4Task.run_episode([exIt_agent_1, exIt_agent_2], training=False)
+
+
+def test_can_use_data_augmentation_to_double_experiences(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['state_preprocessing_fn'] = 'turn_into_single_element_batch'
+    expert_iteration_config_dict['data_augmnentation_fn'] = {
+        'name': 'generate_horizontal_symmetry', 'flip_obs_on_dim': 1
+    }
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt1-test')
+    random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
+
+    trajectories = Connect4Task.run_episodes(agent_vector=[ex_it, random_agent],
+                              num_envs=2, num_episodes=1, training=True)
+    import ipdb; ipdb.set_trace()
+    # Add data augmentation as part of expert_iteration_config_dict
+    # Ran episode against random opponent
+    # Check that number of datapoints in storage is twice the number of datapoints elsewhere?
+    # Check that there is a single "done" flag in the storage (i.e finished episodes is only 1 in agent)
+    pass
 
 
 def test_train_apprentice_using_dagger_against_random_connect4(Connect4Task, expert_iteration_config_dict, mcts_config_dict):

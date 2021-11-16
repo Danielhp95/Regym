@@ -90,6 +90,11 @@ class Storage:
                                 for i in duplicate_indices]).mean(dim=0)
                 for k in avg_keys}
 
+    def __len__(self):
+        # ASSUMPTION: all populated keys have the same number of items
+        if self.non_empty_keys() == []: return 0
+        else: return len(self.get(self.non_empty_keys()[0]))
+
     def __repr__(self):
         keys_and_item_numbers = [('key: ' + k, 'items: ' + str(len(getattr(self, k))))
                                  for k in self.non_empty_keys()]

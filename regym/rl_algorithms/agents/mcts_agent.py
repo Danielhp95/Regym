@@ -133,12 +133,20 @@ class MCTSAgent(Agent):
             # arguments makes sense
             # TODO: turn this into kwargs, pretty please!!
             futures = [ex.submit(async_search, env_i, self.algorithm,
-                                 env, observations[env_i],
-                                 self.budget, self.rollout_budget,
-                                 self.selection_strat, self.exploration_constant,
-                                 player_index, policy_fn,
-                                 evaluation_fn, self.use_dirichlet,
-                                 self.dirichlet_alpha, self.dirichlet_strength, self.num_agents)
+                                 {'rootstate': env,
+                                  'observation': observations[env_i],
+                                  'budget': self.budget,
+                                  'rollout_budget': self.rollout_budget,
+                                  'selection_strat': self.selection_strat,
+                                  'exploration_factor': self.exploration_constant,
+                                  'player_index': player_index,
+                                  'policy_fn': policy_fn,
+                                  'evaluation_fn': evaluation_fn,
+                                  'use_dirichlet': self.use_dirichlet,
+                                  'dirichlet_alpha': self.dirichlet_alpha,
+                                  'dirichlet_strength': self.dirichlet_strength,
+                                  'num_agents': self.num_agents}
+                                 )
                        for (env_i, env), policy_fn, evaluation_fn
                        in zip(envs.items(), policy_fns, evaluation_fns)]
 
@@ -309,8 +317,8 @@ class MCTSAgent(Agent):
         return s
 
 
-def async_search(i, algorithm, *algorithm_args):
-    results = algorithm(*algorithm_args)
+def async_search(i, algorithm, algorithm_kwargs):
+    results = algorithm(**algorithm_kwargs)
     return i, results
 
 

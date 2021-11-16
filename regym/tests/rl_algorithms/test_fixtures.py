@@ -137,10 +137,10 @@ def expert_iteration_config_dict():
     config['average_episode_returns_with_mcts_values'] = False
     config['games_per_iteration'] = 2
     # Dataset params
-    config['initial_memory_size'] = 3
+    config['initial_max_generations_in_memory'] = 1
     config['increase_memory_every_n_generations'] = 1
-    config['increase_memory_size_by'] = 10
-    config['end_memory_size'] = 9
+    config['memory_increase_step'] = 1
+    config['final_max_generations_in_memory'] = 3
     # MCTS config
     config['mcts_budget'] = 20
     config['mcts_rollout_budget'] = 0
@@ -165,6 +165,7 @@ def expert_iteration_config_dict():
     config['final_feature_dim'] = 64
     config['residual_connections'] = []
     config['post_feature_extractor_arch'] = 'MLP'
+    config['state_preprocessing_fn'] = 'turn_into_single_element_batch'
     # If agent_modelling is not used
     config['post_feature_extractor_hidden_units'] = [64, 64, 64, 64]
     # If use_agent_modelling is set. a PolicyInferenceActorCriticNet will be used

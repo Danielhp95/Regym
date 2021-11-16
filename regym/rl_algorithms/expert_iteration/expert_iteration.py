@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from time import time
 
 import numpy as np
@@ -19,10 +19,10 @@ class ExpertIterationAlgorithm():
                  batch_size: int,
                  learning_rate: float,
                  model_to_train: nn.Module,
-                 initial_memory_size: int,
+                 initial_max_generations_in_memory: int,
                  increase_memory_every_n_generations: int,
-                 increase_memory_size_by: int,
-                 end_memory_size: int,
+                 memory_increase_step: int,
+                 final_max_generations_in_memory: int,
                  use_agent_modelling: bool,
                  num_opponents: int,
                  use_cuda: bool):
@@ -34,14 +34,18 @@ class ExpertIterationAlgorithm():
         :param batch_size: Number of samples to be used to compute each loss
         :param learning_rate: learning rate for the optimizer
         :param model_to_train: Model whose parameters will be updated
-        :param initial_memory_size: Initial maxium memory size
+        :param initial_max_generations_in_memory: Initial number of generations to be allowed
+                                                  in replay buffer
         :param increase_memory_every_n_generations: Number of generations to elapse
                                                before increasing dataset size.
         :param increase_memory_size_by: Number of datapoints to increase the size
                                         of the algorithm's dataset everytime the dataset's
                                         size grows, as dictated by
                                         :param: increase_memory_every_n_generations
-        :param end_memory_size: Maximum memory size
+        :param final_max_generations_in_memory: Maximum number of generations which will be allowed
+                                                in the memory after it has been increased to max
+                                                capacity. Equivalent to the maximum age of the
+                                                replay buffer used as memory.
         :param use_agent_modelling: Flag to control whether to add a loss of
                                     from modelling opponent actions during training
         :param use_cuda: Wether to load tensors to an available cuda device for loss computation
@@ -53,8 +57,10 @@ class ExpertIterationAlgorithm():
         self.use_cuda = use_cuda
 
         # Init dataset
-        self.memory: Storage = Storage(size=initial_memory_size)
-        self.memory.add_key('normalized_child_visitations')
+        self.memory: Storage = Storage(size=int(1e6))
+        self.memory.add_key('normalized_child_visitations')  # The policy of the expert, \pi_{mcts}
+        # To tag each datapoint with the generation of the policy with which it was sampled
+        self.memory.add_key('generation')
 
         self.use_agent_modelling = use_agent_modelling
         self.num_opponents = num_opponents  # TODO: maybe move this to agent?
@@ -63,17 +69,18 @@ class ExpertIterationAlgorithm():
             self.memory.add_key('opponent_policy')
             self.memory.add_key('opponent_s')
 
-        self.initial_memory_size = initial_memory_size
-        self.end_memory_size = end_memory_size
+        self.initial_max_generations_in_memory = initial_max_generations_in_memory
+        self.final_generations_in_memory = final_max_generations_in_memory
+        self.current_max_generations_in_memory = initial_max_generations_in_memory
         self.increase_memory_every_n_generations = increase_memory_every_n_generations
-        self.increase_memory_size_by = increase_memory_size_by
+        self.memory_increase_step = memory_increase_step
 
         self.num_epochs_per_iteration = num_epochs_per_iteration
         self.batch_size = batch_size
         self.learning_rate = learning_rate
 
         self.optimizer = torch.optim.Adam(model_to_train.parameters(),
-                                          weight_decay=1e-3,      # Adding this here instead of hyperparameter to test if its benefitial or not
+                                          weight_decay=1e-4,      # Adding this here instead of hyperparameter to test if its benefitial or not
                                           lr=self.learning_rate)
 
         # To be set by an ExpertIterationAgent
@@ -88,7 +95,8 @@ class ExpertIterationAlgorithm():
         for i in range(dataset_size):
             self.memory.add({'normalized_child_visitations': episode_trajectory.normalized_child_visitations[i],
                              's': episode_trajectory.s[i],
-                             'V': episode_trajectory.V[i]})
+                             'V': episode_trajectory.V[i],
+                             'generation': self.generation})
             if self.use_agent_modelling:
                 self.memory.add({'opponent_policy': episode_trajectory.opponent_policy[i]})
                 self.memory.add({'opponent_s': episode_trajectory.opponent_s[i]})
@@ -99,10 +107,9 @@ class ExpertIterationAlgorithm():
         :returns: Total loss computed
         '''
         start_time = time()
-        self.generation += 1
         self.episodes_collected_since_last_train = 0
 
-        self.update_storage(self.memory, self.memory.size)
+        self.update_storage(self.memory)
 
         s, v, mcts_pi, opponent_s, opponent_policy = self.preprocess_memory(
             self.memory)
@@ -128,6 +135,7 @@ class ExpertIterationAlgorithm():
             self.summary_writer.add_scalar('Training/Total_generation_loss',
                                            generation_loss.cpu(),
                                            self.generation)
+        self.generation += 1
         return generation_loss
 
     def preprocess_memory(self, memory: Storage) -> Tuple:
@@ -190,10 +198,9 @@ class ExpertIterationAlgorithm():
         apprentice_model.to(inititial_device)
         return total_loss
 
-    def update_storage(self, dataset, max_memory):
+    def update_storage(self, dataset):
         self.update_storage_size(dataset)
-        # TODO: Remove duplicates when implemented correctly
-        self.curate_dataset(dataset, dataset.size)
+        self.curate_dataset(dataset)
 
     def remove_duplicates_from_dataset(self, dataset: Storage) -> int:
         '''
@@ -224,23 +231,34 @@ class ExpertIterationAlgorithm():
 
     def update_storage_size(self, dataset):
         ''' Increases maximum size of dataset if required '''
-        if self.generation % self.increase_memory_every_n_generations == 0 \
-                and dataset.size < self.end_memory_size:
-            dataset.size += self.increase_memory_size_by
+        if (self.generation + 1) % self.increase_memory_every_n_generations == 0 \
+                and self.current_max_generations_in_memory < self.final_generations_in_memory:
+            self.current_max_generations_in_memory = min(
+                self.current_max_generations_in_memory + self.memory_increase_step,
+                self.final_generations_in_memory)
 
-    def curate_dataset(self, dataset: Storage, max_memory: int):
+    def curate_dataset(self, dataset: Storage):
         '''
         Removes old experiences from :param: dataset so that it keeps at most
         :param: max_memory datapoints in it.
 
         ASSUMPTION: ALL "keys" have the same number of datapoints
         '''
-        oversize = max(len(dataset.s) - dataset.size, 0)
-        if oversize > 0:
-            for k in dataset.non_empty_keys(): del getattr(dataset, k)[:oversize]
-        assert len(dataset.s) <= max_memory
+        first_allowed_datapoint_index = self._find_first_allowed_datapoint(dataset)
+        if first_allowed_datapoint_index > 0:
+            for k in dataset.non_empty_keys(): del getattr(dataset, k)[:first_allowed_datapoint_index]
         if self.summary_writer: self.summary_writer.add_scalar(
-            'Training/Memory_oversize_at_generation', oversize, self.generation)
+            'Training/Memory_oversize_at_generation', first_allowed_datapoint_index, self.generation)
+
+    def _find_first_allowed_datapoint(self, memory: Storage) -> int:
+        '''
+        Finds the first allowed datapoint in :param: memory by inspecting the
+        generation tag
+        returns: Integer of the first allowed index
+        '''
+        first_allowed_generation = max(0, (self.generation + 1) - self.current_max_generations_in_memory)
+        generation_tags = memory.get('generation')
+        return generation_tags.index(first_allowed_generation)
 
     def __getstate__(self):
         '''
@@ -257,5 +275,5 @@ class ExpertIterationAlgorithm():
     def __repr__(self):
         gen_stats = f'Generation: {self.generation}\nGames per generation: {self.games_per_iteration}\nEpisodes since last generation: {self.episodes_collected_since_last_train}\n'
         train_stats = f'Batches sampled: {self.num_batches_sampled}\nBatch size: {self.batch_size}\nLearning rate: {self.learning_rate}\nEpochs per generation: {self.num_epochs_per_iteration}\n'
-        memory_stats = f'Initial memory size: {self.initial_memory_size}\nMemory increase frequency: {self.increase_memory_every_n_generations}\nMax memory size: {self.end_memory_size}\n'
+        memory_stats = f'Initial max generations in memory: {self.initial_max_generations_in_memory}\nMemory increase frequency: {self.increase_memory_every_n_generations}\nMax generations in memory size: {self.final_generations_in_memory}\nCurrent generations in memory: {self.current_max_generations_in_memory}\n'
         return gen_stats + train_stats + memory_stats + f'{self.memory}\n' + f'Use CUDA: {self.use_cuda}'
