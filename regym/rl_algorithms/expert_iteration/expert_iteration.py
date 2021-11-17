@@ -258,7 +258,13 @@ class ExpertIterationAlgorithm():
         '''
         first_allowed_generation = max(0, (self.generation + 1) - self.current_max_generations_in_memory)
         generation_tags = memory.get('generation')
-        return generation_tags.index(first_allowed_generation)
+
+        first_allowed_index = 0
+        while first_allowed_index  < len(generation_tags):
+            if generation_tags[first_allowed_index] >= first_allowed_generation: break
+            first_allowed_index += 1
+
+        return first_allowed_index
 
     def __getstate__(self):
         '''

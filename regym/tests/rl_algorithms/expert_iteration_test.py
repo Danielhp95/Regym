@@ -84,15 +84,15 @@ def test_can_query_learnt_opponent_models_at_train_time(Connect4Task, expert_ite
 def test_can_control_age_of_replay_buffer(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['initial_max_generations_in_memory'] = 1
     expert_iteration_config_dict['increase_memory_every_n_generations'] = 3
-    expert_iteration_config_dict['memory_increase_step'] = 1
-    expert_iteration_config_dict['final_max_generations_in_memory'] = 2
+    expert_iteration_config_dict['memory_increase_step'] = 10
+    expert_iteration_config_dict['final_max_generations_in_memory'] = 10
 
     exit_alg = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict,
                                            agent_name='ExIt-control-dataset-test').algorithm
     # TODO: update this
-    memory_1 = create_memory(5, fixed_policy_target=None, task=Connect4Task)  # Ignore last 2 parameters
-    memory_2 = create_memory(10, fixed_policy_target=None, task=Connect4Task)
-    memory_3 = create_memory(20, fixed_policy_target=None, task=Connect4Task)
+    memory_1 = create_memory(1, fixed_policy_target=None, task=Connect4Task)  # Ignore last 2 parameters
+    memory_2 = create_memory(2, fixed_policy_target=None, task=Connect4Task)
+    memory_3 = create_memory(3, fixed_policy_target=None, task=Connect4Task)
 
     assert len(exit_alg.memory) == 0
     assert exit_alg.current_max_generations_in_memory == 1
@@ -176,9 +176,6 @@ def _test_learn_against_fixed_distribution(task, config, prediction_process_fn: 
 
     # Train
     ex_it.algorithm.train(ex_it.apprentice)
-    #num_trains = 4
-    #for _ in range(num_trains):
-    #    ex_it.algorithm.train(ex_it.apprentice)
 
     # Test
     _test_model(ex_it, target_policy, task, prediction_process_fn)
