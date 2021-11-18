@@ -70,6 +70,34 @@ def test_can_collect_opponent_action_distributions_multi_env(Connect4Task, exper
     assert len(ex_it.algorithm.memory.opponent_policy) == len(ex_it.algorithm.memory.opponent_s)
 
 
+def test_can_collect_one_hot_encoded_opponent_action_multi_env(Connect4Task, expert_iteration_config_dict):
+    expert_iteration_config_dict['use_agent_modelling'] = True
+    expert_iteration_config_dict['request_observed_action'] = True
+    ex_it = build_ExpertIteration_Agent(Connect4Task, expert_iteration_config_dict, agent_name='ExIt-opponent_modelling-test')
+    assert ex_it.requires_opponents_prediction
+
+    random_agent = build_Random_Agent(Connect4Task, {}, agent_name='Random')
+
+    _ = Connect4Task.run_episodes(
+        agent_vector=[ex_it, random_agent],
+        training=True,  # Required for ExIt agent to `handle_experience`s
+        num_envs=2, num_episodes=2)
+    # We only check for existance of the key, rather than it's content
+    assert 'opponent_policy' in ex_it.algorithm.memory.keys
+    assert 'opponent_s' in ex_it.algorithm.memory.keys
+    # ex_it.algorithm.memory. Once you fix it. push!
+    assert len(ex_it.algorithm.memory.opponent_policy) == len(ex_it.algorithm.memory.s)
+    assert len(ex_it.algorithm.memory.opponent_policy) == len(ex_it.algorithm.memory.opponent_s)
+
+    for opponent_action in ex_it.algorithm.memory.opponent_policy:
+        # There is a single 1, all other elements are 0
+        if torch.any(torch.isnan(opponent_action)): continue
+        else:
+            values, counts = opponent_action.unique(return_counts=True)
+            assert torch.equal(torch.Tensor([0, 1]), values.float())
+            assert torch.equal(torch.Tensor([Connect4Task.action_dim - 1, 1]), counts.float())
+
+
 def test_can_query_learnt_opponent_models_at_train_time(Connect4Task, expert_iteration_config_dict):
     expert_iteration_config_dict['use_apprentice_in_expert'] = True
     expert_iteration_config_dict['use_learnt_opponent_models_in_mcts'] = True

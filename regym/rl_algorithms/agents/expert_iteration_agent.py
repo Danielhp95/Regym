@@ -35,6 +35,7 @@ class ExpertIterationAgent(Agent):
                  use_agent_modelling: bool,
                  use_true_agent_models_in_mcts: bool,
                  use_learnt_opponent_models_in_mcts: bool,
+                 request_observed_action: bool,
                  average_episode_returns_with_mcts_values: bool,
                  action_dim: int,
                  observation_dim: Tuple[int],
@@ -72,6 +73,9 @@ class ExpertIterationAgent(Agent):
                                            the head of apprentice (nn.Module) which is
                                            trained to model opponent actions
                                            (key from prediction dictionary 'policy_0')
+        :param request_observed_action: When using opponent modelling. Whether to request
+                                        to store one-hot encoded observed actions.
+                                        Otherwise the full distribution over actions is stored
         :param average_episode_returns_with_mcts_values: Whether to average
                                 the episode returns with Q values of MCTS' root
                                 node, to serve as targets for the apprentice's
@@ -118,7 +122,8 @@ class ExpertIterationAgent(Agent):
             self.observation_dim = observation_dim
             self.requires_opponents_prediction = True
             # Key used to extract opponent policy from extra_info in handle_experienco
-            self.extra_info_key = 'probs'  # Allow for 'a' (opponent action) to be used at some point
+            self.request_observed_action = request_observed_action
+            self.extra_info_key = 'a' if self.request_observed_action else 'probs'
 
         # If FALSE, this algorithm is equivalent to DAgger
         self.use_apprentice_in_expert: bool = use_apprentice_in_expert
@@ -332,11 +337,13 @@ class ExpertIterationAgent(Agent):
         else:
             opponent_index = list(filter(lambda key: key != 'self',
                                          extra_info.keys()))[0]  # Not super pretty
-            # TODO: extra processing (turn into one hot encoding) will be necessary
-            # If using self.extra_info_key = 'a'.
             opponent_policy = extra_info[opponent_index][self.extra_info_key]
-            processed_opponent_policy = torch.FloatTensor(opponent_policy)
             processed_opponent_obs = self.state_preprocess_fn(extra_info[opponent_index]['s'])
+            if self.extra_info_key == 'a':  # Observing only single actions
+                processed_opponent_policy = nn.functional.one_hot(torch.LongTensor([opponent_policy]), num_classes=self.action_dim).squeeze(0)
+            elif self.extra_info_key == 'probs':  # Observing full action distribution
+                processed_opponent_policy = torch.FloatTensor(opponent_policy)
+            else: raise RuntimeError(f'Could not process extra_info_key: {self.extra_info_key}')
         return processed_opponent_policy, processed_opponent_obs
 
     def update_storage(self, storage: Storage,
@@ -592,6 +599,8 @@ def build_ExpertIteration_Agent(task: 'Task',
                                            to compute priors for MCTS nodes.
         - 'use_learnt_opponent_models_in_mcts': (Bool) Whether to use learnt agent models
                                                 to compute priors for MCTS nodes.
+        - 'request_observed_action': Whether to observe one hot encoded actions, otherwise full policy will be requested.
+                                     Only meaningful when :param: use_agent_modelling is set.
         - 'average_episode_returns_with_mcts_values': (Bool) Whether to average
                                 the episode returns with Q values of MCTS' root
                                 node, to serve as targets for the apprentice's
@@ -673,6 +682,7 @@ def build_ExpertIteration_Agent(task: 'Task',
             use_agent_modelling=config['use_agent_modelling'],
             use_true_agent_models_in_mcts=config['use_true_agent_models_in_mcts'],
             use_learnt_opponent_models_in_mcts=config['use_learnt_opponent_models_in_mcts'],
+            request_observed_action=config.get('request_observed_action', False),
             average_episode_returns_with_mcts_values=config.get('average_episode_returns_with_mcts_values', False),
             action_dim=task.action_dim,
             observation_dim=task.observation_dim,
