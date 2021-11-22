@@ -38,7 +38,7 @@ def solve_for_row_player(matrix: np.array) -> Tuple[np.ndarray, float]:
     such that the value obtained by playing such mixed strategy is maximized
 
     This problem can be specified as a linear program with the following variables:
-        - |A_{row_player| variables corresponding to the support for each action (s).
+        - |A_{row_player}| variables corresponding to the support for each action (s).
           where A_{row_player} is the action space for the row player.
         - 1 variable corresponding to the minimax value (V)
 
