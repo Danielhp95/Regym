@@ -4,7 +4,7 @@ import regym
 
 from regym.environments import Task, EnvType
 from regym.rl_algorithms.agents import Agent
-from regym.util import play_multiple_matches, extract_cumulative_rewards
+from regym.util import play_multiple_matches
 
 
 def benchmark_agents_on_tasks(tasks: List[Task],
@@ -50,7 +50,7 @@ def benchmark_agents_on_tasks(tasks: List[Task],
                                                                   agent_vector=agent_vector,
                                                                   n_matches=num_episodes,
                                                                   keep_trajectories=True)
-            avg_cumulative_reward = np.sum(np.array([extract_cumulative_rewards(t)[0] for t in trajectories])) / len(trajectories)
+            avg_cumulative_reward = np.sum(np.array([t.agent_specific_cumulative_reward(0) for t in trajectories])) / len(trajectories)
             cumulative_rewards.append(avg_cumulative_reward)
         else:
             player_winrates = play_multiple_matches(task=t,

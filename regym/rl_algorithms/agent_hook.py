@@ -1,10 +1,12 @@
+from enum import Enum
+from typing import List, Callable, Tuple, Any, Optional
 import os
 from os import listdir
 from os.path import isfile, join
-from typing import List, Callable, Tuple, Any
+
 import torch
+import tqdm
 from .agents import TabularQLearningAgent, DeepQNetworkAgent, PPOAgent, MixedStrategyAgent
-from enum import Enum
 
 AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
 
@@ -12,21 +14,34 @@ AgentType = Enum("AgentType", "DQN TQL PPO MixedStrategyAgent")
 # TODO: move elsewhere. Maybe utils?
 # TODO: test function
 def load_population_from_path(path: str, file_extension='pt',
-                              sort_fn: Callable[[str], Tuple[Any]]=None) -> List:
+                              sort_fn: Callable[[str], Tuple[Any]]=None,
+                              show_progress: bool=False,
+                              state_preprocess_fn: Callable=Optional[None]) -> List:
     '''
     Loads a population of agents from :param: path.
     Agent files are recognized by the :param: file_extension.
     If :param: sort_fn is passed, all appropiate files in :param: path
     are sorted according to :param: sort_fn.
 
+     NOTE: it might be easier to sort agents once they are loaded
+     (for instance, by looking at the number of finished_episodes).
+     :param: sort_fn is used to sort over file paths (i.e strings)
+
     :param path: Relative path from which
-    :param file_extension: 
-    :param sort_fn: Function to be used as part of list.sort(key={})
+    :param file_extension: Only files with this extension will be loaded
+    :param sort_fn: Function to be used as part of list.sort(key={}), to
+                    sort agent files before loading.
+    :param state_preprocess_fn: Function to replace the loaded population's state_preprocess_fn
+    :returns: Loaded population from :param: path with potentially updated state_preprocess_fn
     '''
     files = [os.path.abspath(f'{path}/{f}') for f in listdir(path)
              if isfile(join(path, f)) and f.endswith(file_extension)]
     if sort_fn is not None: files.sort(key=sort_fn)
-    return [torch.load(open(f, 'rb')) for f in files]
+    if show_progress: files = tqdm.tqdm(files, desc=f'Loading agents from {path}')
+    loaded_population = [torch.load(open(f, 'rb')) for f in files]
+    if state_preprocess_fn:
+        for agent in loaded_population: agent.state_preprocess_fn = state_preprocess_fn
+    return loaded_population
 
 
 class AgentHook():

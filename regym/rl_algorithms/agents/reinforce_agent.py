@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import List, Dict
 import copy
 
 import regym
@@ -46,11 +46,12 @@ class ReinforceAgent(Agent):
                 self.trajectories = []
             self.trajectories.append([])
 
-    def take_action(self, state):
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
         '''
         :param state: Environment state
         :returns: Action to be executed by the environment conditioned on :param: state
         '''
+        # TODO: check action
         self.current_prediction = self.algorithm.model(state)
         return self.current_prediction['action'].item()
 
@@ -79,7 +80,7 @@ def build_Reinforce_Agent(task: regym.environments.Task, config: Dict[str, objec
 
     :returns: Agent using Reinforce algorithm to act and learn in environments
     '''
-    algorithm = ReinforceAlgorithm(policy_model_input_dim=task.observation_dim, policy_model_output_dim=task.action_dim,
+    algorithm = ReinforceAlgorithm(policy_model_input_dim=task.observation_dim, policy_model_output_dim=task.action_size,
                                    learning_rate=config['learning_rate'], adam_eps=config['adam_eps'])
     return ReinforceAgent(name=agent_name, episodes_before_update=config['episodes_before_update'],
                           algorithm=algorithm)

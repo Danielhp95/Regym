@@ -4,13 +4,13 @@ from math import sqrt
 import random
 import gym
 
-from regym.rl_algorithms.MCTS.util import UCB1
+from regym.rl_algorithms.MCTS.selection_strategies import UCB1, PUCT
 from regym.rl_algorithms.MCTS.simultaneous_open_loop_node import SimultaneousOpenLoopNode
 
 
 
-def selection_phase(nodes: List, state: gym.Env,
-                    selection_policy: Callable[[object], float] = UCB1,
+def selection_phase(nodes: List, state: gym.Env, policy_fn,
+                    selection_policy: Callable[[object], float],
                     selection_policy_args: List = []) -> List:
     '''
     This function joins the selection and expansion phase of the vanilla
@@ -73,8 +73,6 @@ def rollout_phase(state: gym.Env, rollout_policies: List, observations, rollout_
     :param rollout_policies: Policies to be used to take action during rollout
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
     '''
-    # TODO: Currently we just stop once we reach the end of the tree
-    # TODO: Implement random acting (adapt from sequential mcts)
     for i in range(rollout_budget):
         if state.is_over(): return state
         action_vector = [policy.take_action(observations[i], state.get_moves(i))
@@ -113,10 +111,20 @@ def action_selection_phase(nodes: List) -> List[int]:
             for n in nodes]
 
 
-def MCTS_UCT(rootstate, budget: int, num_agents: int,
+def MCTS_UCT(rootstate, observation,
+             budget: int,
+             num_agents: int,
              rollout_budget: int,
-             rollout_policies: List = [],
-             exploration_factor_ucb1: float = sqrt(2)):
+             player_index: int,
+             selection_strat: Callable,
+             policy_fn: Callable[[object], List[float]],
+             evaluation_fn: Callable[[object], List[float]],
+             exploration_factor: float,
+             use_dirichlet: bool,
+             dirichlet_alpha: float,
+             dirichlet_strength: float,
+             rollout_policies: List = []) \
+        -> Tuple[int, Dict[int, int], SimultaneousOpenLoopNode]:
     '''
     Conducts a game tree search using the MCTS-UCT algorithm
     for a total of :param: itermax iterations using an open loop approach
@@ -134,24 +142,30 @@ def MCTS_UCT(rootstate, budget: int, num_agents: int,
     :param rootstate: The game state for which an action must be selected.
     :param budget: number of MCTS iterations to be carried out.
                     Also knwon as the computational budget.
+    :param player_index: Player whom called this algorithm
     :param exploration_factor_ucb1: 'c' constant in UCB1 equation.
     :param rollout_policies: Agent policies to be used during rollout phase
     :param rollout_budget: Maximum number of nodes to be explored (environment steps taken)
+    :param policy_fn: TODO
+    :param evaluation_fn: TODO
+    :param use_dirichlet: UNUSED
+    :param dirichlet_alpha: UNUSED
+    :param dirichlet_strength: UNUSED
     :returns: Action to be taken by player
     '''
-    from regym.rl_algorithms.agents import DeterministicAgent
-
-    rollout_policies = [DeterministicAgent(5, 'P1'), DeterministicAgent(5, 'P2')]
-    root_nodes = [SimultaneousOpenLoopNode(state=rootstate,
-                                           perspective_player=i)
+    root_nodes = [SimultaneousOpenLoopNode(state=rootstate, perspective_player=i)
                   for i in range(num_agents)]
 
     for i in range(budget):
         nodes = root_nodes
         state = rootstate.clone()
-        nodes, observations = selection_phase(nodes, state, selection_policy=UCB1, selection_policy_args=[exploration_factor_ucb1])
+        nodes, observations = selection_phase(nodes, state, policy_fn,
+                                              selection_policy=selection_strat,
+                                              selection_policy_args=[exploration_factor])
         rollout_phase(state, rollout_policies, observations, rollout_budget)
         backpropagation_phase(nodes, state)
 
     all_player_actions = action_selection_phase(root_nodes)
-    return all_player_actions  # TODO: this might be problematic. Look into it.
+    child_visitations = {n.move: n.visits
+                         for n in root_nodes[player_index].child_nodes}
+    return all_player_actions[player_index], child_visitations, root_nodes[player_index]

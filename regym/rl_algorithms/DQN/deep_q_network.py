@@ -6,8 +6,8 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 from regym.rl_algorithms.replay_buffers import ReplayBuffer, PrioritizedReplayBuffer, EXP, EXPPER
-from regym.rl_algorithms.networks.utils import hard_update
-from regym.rl_algorithms.networks.utils import compute_weights_decay_loss
+from regym.networks.utils import hard_update
+from regym.networks.utils import compute_weights_decay_loss
 from regym.rl_algorithms.DQN.dqn_loss import compute_loss
 
 

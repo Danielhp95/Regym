@@ -1,1 +1,0 @@
-python run.py --config ./experiment_config.yaml --dest ./ 

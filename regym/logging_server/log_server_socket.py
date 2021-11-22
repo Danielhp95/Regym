@@ -1,9 +1,12 @@
 import sys
 import pickle
 import struct
+from multiprocessing import Process
 import logging
 import logging.handlers
 import socketserver
+import socket
+import select
 
 SERVER_SHUTDOWN_MESSAGE = 'LOG_SERVER_SHUTDOWN_REQUEST'
 
@@ -28,8 +31,6 @@ class LogRecordStreamHandler(socketserver.StreamRequestHandler):
                 chunk = chunk + self.connection.recv(slen - len(chunk))
             obj = pickle.loads(chunk)
             record = logging.makeLogRecord(obj)
-            if record.getMessage() == SERVER_SHUTDOWN_MESSAGE:
-                self.server.shutdown()
             self.handleRecord(record)
 
     def handleRecord(self, record):
@@ -51,9 +52,12 @@ class LogRecordSocketReceiver(socketserver.ThreadingTCPServer):
                  handler=LogRecordStreamHandler,
                  log_path=None, Queue=None):
         socketserver.ThreadingTCPServer.__init__(self, (host, port), handler)
-        self.shutdown_is_requested = False
         self.timeout = 1
         self.logger = self.initialize_root_log_server_socket(log_path)
+
+    def server_bind(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.server_address)
 
     def initialize_root_log_server_socket(self, log_path):
         '''
@@ -76,25 +80,21 @@ class LogRecordSocketReceiver(socketserver.ThreadingTCPServer):
         logger.addHandler(file_handler)
         return logger
 
-    def shutdown(self):
-        self.shutdown_is_requested = True
-
     def serve_until_stopped(self):
-        import select
-        while not self.shutdown_is_requested:
+        while True:
             rd, wr, ex = select.select([self.socket.fileno()],
                                        [], [],
                                        self.timeout)
             if rd:
                 self.handle_request()
-        self.logger.warning('Server shutting down, no further logs will be saved')
 
 
-def serve_logging_server_forever(log_path):
+def serve_logging_server_forever(log_path: str):
     '''
-    Starts a TCPServer that spawns a new thread for each connection
+    Starts a TCPServer that spawns a new process for each connection
     (analogous to creating a new connection per logger).
-    TODO: figure out a way of shutting the server down upon completion :param log_path: Path where log file will be saved
+    TODO: figure out a way of shutting the server down upon completion
+    :param log_path: Path where log file will be saved
     '''
     tcpserver = LogRecordSocketReceiver(host='localhost',
                                         port=logging.handlers.DEFAULT_TCP_LOGGING_PORT,
@@ -103,5 +103,32 @@ def serve_logging_server_forever(log_path):
     tcpserver.serve_until_stopped()
 
 
-if __name__ == '__main__':
-    serve_logging_server_forever('logs')
+def create_logging_server_process(log_path: str) -> Process:
+    '''
+    :param log_path: Path to file where server will dump logs
+    :returns: Started process hosting logging server.
+    '''
+    p = Process(target=serve_logging_server_forever,
+               args=(log_path,),
+               daemon=True)
+    p.start()
+    return p
+
+
+def initialize_logger(name: str, level=logging.DEBUG) -> logging.Logger:
+    '''
+    Creates a logger with :param: name and :param: level
+    that connects to regym's logging server. This logger features
+    a handler that forwards all logging calls to server.
+
+    :param name: Name to be given to logger
+    :param level: Logging level at which logs will be sent over to server
+    :returns: logger with added server handler
+    '''
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    socketHandler = logging.handlers.SocketHandler(
+        host='localhost',
+        port=logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+    logger.addHandler(socketHandler)
+    return logger

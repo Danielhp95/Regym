@@ -2,8 +2,8 @@ from typing import List
 import pytest
 import numpy as np
 
-from regym.rl_algorithms.agents import Agent
-from regym.rl_algorithms import rockAgent, scissorsAgent 
+from regym.rl_algorithms.agents import build_Deterministic_Agent, MixedStrategyAgent
+from regym.rl_algorithms import rockAgent, scissorsAgent
 from regym.environments import generate_task
 from regym.environments import EnvType
 from regym.util.play_matches import play_multiple_matches
@@ -27,24 +27,12 @@ def test_can_play_simultaneous_action_environments(RPS_task):
 
 
 def test_can_play_sequential_action_environments(Kuhn_task):
-    class FixedAgent(Agent):
-        def __init__(self, action):
-            super(FixedAgent, self).__init__(name=f'FixedAction: {action}')
-            self.action = action
-
-        def take_action(self, state, legal_actions):
-            return self.action
-
-        def handle_experience(self, *args):
-            pass
-
-        def clone(self, *args):
-            pass
-    agent_vector = [FixedAgent(1), FixedAgent(0)]
+    agent_vector = [build_Deterministic_Agent(Kuhn_task, {'action': 1}, 'DeterministicAgent-1'),
+                    build_Deterministic_Agent(Kuhn_task, {'action': 0}, 'DeterministicAgent-0')]
     play_matches_given_task_and_agent_vector(Kuhn_task, agent_vector)
 
 
-def play_matches_given_task_and_agent_vector(task, agent_vector: List[Agent]):
+def play_matches_given_task_and_agent_vector(task, agent_vector: List):
     expected_winrates = [1., 0.]
     number_matches = 10
 
@@ -55,3 +43,15 @@ def play_matches_given_task_and_agent_vector(task, agent_vector: List[Agent]):
     assert len(trajectories) == number_matches
     assert task.total_episodes_run == number_matches
     np.testing.assert_array_equal(expected_winrates, winrates)
+
+
+def test_play_matches_can_shuffle_agent_positions(RPS_task):
+    rockAgent_1 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent1')
+    rockAgent_2 = MixedStrategyAgent(support_vector=[1, 0, 0], name='RockAgent2')
+    agent_vector = [rockAgent_1, rockAgent_2]
+    expected_winrates = [0.5, 0.5]
+    actual_winrates = play_multiple_matches(RPS_task, agent_vector,
+                                            n_matches=500,
+                                            shuffle_agent_positions=True)
+    np.testing.assert_allclose(expected_winrates, actual_winrates,
+                               atol=0.10)

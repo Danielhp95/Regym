@@ -1,13 +1,18 @@
 import typing
+from typing import Any, List
 import itertools
+
 import numpy as np
 import gym
 from gym.spaces import Box, Discrete, MultiDiscrete, Tuple
 
-from regym.environments.task import Task, EnvType
+from .tasks import Task
+
+from .env_type import EnvType
 
 
-def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
+def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT,
+                          wrappers: List[gym.Wrapper] = []) -> Task:
     '''
     Generates a regym.environments.Task by extracting information from the
     already built :param: env.
@@ -21,52 +26,76 @@ def parse_gym_environment(env: gym.Env, env_type: EnvType.SINGLE_AGENT) -> Task:
                      (i.e all actions simultaneously, or sequentially)
     :returns: Task created from :param: env named :param: name
     '''
+    check_env_compatibility_with_env_type(env, env_type)
+
     name = env.spec.id
-    action_dim, action_type = get_action_dimensions_and_type(env)
-    observation_dim, observation_type = get_observation_dimensions_and_type(env)
+    action_dim, action_size, action_type = get_action_dimensions_and_type(env)
+    observation_dim, observation_size, observation_type = get_observation_dimensions_and_type(env)
     state_space_size = env.state_space_size if hasattr(env, 'state_space_size') else None
     action_space_size = env.action_space_size if hasattr(env, 'action_space_size') else None
     hash_function = env.hash_state if hasattr(env, 'hash_state') else None
     if env_type == EnvType.SINGLE_AGENT: num_agents = 1
     else: num_agents = len(env.observation_space.spaces)
 
-    check_env_compatibility_with_env_type(env, env_type)
-
-    return Task(name=name, env=env, env_type=env_type,
+    return Task(name=name,
+                env=env,
+                env_type=env_type,
                 state_space_size=state_space_size,
                 action_space_size=action_space_size,
                 observation_dim=observation_dim,
+                observation_size=observation_size,
                 observation_type=observation_type,
                 action_dim=action_dim,
+                action_size=action_size,
                 action_type=action_type,
                 num_agents=num_agents,
-                hash_function=hash_function)
+                hash_function=hash_function,
+                wrappers=wrappers
+                )
 
 
 # TODO: box environments are considered continuous.
 # Update so that if (space.dtype == an int type), then the space is considered discrete
-def get_observation_dimensions_and_type(env: gym.Env) -> typing.Tuple[int, str]:
+def get_observation_dimensions_and_type(env: gym.Env) -> typing.Tuple[int, int, str]:
+    '''
+    For :param: env, it extracts:
+        (1) observation dimension (shape)
+        (2) observation size (Size of 1D flattened observation)
+        (2) observation Type (Discrete or continuous)
+    '''
     def parse_dimension_space(space):
-        if isinstance(space, Discrete): return 1, 'Discrete' # One neuron is enough to take any Discrete space
-        elif isinstance(space, Box): return int(np.prod(space.shape)), 'Continuous'
-        elif isinstance(space, Tuple): return sum([parse_dimension_space(s)[0] for s in space.spaces]), parse_dimension_space(space.spaces[0])[1]
+        if isinstance(space, Discrete): return 1, space.n, 'Discrete' # One neuron is enough to take any Discrete space
+        elif isinstance(space, Box): return space.shape, int(np.prod(space.shape)), 'Continuous'
+        elif isinstance(space, Tuple):
+            # TODO: test
+            return ([parse_dimension_space(s)[0] for s in space.spaces],
+                    sum([parse_dimension_space(s)[1] for s in space.spaces]),
+                    parse_dimension_space(space.spaces[0])[2])  # Assumption, all subspaces are of the samee type
         # Below space refers to OneHotEncoding space from 'https://github.com/Danielhp95/gym-rock-paper-scissors'
-        elif hasattr(space, 'size'): return space.size, 'Discrete'
+        elif hasattr(space, 'size'): return space.size, space.size, 'Discrete'
         raise ValueError('Unknown observation space: {}'.format(space))
 
     # ASSUMPTION: Multi agent environment. Symmetrical observation space
-    if hasattr(env.observation_space, 'spaces'): return parse_dimension_space(env.observation_space.spaces[0])
+    if hasattr(env.observation_space, 'spaces'):
+        return parse_dimension_space(env.observation_space.spaces[0])
     else: return parse_dimension_space(env.observation_space) # Single agent environment
 
 
-def get_action_dimensions_and_type(env) -> typing.Tuple[int, str]:
+def get_action_dimensions_and_type(env) -> typing.Tuple[Any, int, str]:
+    '''
+    For :param: env, it extracts:
+        (1) action dimension (shape)
+        (2) action size (Size of 1D flattened observation)
+        (2) action Type (Discrete or continuous)
+    '''
     def parse_dimension_space(space):
-        if isinstance(space, Discrete): return space.n, 'Discrete'
-        elif isinstance(space, MultiDiscrete): return compute_multidiscrete_space_size(space.nvec), 'Discrete'
-        elif isinstance(space, Box): return space.shape[0], 'Continuous'
+        if isinstance(space, Discrete): return space.n, space.n, 'Discrete'
+        elif isinstance(space, MultiDiscrete): return space.nvec, compute_multidiscrete_space_size(space.nvec), 'Discrete'
+        elif isinstance(space, Box): return space.shape, space.shape[0], 'Continuous'  # Not sure if this is correct
         else: raise ValueError('Unknown action space: {}'.format(space))
 
-    if hasattr(env.action_space, 'spaces'): return parse_dimension_space(env.action_space.spaces[0]) # Multi agent environment
+    if hasattr(env.action_space, 'spaces'):
+        return parse_dimension_space(env.action_space.spaces[0]) # Multi agent environment
     else: return parse_dimension_space(env.action_space) # Single agent environment
 
 
@@ -84,7 +113,7 @@ def compute_multidiscrete_space_size(flattened_multidiscrete_space) -> int:
 def check_env_compatibility_with_env_type(env: gym.Env, env_type: EnvType):
     # Environment is multiagent but it has been declared single agent
     if hasattr(env.observation_space, 'spaces') \
-            and env_type == EnvType.SINGLE_AGENT:
+            and env_type.value == EnvType.SINGLE_AGENT.value:
                 error_msg = \
 f'''
 The environment ({env.spec.id}) appears to be multiagent (it has multiple observation spaces).
@@ -94,7 +123,7 @@ Suggestion: Change to a multiagent EnvType.
                 raise ValueError(error_msg)
     # Environment is single agent but it has been declared multiagent
     if not hasattr(env.observation_space, 'spaces') \
-            and env_type != EnvType.SINGLE_AGENT:
+            and env_type.value != EnvType.SINGLE_AGENT.value:
                 error_msg = \
 f'''
 The environment ({env.spec.id}) appears to be single agent

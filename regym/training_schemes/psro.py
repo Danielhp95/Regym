@@ -4,32 +4,36 @@ http://papers.nips.cc/paper/7007-a-unified-game-theoretic-approach-to-multiagent
 
 TODO: difference between PSRO which takes 3 separate stages and our method, which is an online method.
 '''
-
+from typing import Callable, List
+from copy import deepcopy
 import dill
 import logging
 import time
-from typing import Callable, List
 from itertools import product
+
+import torch
 import numpy as np
 
-from regym.rl_algorithms import AgentHook
-from regym.game_theory import compute_nash_averaging
+from regym.game_theory import solve_zero_sum_game
 from regym.util import play_multiple_matches
-from regym.util import extract_winner
 from regym.environments import generate_task, Task, EnvType
+from regym.rl_loops import Trajectory
+
+
+def default_meta_game_solver(winrate_matrix: np.ndarray):
+    return solve_zero_sum_game(winrate_matrix)[0].reshape((-1))
 
 
 class PSRONashResponse():
 
-
     def __init__(self,
                  task: Task,
-                 meta_game_solver: Callable = lambda winrate_matrix: compute_nash_averaging(winrate_matrix, perform_logodds_transformation=True)[0],
+                 meta_game_solver: Callable = default_meta_game_solver,
                  threshold_best_response: float = 0.7,
                  benchmarking_episodes: int = 10,
                  match_outcome_rolling_window_size: int = 10):
         '''
-        :param task: Multiagent task 
+        :param task: Multiagent task
         :param meta_game_solver: Function which takes a meta-game and returns a probability
                                  distribution over the policies in the meta-game.
                                  Default uses maxent-Nash equilibrium for the logodds transformation
@@ -52,7 +56,8 @@ class PSRONashResponse():
         self.task = task
 
         self.meta_game_solver = meta_game_solver
-        self.meta_game, self.meta_game_solution = None, None
+        self.meta_game: np.ndarray = None
+        self.meta_game_solution: np.ndarray = None
         self.menagerie = []
 
         self.threshold_best_response = threshold_best_response
@@ -63,7 +68,7 @@ class PSRONashResponse():
 
         self.statistics = [self.IterationStatistics(0, 0, 0, [0], np.nan)]
 
-    def opponent_sampling_distribution(self, menagerie, training_agent):
+    def opponent_sampling_distribution(self, menagerie: List['Agent'], training_agent: 'Agent'):
         '''
         :param menagerie: archive of agents selected by the curator and the potential opponents
         :param training_agent: Agent currently being trained
@@ -80,11 +85,13 @@ class PSRONashResponse():
         self.meta_game = np.array([[0.5]])
         self.meta_game_solution = np.array([1.0])
 
-    def curator(self, menagerie, training_agent, episode_trajectory,
-                training_agent_index, candidate_save_path):
+    def curator(self, menagerie: List['Agent'], training_agent: 'Agent',
+                episode_trajectory: Trajectory,
+                training_agent_index: int,
+                candidate_save_path: str) -> List['Agent']:
         '''
         :param menagerie: archive of agents selected by the curator and the potential opponents
-        :param training_agent: AgentHook of the Agent currently being trained
+        :param training_agent: Agent currently being trained
         :returns: menagerie to be used in the next training episode.
         '''
         self.statistics[-1].total_elapsed_episodes += 1
@@ -105,9 +112,8 @@ class PSRONashResponse():
                            / self.match_outcome_rolling_window_size)
         return current_winrate >= self.threshold_best_response
 
-    def update_rolling_winrates(self, episode_trajectory, training_agent_index):
-        winner_index = extract_winner(episode_trajectory)
-        victory = int(winner_index == training_agent_index)
+    def update_rolling_winrates(self, episode_trajectory: Trajectory, training_agent_index: int):
+        victory = int(episode_trajectory.winner == training_agent_index)
         if len(self.match_outcome_rolling_window) >= self.match_outcome_rolling_window_size:
             self.match_outcome_rolling_window.pop(0)
         self.match_outcome_rolling_window.append(victory)
@@ -148,18 +154,34 @@ class PSRONashResponse():
             # TODO: maybe use regym.evaluation. benchmark on tasks?
             if i == j: updated_meta_game[j, j] = 0.5
             else:
-                winrate_estimate = play_multiple_matches(task=task,
-                                                         agent_vector=[policies[i],
-                                                                       policies[j]],
-                                                         n_matches=benchmarking_episodes)[0]
+                winrate_estimate = self.estimate_winrate(task, policies[i],
+                                                         policies[j], benchmarking_episodes)
+                # Because we are asumming a symmetrical zero-sum game.
                 updated_meta_game[i, j] = winrate_estimate
                 updated_meta_game[j, i] = 1 - winrate_estimate
         return updated_meta_game
 
+    def estimate_winrate(self, task: Task, policy_1: 'Agent', policy_2: 'Agent',
+                         benchmarking_episodes: int) -> float:
+        '''
+        ASSUMPTION: Task is a 2-player, non-symmetrical game.
+        Thus the :param: policies need to be benchmarked on both positions.
+        '''
+        first_position_winrates = play_multiple_matches(
+            task=task, agent_vector=[policy_1, policy_2],
+            n_matches=(benchmarking_episodes // 2))
+        second_position_winrates = play_multiple_matches(
+            task=task, agent_vector=[policy_2, policy_1],
+            n_matches=(benchmarking_episodes // 2))
+        policy_1_overall_winrate = (first_position_winrates[0] +
+                                    second_position_winrates[1]) / 2
+        return policy_1_overall_winrate
+
     def add_agent_to_menagerie(self, training_agent, candidate_save_path=None):
-        if candidate_save_path is not None:
-            AgentHook(training_agent, save_path=candidate_save_path)
-        self.menagerie.append(training_agent.clone(training=False))
+        if candidate_save_path: torch.save(training_agent, candidate_save_path)
+        cloned_agent = deepcopy(training_agent)
+        cloned_agent.training_agent = False
+        self.menagerie.append(cloned_agent)
 
     def create_new_iteration_statistics(self, last_iteration_statistics):
         return self.IterationStatistics(len(self.statistics), last_iteration_statistics.total_elapsed_episodes,
@@ -180,6 +202,9 @@ class PSRONashResponse():
         if not(0 < match_outcome_rolling_window_size):
             raise ValueError('Parameter \'benchmarking_episodes\' corresponds to ' +
                              'the lenght of a list. It must be strictly positive')
+
+    def __repr__(self):
+        return f'{self.name}. Meta-game size: {len(self.menagerie)}.'
 
     class IterationStatistics():
         def __init__(self, iteration_number: int,

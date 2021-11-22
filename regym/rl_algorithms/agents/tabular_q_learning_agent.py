@@ -1,7 +1,8 @@
+from typing import List
 import copy
+
 from regym.rl_algorithms.TQL import TabularQLearningAlgorithm
 from regym.rl_algorithms.TQL import RepeatedUpdateQLearningAlgorithm
-
 from regym.rl_algorithms.agents import Agent
 
 class TabularQLearningAgent(Agent):
@@ -15,8 +16,13 @@ class TabularQLearningAgent(Agent):
         if self.training:
             self.algorithm.update_q_table(s, a, r, succ_s)
 
-    def take_action(self, state, legal_actions):
-        return self.algorithm.find_moves(state, exploration=self.training)
+    def model_free_take_action(self, state, legal_actions: List[int], multi_action: bool = False):
+        if not multi_action:
+            return self.algorithm.find_moves(state, exploration=self.training)
+        if multi_action:
+            return [self.algorithm.find_moves(s, exploration=self.training)
+                    for s in state]
+
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)

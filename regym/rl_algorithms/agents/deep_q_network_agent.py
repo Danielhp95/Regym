@@ -8,9 +8,9 @@ import torch.nn as nn
 
 from regym.rl_algorithms.agents import Agent
 from regym.rl_algorithms.replay_buffers import EXP
-from regym.rl_algorithms.networks import CategoricalDuelingDQNet, CategoricalDQNet
-from regym.rl_algorithms.networks import LeakyReLU, FCBody
-from regym.rl_algorithms.networks import PreprocessFunction
+from regym.networks import CategoricalDuelingDQNet, CategoricalDQNet
+from regym.networks import FCBody
+from regym.networks.preprocessing import turn_into_single_element_batch
 from regym.rl_algorithms.DQN import DeepQNetworkAlgorithm
 
 
@@ -26,7 +26,7 @@ class DeepQNetworkAgent(Agent):
         self.kwargs = algorithm.kwargs
 
         self.algorithm = algorithm
-        self.preprocessing_function = self.algorithm.kwargs["preprocess"]
+        self.state_preprocessing_fn = self.algorithm.kwargs["preprocess"]
 
         self.epsend = self.kwargs['epsend']
         self.epsstart = self.kwargs['epsstart']
@@ -37,8 +37,8 @@ class DeepQNetworkAgent(Agent):
         return self.algorithm.model
 
     def handle_experience(self, s, a, r, succ_s, done=False):
-        hs = self.preprocessing_function(s)
-        hsucc = self.preprocessing_function(succ_s)
+        hs = self.state_preprocessing_fn(s)
+        hsucc = self.state_preprocessing_fn(succ_s)
         r = T.ones(1)*r
         a_tensor = T.from_numpy(a) if isinstance(a, np.ndarray) else T.LongTensor([a])
         experience = EXP(hs, a_tensor, hsucc, r, done)
@@ -47,12 +47,13 @@ class DeepQNetworkAgent(Agent):
         if self.training and self.algorithm.is_ready_to_train():
             self.algorithm.train(iterations=self.kwargs['nbrTrainIteration'])
 
-    def take_action(self, state: np.ndarray, legal_actions: List[int]):
+    def model_free_take_action(self, state: np.ndarray, legal_actions: List[int], multi_action: bool = False):
         self.nbr_steps += 1
         self.eps = self.epsend + (self.epsstart-self.epsend) * np.exp(-1.0 * self.nbr_steps / self.epsdecay)
         action = self.select_action(model=self.algorithm.model,
-                                    state=self.preprocessing_function(state),
+                                    state=self.state_preprocessing_fn(state),
                                     eps=self.eps,
+                                    legal_actions=legal_actions,
                                     training=self.training)
 
         is_single_int_action = \
@@ -66,14 +67,15 @@ class DeepQNetworkAgent(Agent):
     def reset_eps(self):
         self.eps = self.epsstart
 
-    def select_action(self, model: nn.Module, state, eps: float, training: bool):
+    def select_action(self, model: nn.Module, state, eps: float,
+                      legal_actions: List[int], training: bool):
         sample = np.random.random()
         if not training or sample > eps:
             action = model(state)['a'].detach().cpu()
             return action.numpy()
         else:
-            action = np.random.choice(range(self.algorithm.model.action_dim))
-            return action
+            if legal_actions: return np.random.choice(legal_actions)
+            else: return np.random.choice(range(self.algorithm.model.action_dim))
 
     def clone(self, training=None):
         clone = copy.deepcopy(self)
@@ -107,15 +109,15 @@ def build_DQN_Agent(task, config, agent_name):
         "state_dim": number of dimensions in the state space.
     """
 
-    preprocess = PreprocessFunction(state_space_size=task.observation_dim, use_cuda=config['use_cuda'])
+    preprocess = turn_into_single_element_batch
 
     kwargs['nbrTrainIteration'] = config['nbrTrainIteration']
     kwargs["nbr_actions"] = task.action_dim
-    kwargs["actfn"] = LeakyReLU
+    kwargs["actfn"] = nn.functional.leaky_relu
     kwargs["state_dim"] = task.observation_dim
 
     # Create model architecture:
-    body = FCBody(task.observation_dim)
+    body = FCBody(task.observation_size)
     if config['dueling']:
         model = CategoricalDuelingDQNet(body=body,
                                         action_dim=task.action_dim)

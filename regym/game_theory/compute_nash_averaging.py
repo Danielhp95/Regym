@@ -3,8 +3,6 @@ DISCLAIMER: This work has been based on the fabulous work by
  the researcher Jayesh K. Gupta (https://github.com/rejuvyesh).
  All credit goes for this module goes to him.
 '''
-import math
-from collections import namedtuple
 from typing import List, Optional, Tuple
 
 import numpy as np

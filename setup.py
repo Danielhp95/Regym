@@ -39,6 +39,8 @@ setup(
                       'opencv-python',
                       'torch',
                       'torchvision',
+                      'torchviz',
+                      'tensorboard',
                       'cvxopt',
                       'scipy',
                       'seaborn'] + test_requirements,

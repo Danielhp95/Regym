@@ -6,6 +6,7 @@ from regym.environments import generate_task, EnvType
 from regym.training_schemes import PSRONashResponse
 from regym.rl_algorithms import rockAgent, scissorsAgent, paperAgent
 
+from regym.rl_loops import Trajectory
 
 
 @pytest.fixture()
@@ -91,7 +92,9 @@ def test_can_keep_track_of_window_of_winrate_for_learning_policy(RPS_task):
 
     # TODO this is very ugly. It always chooses player 2 (1-index) as winner
     # We should really find a way of mocking this.
-    sample_trajectory = [([], [], [0, 1], [])] # (s, a, r, s')
+    sample_trajectory = Trajectory(env_type=EnvType.MULTIAGENT_SIMULTANEOUS_ACTION, num_agents=2)
+    sample_trajectory.add_timestep(None, None, [0, 1], None, True)
+
     for i in training_agent_indeces:
         psro.update_rolling_winrates(episode_trajectory=sample_trajectory,
                                      training_agent_index=i)

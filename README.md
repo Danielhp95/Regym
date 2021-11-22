@@ -1,4 +1,4 @@
-# Regym: Reinforcement learning research framework
+# Regym: Reinforcement Learning research framework
 
 Framework to carry out both Single-Agent and Multi-Agent Reinforcement Learning experiments at a relative scale, with an initial focus on Self-Play. Developed by PhD students at the University of York. This framework has been in constant development since December 2018, and will continue to evolve to add new features and algorithms for many more years!
 
@@ -8,12 +8,10 @@ Framework to carry out both Single-Agent and Multi-Agent Reinforcement Learning 
 + Every implementation is compatible with [OpenAI Gym](https://github.com/openai/gym) and [Unity](https://github.com/Unity-Technologies/ml-agents) environments.
 + State-of-the-art Self-Play trainings scheme for Multi-Agent environments, as introduced [here](https://danielhp95.github.io/assets/pdfs/COG-2019-submission.pdf).
 + Emphasis on cross-compatibility and clear interfaces to add new algorithms. See [Adding a new algorithm](docs/adding-a-new-algorithm.md).
-+ (In development) Test suite to test and benchmark each algorithm on: compatibility on Discrete / Continuous observation / action spaces. Proof of learning, proof of reproducability.
-+ (In development) Parallel actors per algorithm.
 
 ## Documentation
 
-All relevant documentation can be found in the [docs](docs/readme.md). Refer to source code for more specific documentation.
+This project evolves fast, and is mostly maintained by a single developer, meaning that documentation will most likely be outdated. We have made a point of heavily documenting most of the codebase. So please refer to the source code for extra documentation. Some documentation can be found in the [docs](docs/readme.md).
 
 ## Installation
 
@@ -56,6 +54,8 @@ Read [License](LICENSE)
 
 List of papers that used this framework.
 
++ [A Comparison of Self-Play Algorithms Under a Generalized Framework](https://arxiv.org/abs/2006.04471)
++ [Metagame Autobalancing for Competitive Multiplayer Games](https://arxiv.org/abs/2006.04419)
 + [A Generalized Framework for Self-Play Training](https://danielhp95.github.io/assets/pdfs/COG-2019-submission.pdf)
 + [A Comparison of Self-Play Algorithms Under a Generalized Framework](https://arxiv.org/abs/2006.04471)
 + [Metagame Autobalancing for Competitive Multiplayer Games](https://arxiv.org/abs/2006.04419)

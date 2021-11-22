@@ -1,6 +1,22 @@
+from math import sqrt
 import pytest
 from regym.environments import generate_task
 from regym.environments import EnvType
+
+
+@pytest.fixture
+def sac_config_dict():
+    config = dict()
+    config['learning_rate'] = 3e-3
+    config['memory_size'] = 20000
+    config['gamma'] = 0.99
+    config['tau'] = 0.995
+    config['batch_size'] = 32
+    config['alpha'] = 0.01
+    config['update_after'] = 500
+    config['update_every'] = 1
+    config['use_cuda'] = False
+    return config
 
 
 @pytest.fixture
@@ -100,9 +116,64 @@ def a2c_config_dict():
 @pytest.fixture
 def mcts_config_dict():
     config = dict()
-    config['budget'] = 1
+    config['budget'] = 2
     config['rollout_budget'] = 100000
+    config['selection_phase'] = 'ucb1'
+    config['exploration_factor_puct'] = 4
+    config['exploration_factor_ucb1'] = sqrt(2)
+    config['use_dirichlet'] = True
+    config['dirichlet_alpha'] = sqrt(2)
     return config
+
+
+@pytest.fixture
+def expert_iteration_config_dict():
+    config = dict()
+    # Higher level ExIt params
+    config['use_agent_modelling'] = False
+    config['use_true_agent_models_in_mcts'] = False
+    config['use_apprentice_in_expert'] = False
+    config['use_learnt_opponent_models_in_mcts'] = False
+    config['average_episode_returns_with_mcts_values'] = False
+    config['games_per_iteration'] = 2
+    # Dataset params
+    config['initial_max_generations_in_memory'] = 1
+    config['increase_memory_every_n_generations'] = 1
+    config['memory_increase_step'] = 1
+    config['final_max_generations_in_memory'] = 3
+    # MCTS config
+    config['mcts_budget'] = 20
+    config['mcts_rollout_budget'] = 0
+    config['mcts_exploration_factor'] = sqrt(2)
+    config['mcts_use_dirichlet'] = True
+    config['mcts_dirichlet_alpha'] = sqrt(2)
+    config['mcts_dirichlet_strength'] = 1.
+    # Neural net config
+    config['batch_size'] = 2
+    config['num_epochs_per_iteration'] = 2
+    config['learning_rate'] = 1.0e-3
+    # NN: Feature extractor
+    config['temperature'] = 1.
+    config['drop_temperature_after_n_moves'] = 100
+    config['feature_extractor_arch'] = 'CNN'
+    config['use_batch_normalization'] = False
+    config['preprocessed_input_dimensions'] = [7, 6]  # To play Connect 4
+    config['channels'] = [3, 10, 11, 12, 13]  # To play Connect 4
+    config['kernel_sizes'] = [3, 3, 3, 3]  # To play Connect 4
+    config['paddings'] = [1, 1, 1, 1]  # To play Connect 4
+    config['strides'] = [1, 1, 1, 1]  # To play Connect 4
+    config['final_feature_dim'] = 64
+    config['residual_connections'] = []
+    config['post_feature_extractor_arch'] = 'MLP'
+    config['state_preprocessing_fn'] = 'turn_into_single_element_batch'
+    # If agent_modelling is not used
+    config['post_feature_extractor_hidden_units'] = [64, 64, 64, 64]
+    # If use_agent_modelling is set. a PolicyInferenceActorCriticNet will be used
+    config['post_feature_extractor_policy_inference_hidden_units'] = [64, 64, 64]
+    config['post_feature_extractor_actor_critic_hidden_units'] = [64, 64, 64]
+    config['critic_gate_fn'] = 'tanh'
+    return config
+
 
 @pytest.fixture
 def FrozenLakeTask(): # Discrete Action / Observation space
@@ -142,7 +213,6 @@ def KuhnTask():
 def Connect4Task():
     import gym_connect4
     return generate_task('Connect4-v0', EnvType.MULTIAGENT_SEQUENTIAL_ACTION)
-
 
 
 @pytest.fixture
