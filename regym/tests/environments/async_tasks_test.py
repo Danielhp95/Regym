@@ -114,7 +114,8 @@ def run_parallel_task_with_random_agent(env_name, env_type,
     if model_based_agents:
         mcts_config = {'budget': 1, 'rollout_budget': 0,
                        'use_dirichlet': False, 'dirichlet_alpha': 1,
-                       'selection_phase': 'ucb1', 'exploration_factor_ucb1': 1}
+                       'selection_phase': 'ucb1', 'exploration_factor_ucb1': 1,
+                       'expose_tree_in_predictions': True}
         agent_vector = [build_MCTS_Agent(task, mcts_config, 'Test-MCTS-Random')
                         for _ in range(task.num_agents)]
     else:
@@ -126,7 +127,9 @@ def run_parallel_task_with_random_agent(env_name, env_type,
     # a specific number of trajectories regardless of the
     # Number of environments used to generate them
     trajectories = task.run_episodes(agent_vector, num_episodes=num_episodes,
-                                     num_envs=num_envs, training=True)
+                                     num_envs=num_envs, training=True,
+                                     store_extra_information=True)
+    import pdbr; pdbr.set_trace()
 
     # We have the exact number of trajectories we asked for
     # The number of trajectories is lower-bounded by :param: num_episodes

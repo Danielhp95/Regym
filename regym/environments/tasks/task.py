@@ -122,7 +122,8 @@ class Task:
                      training: bool,
                      initial_episode: int = -1,
                      show_progress: bool = False,
-                     summary_writer: Optional[Union[SummaryWriter, str]] = None) \
+                     summary_writer: Optional[Union[SummaryWriter, str]] = None,
+                     store_extra_information: bool = False) \
                      -> List['Trajectory']:
         '''
         Runs :param: num_episodes inside of the Task's underlying environment
@@ -157,6 +158,9 @@ class Task:
                                 will be used.
         :param show_progress: Whether to output a progress bar to stdout
         :param summary_writer: Summary writer to which log various metrics
+        :param store_extra_information: Whether to have each Timestep in output
+                                        trajectory store information about the
+                                        agents that acted on it.
         :returns: List of trajectories experienced by agents in
                   :param: agent_vector
         '''
@@ -188,7 +192,8 @@ class Task:
             training,
             show_progress,
             summary_writer,
-            initial_episode=initial_episode
+            initial_episode=initial_episode,
+            store_extra_information=store_extra_information
         )
 
         self.total_episodes_run += num_episodes
@@ -220,14 +225,16 @@ class Task:
                                        training: bool,
                                        show_progress: bool,
                                        summary_writer: Optional[SummaryWriter],
-                                       initial_episode: int) -> List['Trajectory']:
+                                       initial_episode: int,
+                                       store_extra_information: bool) -> List['Trajectory']:
         if self.env_type == EnvType.SINGLE_AGENT:
             ts = regym.rl_loops.singleagent_loops.rl_loop.async_run_episode(
                     vector_env, agent_vector[0], training, num_episodes)
         elif self.env_type == EnvType.MULTIAGENT_SEQUENTIAL_ACTION:
             ts = regym.rl_loops.multiagent_loops.vectorenv_sequential_action_rl_loop.async_run_episode(
                     vector_env, agent_vector, training, num_episodes, show_progress,
-                    summary_writer, initial_episode)
+                    summary_writer, initial_episode,
+                    store_extra_information)
         elif self.env_type == EnvType.MULTIAGENT_SIMULTANEOUS_ACTION:
             raise NotImplementedError('Simultaenous environments do not currently allow multiple environments. use Task.run_episode')
         return ts

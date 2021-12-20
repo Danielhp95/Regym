@@ -24,7 +24,8 @@ def async_run_episode(env: RegymAsyncVectorEnv,
                       num_episodes: int,
                       show_progress: bool = False,
                       summary_writer: Optional[SummaryWriter] = None,
-                      initial_episode: int = 0) \
+                      initial_episode: int = 0,
+                      store_extra_information: bool = False) \
                       -> List[Trajectory]:
     '''
     Runs :param: num_episodes of asynchronous environment :param: env
@@ -52,6 +53,9 @@ def async_run_episode(env: RegymAsyncVectorEnv,
     :param show_progress: Whether to output a progress bar to stdout
     :param summary_writer: Summary writer to which log various metrics
     :param initial_episode: Initial episode
+    :param store_extra_information: Whether to have each Timestep in output
+                                    trajectory store information about the
+                                    agents that acted on it.
     :returns: List of environment trajectories experienced during simulation.
     '''
     # Initialize trajectories
@@ -64,7 +68,7 @@ def async_run_episode(env: RegymAsyncVectorEnv,
      current_players,
      legal_actions,
      num_agents,
-     obs) = create_environment_variables(env, agent_vector)
+     obs) = create_environment_variables(env, agent_vector, store_extra_information)
 
 
     if show_progress:
@@ -414,9 +418,9 @@ def create_progress_bar(env, agent_vector, training, num_episodes, initial_episo
     return progress_bar
 
 
-def create_environment_variables(env, agent_vector) -> Tuple:
+def create_environment_variables(env, agent_vector, store_extra_information) -> Tuple:
     store_extra_information = any(
-        [agent.requires_opponents_prediction or agent.requires_self_prediction
+        [agent.requires_opponents_prediction or agent.requires_self_prediction or store_extra_information
          for agent in agent_vector])
 
     current_players: List[int] = [0] * env.num_envs

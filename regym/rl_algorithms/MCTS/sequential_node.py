@@ -51,6 +51,12 @@ class SequentialNode:
         self.Q_a[a_i] = (self.N_a[a_i] * self.Q_a[a_i] + value) / (self.N_a[a_i] + 1)
         self.N_a[a_i] += 1
 
+    @property
+    def depth(self):
+        ''' Returns depth of tree rooted at node :param: self'''
+        if len(self.children) == 0: return 0
+        else: return 1 + max([child.depth for child in self.children.values()])
+
     def __repr__(self, indent=0, depth=inf) -> str:
         '''
         Prints current node to the terminal, following the current

@@ -103,7 +103,7 @@ def add_observations_to_extra_infos(extra_infos: Dict[int, Dict],
     observations might need to be passed onto an agent that has flag
     `requires_opponents_prediction` turned on (For instance, to model opponents
     in sequential games, as explored in the paper
-    'On opponent modelling in Expert Iteration')
+    'BRExIt: On opponent modelling in Expert Iteration')
     '''
     for env_i in extra_infos.keys():
         a_i = current_players[env_i]

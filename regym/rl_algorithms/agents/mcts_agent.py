@@ -28,7 +28,10 @@ class MCTSAgent(Agent):
                  iteration_budget: int, rollout_budget: int,
                  exploration_constant: float, task_num_agents: int,
                  task_action_dim: int,
-                 use_dirichlet: bool, dirichlet_alpha: float, dirichlet_strength: float):
+                 use_dirichlet: bool,
+                 dirichlet_alpha: float,
+                 dirichlet_strength: float,
+                 expose_tree_in_predictions):
         '''
         Agent for various algorithms of the Monte Carlo Tree Search family (MCTS).
         MCTS algorithms are model based (aka, statistical forward planners). which will require
@@ -78,6 +81,9 @@ class MCTSAgent(Agent):
         # Future work can set this handler in the (not yet implemented)
         # MCTSAgent.access_other_agents(...) function
         self.opponent_server_handler: NeuralNetServerHandler = None
+
+        # Whether to give tree away in self.current_prediction
+        self.expose_tree_in_predictions = expose_tree_in_predictions
 
         # In case we have a server hosting opponent models, we don't want
         # to save it!
@@ -150,17 +156,18 @@ class MCTSAgent(Agent):
                        for (env_i, env), policy_fn, evaluation_fn
                        in zip(envs.items(), policy_fns, evaluation_fns)]
 
-            (child_visitations,
-             action_vector,
-             value_predictions) = self.extract_child_visitations_action_vectors_and_value_predictions(
+            (child_visitations, action_vector,
+             value_predictions, trees) = self.extract_information_from_all_searches(
                 futures)
             self.current_prediction['child_visitations'] = torch.stack(child_visitations)
             self.current_prediction['action'] = torch.tensor(action_vector)
             self.current_prediction['V'] = torch.stack(value_predictions)
+            if self.expose_tree_in_predictions:
+                self.current_prediction['trees'] = np.stack(trees)
         return action_vector
 
-    def extract_child_visitations_action_vectors_and_value_predictions(self, futures):
-        child_visitations, action_vector, value_predictions = [], [], []
+    def extract_information_from_all_searches(self, futures):
+        child_visitations, action_vector, value_predictions, trees = [], [], [], []
         for f in futures:
             i, (action, visitations, tree) = f.result()
             action_vector += [action]
@@ -192,7 +199,8 @@ class MCTSAgent(Agent):
             # which also (as of October 2021), also corresponds to the same action
             # outputted by the action_selection_strategy.
             value_predictions += [torch.FloatTensor([tree.Q_a[action_selection_phase(tree)]])]
-        return child_visitations, action_vector, value_predictions
+            trees += [tree]
+        return child_visitations, action_vector, value_predictions, trees
 
     def multi_action_select_policy_and_evaluation_fns(self,
                                                       num_envs: int,
@@ -313,6 +321,7 @@ class MCTSAgent(Agent):
              f'Dirichlet strenght: {self.dirichlet_strength}\n'
              f'Server based policy_fn: {self.server_based_policy_fn}\n'
              f'Server based evaluation_fn: {self.server_based_evaluation_fn}'
+             f'Expose tree in prediction: {self.expose_tree_in_predictions}'
              )
         return s
 
@@ -370,7 +379,9 @@ def build_MCTS_Agent(task: regym.environments.Task, config: Dict[str, object], a
                       task_action_dim=task.action_dim,
                       use_dirichlet=use_dirichlet,
                       dirichlet_alpha=config.get('dirichlet_alpha', None),
-                      dirichlet_strength=config.get('dirichlet_strength', 1.))
+                      dirichlet_strength=config.get('dirichlet_strength', 1.),
+                      expose_tree_in_predictions=config.get('expose_tree_in_predictions', False)
+    )
     return agent
 
 
