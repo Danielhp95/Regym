@@ -6,6 +6,7 @@ import gym
 
 from regym.rl_algorithms.MCTS.selection_strategies import UCB1, PUCT
 from regym.rl_algorithms.MCTS.simultaneous_open_loop_node import SimultaneousOpenLoopNode
+from regym.rl_algorithms.MCTS.util import random_rollout_policy
 
 
 
@@ -75,7 +76,7 @@ def rollout_phase(state: gym.Env, rollout_policies: List, observations, rollout_
     '''
     for i in range(rollout_budget):
         if state.is_over(): return state
-        action_vector = [policy.take_action(observations[i], state.get_moves(i))
+        action_vector = [policy(observations[i], state.get_moves(i))
                          for policy, i in zip(
                              rollout_policies, range(len(rollout_policies)))]
         observations, _, _, _ = state.step(action_vector)
@@ -123,7 +124,7 @@ def MCTS_UCT(rootstate, observation,
              use_dirichlet: bool,
              dirichlet_alpha: float,
              dirichlet_strength: float,
-             rollout_policies: List = []) \
+             rollout_policies: List = [random_rollout_policy, random_rollout_policy]) \
         -> Tuple[int, Dict[int, int], SimultaneousOpenLoopNode]:
     '''
     Conducts a game tree search using the MCTS-UCT algorithm

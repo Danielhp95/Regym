@@ -2,6 +2,7 @@ from math import inf
 from typing import List, Dict
 
 import numpy as np
+import random
 
 
 def extract_best_actions(scores: Dict[int, float]) -> List[int]:
@@ -57,3 +58,7 @@ def random_selection_policy(obs,
         [action_probability if a_i in legal_actions else 0.
          for a_i in range(action_dim)]
     )
+
+
+def random_rollout_policy(obs, legal_moves):
+    return random.choice(legal_moves)

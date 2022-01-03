@@ -163,7 +163,7 @@ class MCTSAgent(Agent):
             self.current_prediction['action'] = torch.tensor(action_vector)
             self.current_prediction['V'] = torch.stack(value_predictions)
             if self.expose_tree_in_predictions:
-                self.current_prediction['trees'] = np.stack(trees)
+                self.current_prediction['tree'] = np.stack(trees)
         return action_vector
 
     def extract_information_from_all_searches(self, futures):
