@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 
 
 def plot_winrate_matrix(winrate_matrix: Union[List, np.ndarray],
-                        show_annotations=True, cbar=False,
+                        show_annotations=True,
+                        annotation_size=15,
+                        cbar=False,
                         vmin: float=0.,
                         vmax: float=1.,
                         xlabels: Optional[List[str]]=None,
@@ -33,19 +35,25 @@ def plot_winrate_matrix(winrate_matrix: Union[List, np.ndarray],
     if not ax:
         ax = plt.subplot(111)
 
-    heatmap = sns.heatmap(winrate_matrix, annot=show_annotations, ax=ax, square=True,
-                cmap=sns.color_palette('coolwarm', 50)[::-1],
-                vmin=vmin, vmax=vmax,
-                cbar=cbar, cbar_kws={'label': 'Head to head winrates'},
+    heatmap = sns.heatmap(
+        winrate_matrix,
+        ax=ax,
+        square=True,
+        cmap=sns.color_palette('coolwarm', 50)[::-1],
+        vmin=vmin, vmax=vmax,
+        cbar=cbar, cbar_kws={'label': 'Head to head winrates'},
+        annot=show_annotations, annot_kws={'size': annotation_size}
     )
     heatmap.set_yticklabels(heatmap.get_yticklabels(),
-                            rotation=0)
-    if xlabels: heatmap.set_xticklabels(xlabels)
-    if ylabels: heatmap.set_yticklabels(ylabels)
-    ax.set_xlabel('Agent ID')
-    ax.set_ylabel('Agent ID')
+                            rotation=0, fontsize='xx-large')
+    heatmap.set_xticklabels(heatmap.get_xticklabels(),
+                            rotation=0, fontsize='xx-large')
+    if xlabels: heatmap.set_xticklabels(xlabels, fontsize='x-large')
+    if ylabels: heatmap.set_yticklabels(ylabels, fontsize='x-large')
+    ax.set_xlabel('Agent ID', fontsize='xx-large')
+    ax.set_ylabel('Agent ID', fontsize='xx-large')
     # This does not seem needed any more. Leaving it here because
     # it might be required for streamlit
     #ax.set_ylim(len(winrate_matrix) + 0.2, -0.2)  # Required seaborn hack
-    ax.set_title('Empirical winrate matrix')
+    ax.set_title('Empirical winrate matrix', fontsize='xx-large')
     return ax
